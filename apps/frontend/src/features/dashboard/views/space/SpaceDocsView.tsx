@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { buildCleanDashboardParams, parseDashboardState, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -18,13 +19,19 @@ import { Input } from "@/components/ui/input";
 import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import { DocView } from "@/features/dashboard/views/generic/DocView";
-import { CreateDocViewModal } from "@/features/dashboard/components/modals/CreateDocViewModal";
+import { DocumentActionsMenu } from "@/features/dashboard/components/sidebar/DocumentActionsMenu";
+import { DocumentCreationModal } from "@/entities/documents/components/DocumentCreationModal";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SpaceDocsViewProps {
     spaceId: string;
@@ -45,35 +52,57 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
         { enabled: !!spaceId }
     );
 
-    const allViews = viewsData ?? [];
+    const allViews = (viewsData ?? []).filter(v => v.sidebarView === true);
 
     // Client-side filter
     const views = searchQuery
         ? allViews.filter(v => v.name.toLowerCase().includes(searchQuery.toLowerCase()))
         : allViews;
 
-    const activeViewId = searchParams.get("docView") || views[0]?.id;
+    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
+    const activeViewId = parsedState.docViewId || views[0]?.id;
 
     // Auto-select first view
     useEffect(() => {
-        if (!searchParams.get("docView") && views.length > 0) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("docView", views[0].id);
-            history.replaceState(null, "", `?${params.toString()}`);
+        if (!parsedState.docViewId && views.length > 0) {
+            if (spaceId) {
+                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "dv", id: views[0].id }));
+            } else {
+                const clean = buildCleanDashboardParams(searchParams, {
+                    tab: "docs",
+                    entityKey: "dv",
+                    entityId: views[0].id,
+                });
+                history.replaceState(null, "", `?${clean.toString()}`);
+            }
         }
-    }, [views, searchParams, router]);
+    }, [views, parsedState.docViewId, spaceId, searchParams]);
 
     const handleViewClick = (viewId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("docView", viewId);
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "dv", id: viewId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "docs",
+                entityKey: "dv",
+                entityId: viewId,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleCreated = (id: string) => {
         refetch();
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("docView", id);
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "dv", id }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "docs",
+                entityKey: "dv",
+                entityId: id,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     return (
@@ -81,14 +110,14 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
             {/* Docs Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-                isSidebarCollapsed ? "w-0 border-none" : "w-[256px] border-r border-slate-200"
+                isSidebarCollapsed ? "w-0 border-l border-slate-200" : "w-[256px] border-x border-slate-200"
             )}>
                 {!isSidebarCollapsed && (
                     <div className="flex h-full flex-col overflow-hidden">
                         {/* Header */}
-                        <div className="flex flex-col border-b border-slate-200">
+                        <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
                             {isSearchOpen ? (
-                                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                                     <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                                     <Input
                                         autoFocus
@@ -107,36 +136,55 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between px-4 py-3">
+                                <div className="flex items-center justify-between px-4 h-full">
                                     <h2 className="text-sm font-semibold text-foreground">Docs</h2>
                                     <div className="flex items-center gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSearchOpen(true)}
-                                            title="Search"
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSidebarCollapsed(true)}
-                                            title="Collapse Sidebar"
-                                        >
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsCreateModalOpen(true)}
-                                            title="New Document"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => setIsSearchOpen(true)}
+                                                >
+                                                    <Search className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Search</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => setIsSidebarCollapsed(true)}
+                                                >
+                                                    <ChevronsLeft className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Collapse Sidebar</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => setIsCreateModalOpen(true)}
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>New Document</p>
+                                            </TooltipContent>
+                                        </Tooltip>
                                     </div>
                                 </div>
                             )}
@@ -182,7 +230,7 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
                                             <div
                                                 key={view.id}
                                                 className={cn(
-                                                    "group/item flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors cursor-pointer",
+                                                    "group/doc flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors cursor-pointer",
                                                     "hover:bg-slate-50",
                                                     isActive && "bg-slate-100"
                                                 )}
@@ -194,10 +242,20 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
                                                 )} />
                                                 <span className={cn(
                                                     "flex-1 truncate text-sm",
-                                                    isActive ? "font-medium text-foreground" : "text-zinc-600 group-hover/item:text-foreground"
+                                                    isActive ? "font-normal text-foreground" : "text-zinc-600 group-hover/doc:text-foreground"
                                                 )}>
                                                     {view.name}
                                                 </span>
+                                                <div
+                                                    className="opacity-0 group-hover/doc:opacity-100 transition-opacity flex items-center gap-0.5"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <DocumentActionsMenu
+                                                        spaceId={spaceId}
+                                                        documentId={view.id}
+                                                        liveTitle={view.name}
+                                                    />
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -212,15 +270,21 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
             <div className="flex-1 overflow-hidden relative flex flex-col">
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-3 z-30">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                            onClick={() => setIsSidebarCollapsed(false)}
-                            title="Expand Sidebar"
-                        >
-                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                >
+                                    <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Expand Sidebar</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
 
@@ -229,6 +293,7 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
                         <DocView
                             viewId={activeViewId}
                             spaceId={spaceId}
+                            isMainSidebarCollapsed={isSidebarCollapsed}
                         />
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full p-8 text-center animate-in fade-in zoom-in-95 duration-700 ease-out fill-mode-both">
@@ -256,7 +321,7 @@ export default function SpaceDocsView({ spaceId }: SpaceDocsViewProps) {
             </div>
 
             {/* Document Creation Modal */}
-            <CreateDocViewModal
+            <DocumentCreationModal
                 open={isCreateModalOpen}
                 onOpenChange={setIsCreateModalOpen}
                 spaceId={spaceId}

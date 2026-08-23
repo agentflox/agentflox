@@ -25,8 +25,8 @@ const VALID_ICONS = Object.keys(LucideIcons)
     .sort();
 
 interface EnhancedIconPickerProps {
-    icon: string;
-    color: string;
+    icon?: string;
+    color?: string;
     onIconChange: (icon: string) => void;
     onColorChange: (color: string) => void;
     spaceId?: string; // Optional: for space-specific uploads
@@ -34,7 +34,7 @@ interface EnhancedIconPickerProps {
     entityName?: string; // Optional: used for default icon character
 }
 
-export function EnhancedIconPicker({ icon, color, onIconChange, onColorChange, spaceId, bucket = "icons", entityName }: EnhancedIconPickerProps) {
+export function EnhancedIconPicker({ icon = "Folder", color = "#6366f1", onIconChange, onColorChange, spaceId, bucket = "icons", entityName }: EnhancedIconPickerProps) {
     const [searchQuery, setSearchQuery] = React.useState("");
     const [view, setView] = React.useState<"icon" | "color">("icon");
     const [isUploading, setIsUploading] = React.useState(false);

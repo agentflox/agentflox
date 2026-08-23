@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
-import { Loader2, MoveRight, ChevronDown, Search, Network, Check } from "lucide-react";
+import { Loader2, MoveRight, ChevronDown, Search, Building, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SpaceMoveToModalProps {
@@ -81,34 +81,41 @@ export function SpaceMoveToModal({ spaceId, spaceName, open, onOpenChange, onSuc
                                     <ChevronDown className="size-4 opacity-50" />
                                 </button>
                             </PopoverTrigger>
-                            <PopoverContent align="start" className="w-[380px] p-0 shadow-lg">
-                                <div className="p-2 border-b border-slate-100">
-                                    <div className="flex items-center rounded-md border border-indigo-500 px-2 h-9">
-                                        <Search className="size-4 text-slate-400 shrink-0" />
-                                        <input
-                                            value={destinationSearch}
-                                            onChange={(e) => setDestinationSearch(e.target.value)}
-                                            placeholder="Search workspaces..."
-                                            className="w-full bg-transparent px-2 text-sm outline-none"
-                                        />
-                                    </div>
+                            <PopoverContent
+                                align="start"
+                                side="bottom"
+                                sideOffset={4}
+                                className="w-[360px] p-0 rounded-xl shadow-xl border-zinc-200 bg-white overflow-hidden max-h-[380px] flex flex-col z-50"
+                            >
+                                <div className="flex h-8 items-center rounded-md border border-zinc-200 bg-white px-2.5 mx-2.5 mt-2.5 mb-1.5 shrink-0 focus-within:border-zinc-400">
+                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0 mr-2" />
+                                    <input
+                                        type="text"
+                                        value={destinationSearch}
+                                        onChange={(e) => setDestinationSearch(e.target.value)}
+                                        placeholder="Search workspaces..."
+                                        className="w-full bg-transparent border-0 p-0 text-xs outline-none placeholder:text-zinc-400"
+                                        autoFocus
+                                    />
                                 </div>
-                                <div className="max-h-[320px] overflow-y-auto py-1">
+                                <div className="overflow-y-auto flex-1 py-1 max-h-[320px] px-1">
                                     {workspaces.filter((w: any) => !destinationSearch.trim() || w.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((workspace: any) => (
                                         <button
                                             key={workspace.id}
                                             type="button"
                                             onClick={() => { setDestinationKey(workspace.id); setDestinationOpen(false); }}
                                             className={cn(
-                                                "w-full flex items-center justify-between py-2 px-3 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-                                                destinationKey === workspace.id && "bg-indigo-50 text-indigo-700"
+                                                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                                destinationKey === workspace.id ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
                                             )}
                                         >
-                                            <span className="flex items-center gap-2">
-                                                <Network className="size-3.5 text-slate-400 shrink-0" />
-                                                <span className="font-medium">{workspace.name}</span>
-                                            </span>
-                                            {destinationKey === workspace.id && <Check className="size-3.5 text-indigo-600 shrink-0" />}
+                                            <div className="flex items-center gap-2 truncate">
+                                                <div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 flex items-center justify-center shrink-0">
+                                                    <Building className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+                                                </div>
+                                                <span className="truncate">{workspace.name}</span>
+                                            </div>
+                                            {destinationKey === workspace.id && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
                                         </button>
                                     ))}
                                 </div>

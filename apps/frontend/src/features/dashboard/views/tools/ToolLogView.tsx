@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { BuilderInputField } from "@/entities/tools/types/builder";
 import type { RunRecord, RunLogEntry } from "../../../../entities/tools/hooks/useToolRun";
 import { ArtifactViewer, buildArtifactsFromToolResult, type ExecutionArtifact } from "@/features/artifacts";
+import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
 
 
 export type ToolLogViewProps = {
@@ -475,12 +476,37 @@ export function ToolLogView({
     };
   }, []);
 
+  const handleSelectRun = useCallback((runId: string) => {
+    setSelectedRunId(runId);
+    if (typeof window !== "undefined") {
+      const clean = buildCleanDashboardParams(window.location.search, { entityKey: "lid", entityId: runId });
+      window.history.replaceState(null, "", `${window.location.pathname}?${clean.toString()}`);
+    }
+  }, [setSelectedRunId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlRunId = params.get("lid") || params.get("rid") || params.get("runId") || params.get("logId");
+      if (urlRunId && urlRunId !== selectedRunId) {
+        setSelectedRunId(urlRunId);
+      }
+    }
+  }, [selectedRunId, setSelectedRunId]);
+
   /* ── delete handler ── */
   function handleDelete(runId: string) {
     if (selectedRunId === runId) {
       const idx = runHistory.findIndex((r) => r.id === runId);
       const next = runHistory[idx + 1] ?? runHistory[idx - 1] ?? null;
       setSelectedRunId(next?.id ?? null);
+      if (typeof window !== "undefined") {
+        const clean = buildCleanDashboardParams(window.location.search, {
+          entityKey: next?.id ? "lid" : undefined,
+          entityId: next?.id || undefined,
+        });
+        window.history.replaceState(null, "", `${window.location.pathname}?${clean.toString()}`);
+      }
     }
     setRunHistory((prev) => prev.filter((r) => r.id !== runId));
     onDeleteRun?.(runId);
@@ -539,7 +565,7 @@ export function ToolLogView({
                   key={run.id}
                   run={run}
                   isSelected={selectedRunId === run.id}
-                  onSelect={() => setSelectedRunId(run.id)}
+                  onSelect={() => handleSelectRun(run.id)}
                   onDelete={handleDelete}
                   onRerun={handleRerun}
                   isRunningTool={isRunningTool}

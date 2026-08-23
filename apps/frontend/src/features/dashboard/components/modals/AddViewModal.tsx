@@ -51,6 +51,7 @@ const availableViews: ViewOption[] = [
 	{ id: "TABLE", label: "Table", description: "Structured table format", icon: Table, category: "Advanced", color: "text-emerald-600 bg-emerald-100" },
 	{ id: "TIMELINE", label: "Timeline", description: "See tasks by start & due date", icon: Clock, category: "Advanced", color: "text-amber-700 bg-amber-100" },
 	{ id: "WHITEBOARD", label: "Whiteboard", description: "Visualize & brainstorm ideas", icon: PenTool, category: "Advanced", color: "text-yellow-500 bg-yellow-100" },
+	{ id: "WHITEBOARD", label: "Whiteboard", description: "Visualize & brainstorm ideas", icon: PenTool, category: "Advanced", color: "text-yellow-500 bg-yellow-100" },
 	{ id: "MIND_MAP", label: "Mind Map", description: "Visual brainstorming of ideas", icon: Network, category: "Advanced", color: "text-pink-500 bg-pink-100" },
 	{ id: "MAP", label: "Map", description: "Tasks visualized by address", icon: Map, category: "Advanced", color: "text-orange-500 bg-orange-100" },
 	{ id: "DASHBOARD", label: "Dashboard", description: "Track metrics & insights", icon: LayoutDashboard, category: "Advanced", color: "text-violet-600 bg-violet-100" },

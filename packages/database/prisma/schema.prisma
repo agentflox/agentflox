@@ -1406,6 +1406,7 @@ model View {
   transferredAt      DateTime?               @map("transferred_at")
   shares             ViewShare[]
   ownershipTransfers ViewOwnershipTransfer[] @relation("ViewTransfers")
+  locationType       LocationType            @default(WORKSPACE) @map("location_type")
 
   // Owner: restrict deletion — a User cannot be hard-deleted while they own a
   // View. Force a transfer (see ViewOwnershipTransfer) or anonymize the
@@ -1598,7 +1599,6 @@ model Document {
   previousOwner User?             @relation("DocumentPreviousOwner", fields: [previousOwnerId], references: [id], onDelete: SetNull)
   comments      DocumentComment[]
   watchers      DocumentWatcher[]
-  locationType  LocationType      @default(PERSONAL) @map("location_type")
 
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")

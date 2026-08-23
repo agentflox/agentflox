@@ -16,7 +16,7 @@ import {
     ContextMenu,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { SpaceViewContextMenu } from "@/features/dashboard/components/space/SpaceViewContextMenu";
+import { ViewContextMenu } from "@/features/dashboard/components/shared/ViewContextMenu";
 import {
     Dialog,
     DialogContent,
@@ -109,7 +109,7 @@ export function SpaceSidebar({
                 <ContextMenuTrigger asChild>
                     {content}
                 </ContextMenuTrigger>
-                <SpaceViewContextMenu
+                <ViewContextMenu
                     view={view}
                     onRename={onRename}
                     onDelete={onDelete}

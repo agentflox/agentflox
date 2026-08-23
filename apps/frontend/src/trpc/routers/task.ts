@@ -647,7 +647,43 @@ export const taskRouter = router({
         data.assigneeId = firstUserId.startsWith('user:') ? firstUserId.replace('user:', '') : firstUserId;
       }
 
-      if (input.listId !== undefined) data.listId = input.listId;
+      let resolvedListId = input.listId;
+      if (resolvedListId === 'personal') {
+        let personalList = await prisma.list.findFirst({
+          where: {
+            locationType: "PERSONAL",
+            ownerId: userId,
+          },
+          select: { id: true },
+        });
+
+        if (!personalList) {
+          personalList = await prisma.$transaction(async (tx) => {
+            const newList = await tx.list.create({
+              data: {
+                name: "Personal",
+                locationType: "PERSONAL",
+                ownerId: userId,
+              },
+            });
+            const defaultStatuses = [
+              { name: "To Do", type: "NOT_STARTED" as const, color: "#94A3B8", position: 0 },
+              { name: "In Progress", type: "ACTIVE" as const, color: "#3B82F6", position: 1 },
+              { name: "Completed", type: "CLOSED" as const, color: "#10B981", position: 2 },
+            ];
+            await tx.taskStatus.createMany({
+              data: defaultStatuses.map((s) => ({
+                ...s,
+                listId: newList.id,
+              })),
+            });
+            return newList;
+          });
+        }
+        resolvedListId = personalList.id;
+      }
+
+      if (resolvedListId !== undefined) data.listId = resolvedListId;
       if (input.parentId !== undefined) data.parentId = input.parentId ?? undefined;
       // Strip system: virtual status IDs — they are UI-only fallbacks with no DB record
       if (input.statusId !== undefined) {
@@ -656,8 +692,8 @@ export const taskRouter = router({
         // Default to the NOT_STARTED / TODO status for the list (or workspace scope)
         const defaultStatus = await prisma.taskStatus.findFirst({
           where: {
-            ...(input.listId ? { listId: input.listId } : {}),
-            ...(input.workspaceId && !input.listId ? { workspaceId: input.workspaceId } : {}),
+            ...(resolvedListId ? { listId: resolvedListId } : {}),
+            ...(input.workspaceId && !resolvedListId ? { workspaceId: input.workspaceId } : {}),
             OR: [
               { type: 'NOT_STARTED' },
               { name: { in: ['TODO', 'To Do', 'Not Started', 'Open'], mode: 'insensitive' } },

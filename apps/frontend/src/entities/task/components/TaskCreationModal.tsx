@@ -15,7 +15,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { TaskDetailsForm } from './TaskDetailsForm';
 import { TaskOptionsForm } from './TaskOptionsForm';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, PlusIcon, Paperclip, Settings2, FileText, UploadCloud, Hash, Folder as FolderIconLucide, LayoutGrid, Clock, Briefcase, Building2, Network, ChevronDown, ChevronRight, Search, User, ListChecks, Check, Lock, Users } from 'lucide-react';
+import { Loader2, PlusIcon, Paperclip, Settings2, FileText, UploadCloud, Hash, Folder as FolderIconLucide, LayoutGrid, Clock, Briefcase, Building2, Network, ChevronDown, ChevronRight, Search, User, ListChecks, Check, Lock, Users, Play, Building } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { taskFormSchema, TaskFormValues } from '@/entities/task/validations/task.schema';
 import { trpc } from '@/lib/trpc';
@@ -27,10 +27,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { ListCreationModal } from './ListCreationModal';
+import { SpaceIcon } from '@/entities/spaces/components/SpaceIcon';
+import { ListCreationModal } from '../../lists/components/ListCreationModal';
 import { cn } from '@/lib/utils';
 
-type TaskContext = 'SPACE' | 'PROJECT' | 'TEAM' | 'GENERAL'
+type TaskContext = 'WORKSPACE' | 'SPACE' | 'PROJECT' | 'TEAM' | 'GENERAL'
 type Option = { id: string; name: string; image?: string | null; color?: string; type?: string }
 
 interface CreateTaskModalProps {
@@ -650,7 +651,7 @@ function TaskListSelectPopover({
         align="start"
         side="bottom"
         sideOffset={4}
-        className="w-[280px] p-0 rounded-xl shadow-xl border-zinc-200 bg-white overflow-hidden max-h-[380px] flex flex-col z-50"
+        className="w-[360px] p-0 rounded-xl shadow-xl border-zinc-200 bg-white overflow-hidden max-h-[400px] flex flex-col z-50"
       >
         {/* Search */}
         <div className="flex h-8 items-center rounded-md border border-zinc-200 bg-white px-2.5 mx-2.5 mt-2.5 mb-1.5 shrink-0 focus-within:border-zinc-400">
@@ -659,13 +660,13 @@ function TaskListSelectPopover({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
+            placeholder="Search lists..."
             className="w-full bg-transparent border-0 p-0 text-xs outline-none placeholder:text-zinc-400"
             autoFocus
           />
         </div>
 
-        <div className="overflow-y-auto flex-1 py-1">
+        <div className="overflow-y-auto flex-1 py-1 max-h-[340px] px-1">
           {/* 1. Personal List at the top */}
           {(!q || "personal list".includes(q)) && (
             <>
@@ -673,13 +674,15 @@ function TaskListSelectPopover({
                 type="button"
                 onClick={() => handleSelect("personal")}
                 className={cn(
-                  "w-full flex items-center justify-between px-3 py-2 text-sm text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                  value === "personal" && "bg-zinc-100 font-semibold"
+                  "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                  value === "personal" ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
                 )}
               >
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-zinc-600 shrink-0" />
-                  <span className="text-zinc-800">Personal List</span>
+                <div className="flex items-center gap-2 truncate">
+                  <div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 flex items-center justify-center shrink-0">
+                    <User className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+                  </div>
+                  <span className="truncate">Personal List</span>
                 </div>
                 {value === "personal" && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
               </button>
@@ -726,31 +729,273 @@ function TaskListSelectPopover({
               <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400">Spaces</div>
               {hierarchy.spaces.map((space: any) => {
                 const isSpaceCollapsed = collapsedNodes.has(`space-${space.id}`);
+                const hasChildren = (space.lists?.length > 0) || (space.folders?.size > 0) || (space.projects?.size > 0) || (space.teams?.size > 0);
+
                 return (
                   <div key={`space-${space.id}`} className="space-y-0.5">
                     <div
-                      className="px-2 py-1.5 text-xs font-semibold text-zinc-800 flex items-center gap-2 cursor-pointer hover:bg-zinc-50 rounded-md transition-colors select-none"
-                      onClick={(e) => toggleNode(e, `space-${space.id}`)}
+                      className="group/space w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                      onClick={(e) => {
+                        if (hasChildren) toggleNode(e, `space-${space.id}`);
+                      }}
                     >
-                      <div className="h-4 w-4 rounded bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
-                        <Users className="h-2.5 w-2.5" />
+                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                        <div className="relative h-5 w-5 rounded shrink-0 flex items-center justify-center">
+                          <span className={cn("h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center bg-indigo-500 text-white ml-0.5", hasChildren && "group-hover/space:hidden")}>
+                            <SpaceIcon icon={space.icon} className="text-white" size={13} fill />
+                          </span>
+                          {hasChildren && (
+                            <div className="hidden group-hover/space:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
+                              <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isSpaceCollapsed && "rotate-90")} />
+                            </div>
+                          )}
+                        </div>
+                        <span className="truncate flex-1">{space.name}</span>
                       </div>
-                      <span className="truncate flex-1">{space.name}</span>
                     </div>
 
                     {!isSpaceCollapsed && (
-                      <div className="space-y-0.5">
-                        {/* Space's Folders */}
-                        {Array.from(space.folders.values() as any).map((folder: any) => {
-                          const isFolderCollapsed = collapsedNodes.has(`folder-${folder.id}`);
+                      <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
+                        {/* Space Projects */}
+                        {Array.from(space.projects.values() as any).map((proj: any) => {
+                          const isProjCollapsed = collapsedNodes.has(`proj-${proj.id}`);
+                          const projHasChildren = (proj.lists?.length > 0) || (proj.folders?.size > 0);
+
                           return (
-                            <div key={`folder-${folder.id}`} className="space-y-0.5">
+                            <div key={`proj-${proj.id}`} className="space-y-0.5">
                               <div
-                                className="px-2 pl-6 py-1 text-xs text-zinc-700 flex items-center gap-2 cursor-pointer hover:bg-zinc-50 rounded-md transition-colors select-none"
-                                onClick={(e) => toggleNode(e, `folder-${folder.id}`)}
+                                className="group/proj w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                                onClick={(e) => {
+                                  if (projHasChildren) toggleNode(e, `proj-${proj.id}`);
+                                }}
                               >
-                                <FolderIconLucide className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                <span className="truncate flex-1">{folder.name}</span>
+                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                  <div className="relative h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                    <Briefcase className={cn("h-3 w-3 text-purple-600 shrink-0", projHasChildren && "group-hover/proj:hidden")} />
+                                    {projHasChildren && (
+                                      <div className="hidden group-hover/proj:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isProjCollapsed && "rotate-90")} />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="truncate font-medium">{proj.name}</span>
+                                </div>
+                              </div>
+
+                              {!isProjCollapsed && (
+                                <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
+                                  {/* Project Folders */}
+                                  {Array.from(proj.folders.values() as any).map((folder: any) => {
+                                    const isFolderCollapsed = collapsedNodes.has(`proj-folder-${folder.id}`);
+                                    const folderHasChildren = folder.lists && folder.lists.length > 0;
+
+                                    return (
+                                      <div key={`proj-folder-${folder.id}`} className="space-y-0.5">
+                                        <div
+                                          className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                                          onClick={(e) => {
+                                            if (folderHasChildren) toggleNode(e, `proj-folder-${folder.id}`);
+                                          }}
+                                        >
+                                          <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                            <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                              <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
+                                              {folderHasChildren && (
+                                                <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                                                  <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                                                </div>
+                                              )}
+                                            </div>
+                                            <span className="truncate font-medium">{folder.name}</span>
+                                          </div>
+                                        </div>
+
+                                        {!isFolderCollapsed &&
+                                          folder.lists.map((list: any) => {
+                                            const isSelected = value === list.id;
+                                            if (q && !list.name.toLowerCase().includes(q)) return null;
+                                            return (
+                                              <button
+                                                key={`pflist-${list.id}`}
+                                                type="button"
+                                                onClick={() => handleSelect(list.id)}
+                                                className={cn(
+                                                  "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                                  isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                                                )}
+                                              >
+                                                <div className="flex items-center gap-2 truncate">
+                                                  <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                                  <span className="truncate">{list.name}</span>
+                                                </div>
+                                                {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                                              </button>
+                                            );
+                                          })}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Direct Project Lists */}
+                                  {proj.lists.map((list: any) => {
+                                    const isSelected = value === list.id;
+                                    if (q && !list.name.toLowerCase().includes(q)) return null;
+                                    return (
+                                      <button
+                                        key={`plist-${list.id}`}
+                                        type="button"
+                                        onClick={() => handleSelect(list.id)}
+                                        className={cn(
+                                          "w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                          isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-2 truncate">
+                                          <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                          <span className="truncate">{list.name}</span>
+                                        </div>
+                                        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Space Teams */}
+                        {Array.from(space.teams.values() as any).map((team: any) => {
+                          const isTeamCollapsed = collapsedNodes.has(`team-${team.id}`);
+                          const teamHasChildren = (team.lists?.length > 0) || (team.folders?.size > 0);
+
+                          return (
+                            <div key={`team-${team.id}`} className="space-y-0.5">
+                              <div
+                                className="group/team w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                                onClick={(e) => {
+                                  if (teamHasChildren) toggleNode(e, `team-${team.id}`);
+                                }}
+                              >
+                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                  <div className="relative h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                    <Users className={cn("h-3 w-3 text-emerald-600 shrink-0", teamHasChildren && "group-hover/team:hidden")} />
+                                    {teamHasChildren && (
+                                      <div className="hidden group-hover/team:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isTeamCollapsed && "rotate-90")} />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="truncate font-medium">{team.name}</span>
+                                </div>
+                              </div>
+
+                              {!isTeamCollapsed && (
+                                <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
+                                  {/* Team Folders */}
+                                  {Array.from((team.folders?.values() || []) as any).map((folder: any) => {
+                                    const isFolderCollapsed = collapsedNodes.has(`team-folder-${folder.id}`);
+                                    const folderHasChildren = folder.lists && folder.lists.length > 0;
+
+                                    return (
+                                      <div key={`team-folder-${folder.id}`} className="space-y-0.5">
+                                        <div
+                                          className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                                          onClick={(e) => {
+                                            if (folderHasChildren) toggleNode(e, `team-folder-${folder.id}`);
+                                          }}
+                                        >
+                                          <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                            <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                              <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
+                                              {folderHasChildren && (
+                                                <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                                                  <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                                                </div>
+                                              )}
+                                            </div>
+                                            <span className="truncate font-medium">{folder.name}</span>
+                                          </div>
+                                        </div>
+
+                                        {!isFolderCollapsed &&
+                                          folder.lists.map((list: any) => {
+                                            const isSelected = value === list.id;
+                                            if (q && !list.name.toLowerCase().includes(q)) return null;
+                                            return (
+                                              <button
+                                                key={`tflist-${list.id}`}
+                                                type="button"
+                                                onClick={() => handleSelect(list.id)}
+                                                className={cn(
+                                                  "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                                  isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                                                )}
+                                              >
+                                                <div className="flex items-center gap-2 truncate">
+                                                  <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                                  <span className="truncate">{list.name}</span>
+                                                </div>
+                                                {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                                              </button>
+                                            );
+                                          })}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Direct Team Lists */}
+                                  {team.lists.map((list: any) => {
+                                    const isSelected = value === list.id;
+                                    if (q && !list.name.toLowerCase().includes(q)) return null;
+                                    return (
+                                      <button
+                                        key={`tlist-${list.id}`}
+                                        type="button"
+                                        onClick={() => handleSelect(list.id)}
+                                        className={cn(
+                                          "w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                          isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                                        )}
+                                      >
+                                        <div className="flex items-center gap-2 truncate">
+                                          <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                          <span className="truncate">{list.name}</span>
+                                        </div>
+                                        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* Space Folders */}
+                        {Array.from(space.folders.values() as any).map((folder: any) => {
+                          const isFolderCollapsed = collapsedNodes.has(`space-folder-${folder.id}`);
+                          const folderHasChildren = folder.lists && folder.lists.length > 0;
+
+                          return (
+                            <div key={`space-folder-${folder.id}`} className="space-y-0.5">
+                              <div
+                                className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                                onClick={(e) => {
+                                  if (folderHasChildren) toggleNode(e, `space-folder-${folder.id}`);
+                                }}
+                              >
+                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                  <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                    <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
+                                    {folderHasChildren && (
+                                      <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="truncate font-medium">{folder.name}</span>
+                                </div>
                               </div>
 
                               {!isFolderCollapsed &&
@@ -763,7 +1008,7 @@ function TaskListSelectPopover({
                                       type="button"
                                       onClick={() => handleSelect(list.id)}
                                       className={cn(
-                                        "w-full flex items-center justify-between px-2 pl-9 py-1.5 rounded-lg text-sm text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                        "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
                                         isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
                                       )}
                                     >
@@ -771,12 +1016,7 @@ function TaskListSelectPopover({
                                         <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
                                         <span className="truncate">{list.name}</span>
                                       </div>
-                                      <div className="flex items-center gap-2 shrink-0">
-                                        {list.taskCount !== undefined && list.taskCount > 0 && (
-                                          <span className="text-[11px] text-zinc-400">{list.taskCount}</span>
-                                        )}
-                                        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                      </div>
+                                      {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
                                     </button>
                                   );
                                 })}
@@ -794,7 +1034,7 @@ function TaskListSelectPopover({
                               type="button"
                               onClick={() => handleSelect(list.id)}
                               className={cn(
-                                "w-full flex items-center justify-between px-2 pl-6 py-1.5 rounded-lg text-sm text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                "w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
                                 isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
                               )}
                             >
@@ -802,18 +1042,200 @@ function TaskListSelectPopover({
                                 <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
                                 <span className="truncate">{list.name}</span>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                {list.taskCount !== undefined && list.taskCount > 0 && (
-                                  <span className="text-[11px] text-zinc-400">{list.taskCount}</span>
-                                )}
-                                {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                              </div>
+                              {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
                             </button>
                           );
                         })}
                       </div>
                     )}
                   </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 4. Root Projects & Teams & Folders & Lists */}
+          {(hierarchy.projects.length > 0 || hierarchy.teams.length > 0 || hierarchy.folders.length > 0 || hierarchy.lists.length > 0) && (
+            <div className="px-1 py-1">
+              <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400">Workspace</div>
+              {/* Root Projects */}
+              {hierarchy.projects.map((proj: any) => {
+                const isProjCollapsed = collapsedNodes.has(`root-proj-${proj.id}`);
+                const projHasChildren = (proj.lists?.length > 0) || (proj.folders?.size > 0);
+
+                return (
+                  <div key={`root-proj-${proj.id}`} className="space-y-0.5">
+                    <div
+                      className="group/proj w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                      onClick={(e) => {
+                        if (projHasChildren) toggleNode(e, `root-proj-${proj.id}`);
+                      }}
+                    >
+                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                        <div className="relative h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                          <Briefcase className={cn("h-3 w-3 text-purple-600 shrink-0", projHasChildren && "group-hover/proj:hidden")} />
+                          {projHasChildren && (
+                            <div className="hidden group-hover/proj:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                              <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isProjCollapsed && "rotate-90")} />
+                            </div>
+                          )}
+                        </div>
+                        <span className="truncate font-medium">{proj.name}</span>
+                      </div>
+                    </div>
+
+                    {!isProjCollapsed && (
+                      <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
+                        {Array.from((proj.folders?.values() || []) as any).map((folder: any) => {
+                          const isFolderCollapsed = collapsedNodes.has(`root-proj-folder-${folder.id}`);
+                          const folderHasChildren = folder.lists && folder.lists.length > 0;
+
+                          return (
+                            <div key={`root-proj-folder-${folder.id}`} className="space-y-0.5">
+                              <div
+                                className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                                onClick={(e) => {
+                                  if (folderHasChildren) toggleNode(e, `root-proj-folder-${folder.id}`);
+                                }}
+                              >
+                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                  <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                    <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
+                                    {folderHasChildren && (
+                                      <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="truncate font-medium">{folder.name}</span>
+                                </div>
+                              </div>
+
+                              {!isFolderCollapsed &&
+                                folder.lists.map((list: any) => {
+                                  const isSelected = value === list.id;
+                                  if (q && !list.name.toLowerCase().includes(q)) return null;
+                                  return (
+                                    <button
+                                      key={`rpflist-${list.id}`}
+                                      type="button"
+                                      onClick={() => handleSelect(list.id)}
+                                      className={cn(
+                                        "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                        isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                                      )}
+                                    >
+                                      <div className="flex items-center gap-2 truncate">
+                                        <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                        <span className="truncate">{list.name}</span>
+                                      </div>
+                                      {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          );
+                        })}
+
+                        {proj.lists.map((list: any) => {
+                          const isSelected = value === list.id;
+                          if (q && !list.name.toLowerCase().includes(q)) return null;
+                          return (
+                            <button
+                              key={`rplist-${list.id}`}
+                              type="button"
+                              onClick={() => handleSelect(list.id)}
+                              className={cn(
+                                "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                <span className="truncate">{list.name}</span>
+                              </div>
+                              {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Root Folders */}
+              {hierarchy.folders.map((folder: any) => {
+                const isFolderCollapsed = collapsedNodes.has(`root-folder-${folder.id}`);
+                const folderHasChildren = folder.lists && folder.lists.length > 0;
+
+                return (
+                  <div key={`root-folder-${folder.id}`} className="space-y-0.5">
+                    <div
+                      className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                      onClick={(e) => {
+                        if (folderHasChildren) toggleNode(e, `root-folder-${folder.id}`);
+                      }}
+                    >
+                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                        <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                          <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
+                          {folderHasChildren && (
+                            <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
+                              <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                            </div>
+                          )}
+                        </div>
+                        <span className="truncate font-medium">{folder.name}</span>
+                      </div>
+                    </div>
+
+                    {!isFolderCollapsed &&
+                      folder.lists.map((list: any) => {
+                        const isSelected = value === list.id;
+                        if (q && !list.name.toLowerCase().includes(q)) return null;
+                        return (
+                          <button
+                            key={`rflist-${list.id}`}
+                            type="button"
+                            onClick={() => handleSelect(list.id)}
+                            className={cn(
+                              "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                              isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                            )}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                              <span className="truncate">{list.name}</span>
+                            </div>
+                            {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                          </button>
+                        );
+                      })}
+                  </div>
+                );
+              })}
+
+              {/* Root Direct Lists */}
+              {hierarchy.lists.map((list: any) => {
+                const isSelected = value === list.id;
+                if (q && !list.name.toLowerCase().includes(q)) return null;
+                return (
+                  <button
+                    key={`rlist-${list.id}`}
+                    type="button"
+                    onClick={() => handleSelect(list.id)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                      isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                      <span className="truncate">{list.name}</span>
+                    </div>
+                    {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                  </button>
                 );
               })}
             </div>

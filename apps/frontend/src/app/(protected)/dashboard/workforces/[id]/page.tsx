@@ -22,6 +22,7 @@ import { IconColorSelector } from "@/components/ui/icon-color-selector";
 import { EntityIcon } from "@/entities/shared/components/EntityIcon";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
 
 function WorkforceLoadingState() {
     return (
@@ -87,7 +88,7 @@ function WorkforceDetailContent() {
     const setHasChanges = useWorkforceStore((s) => s.setHasChanges);
 
     const tabParam = searchParams.get("tab");
-    const conversationParam = searchParams.get("conversationId");
+    const conversationParam = searchParams.get("cid") || searchParams.get("rid") || searchParams.get("conversationId");
     const [activeTab, setActiveTab] = React.useState<"build" | "run">(
         () => (tabParam === "run" ? "run" : "build")
     );
@@ -157,10 +158,8 @@ function WorkforceDetailContent() {
         const first = workforceConversations?.[0];
         if (first) {
             setActiveConversationId(first.id);
-            const url = new URL(window.location.href);
-            url.searchParams.set("tab", "run");
-            url.searchParams.set("conversationId", first.id);
-            router.replace(url.pathname + url.search, { scroll: false });
+            const clean = buildCleanDashboardParams(window.location.search, { tab: "run", entityKey: "cid", entityId: first.id });
+            router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
         } else {
             const title = `${name || workforce.name} – run`;
             setPendingConversation({
@@ -188,10 +187,8 @@ function WorkforceDetailContent() {
                     (old) => (old ? [newConv, ...old] : [newConv])
                 );
                 setActiveConversationId(conv.id);
-                const url = new URL(window.location.href);
-                url.searchParams.set("tab", "run");
-                url.searchParams.set("conversationId", conv.id);
-                router.replace(url.pathname + url.search, { scroll: false });
+                const clean = buildCleanDashboardParams(window.location.search, { tab: "run", entityKey: "cid", entityId: conv.id });
+                router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
             }).catch((err) => {
                 setPendingConversation(null);
                 console.error("[Workforce] Failed to create conversation", err);
@@ -208,14 +205,12 @@ function WorkforceDetailContent() {
         setActiveTab(tab);
         setSidebarOpen(false);
 
-        const url = new URL(window.location.href);
-        url.searchParams.set("tab", tab);
-        if (tab === "run" && activeConversationId) {
-            url.searchParams.set("conversationId", activeConversationId);
-        } else {
-            url.searchParams.delete("conversationId");
-        }
-        router.replace(url.pathname + url.search, { scroll: false });
+        const clean = buildCleanDashboardParams(window.location.search, {
+            tab,
+            entityKey: tab === "run" && activeConversationId ? "cid" : undefined,
+            entityId: tab === "run" && activeConversationId ? activeConversationId : undefined,
+        });
+        router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
 
         if (tab === "run" && hasChanges && workforce) {
             const { nodes, edges } = useWorkforceStore.getState();
@@ -565,10 +560,8 @@ function WorkforceDetailContent() {
                         selectedConversationId={activeConversationId}
                         onSelectConversation={(id) => {
                             setActiveConversationId(id);
-                            const url = new URL(window.location.href);
-                            url.searchParams.set("tab", "run");
-                            url.searchParams.set("conversationId", id);
-                            router.replace(url.pathname + url.search, { scroll: false });
+                            const clean = buildCleanDashboardParams(window.location.search, { tab: "run", entityKey: "cid", entityId: id });
+                            router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
                         }}
                         onNewTask={async () => {
                             const title = `${name || workforce!.name} – run`;
@@ -598,10 +591,8 @@ function WorkforceDetailContent() {
                                     (old) => (old ? [newConv, ...old] : [newConv])
                                 );
                                 setActiveConversationId(conv.id);
-                                const url = new URL(window.location.href);
-                                url.searchParams.set("tab", "run");
-                                url.searchParams.set("conversationId", conv.id);
-                                router.replace(url.pathname + url.search, { scroll: false });
+                                const clean = buildCleanDashboardParams(window.location.search, { tab: "run", entityKey: "cid", entityId: conv.id });
+                                router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
                             } catch (err) {
                                 setPendingConversation(null);
                                 console.error("[Workforce] Failed to create conversation", err);
@@ -619,10 +610,8 @@ function WorkforceDetailContent() {
                                     setActiveConversationId((prev) =>
                                         prev === conversationId ? prev : conversationId
                                     );
-                                    const url = new URL(window.location.href);
-                                    url.searchParams.set("tab", "run");
-                                    url.searchParams.set("conversationId", conversationId);
-                                    router.replace(url.pathname + url.search, { scroll: false });
+                                    const clean = buildCleanDashboardParams(window.location.search, { tab: "run", entityKey: "cid", entityId: conversationId });
+                                    router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
                                 }}
                             />
                         ) : (
@@ -635,10 +624,8 @@ function WorkforceDetailContent() {
                                     setActiveConversationId((prev) =>
                                         prev === conversationId ? prev : conversationId
                                     );
-                                    const url = new URL(window.location.href);
-                                    url.searchParams.set("tab", "run");
-                                    url.searchParams.set("conversationId", conversationId);
-                                    router.replace(url.pathname + url.search, { scroll: false });
+                                    const clean = buildCleanDashboardParams(window.location.search, { tab: "run", entityKey: "cid", entityId: conversationId });
+                                    router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
                                 }}
                             />
                         )}
@@ -671,10 +658,8 @@ function WorkforceDetailContent() {
                                 setActiveConversationId((prev) =>
                                     prev === conversationId ? prev : conversationId
                                 );
-                                const url = new URL(window.location.href);
-                                url.searchParams.set("tab", "run");
-                                url.searchParams.set("conversationId", conversationId);
-                                router.replace(url.pathname + url.search, { scroll: false });
+                                const clean = buildCleanDashboardParams(window.location.search, { tab: "run", entityKey: "cid", entityId: conversationId });
+                                router.replace(`${window.location.pathname}?${clean.toString()}`, { scroll: false });
                             }}
                         />
                     )}

@@ -18,8 +18,8 @@ import { TeamIcon } from "@/entities/teams/components/TeamIcon";
 import { EntityIcon } from "@/entities/shared/components/EntityIcon";
 import { UserProfileHoverCard } from "@/entities/users/components/UserProfileHoverCard";
 import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
-import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
-import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { FolderCreationModal } from "@/entities/folders/components/FolderCreationModal";
+import { ListCreationModal } from "@/entities/lists/components/ListCreationModal";
 import { ChatCreationModal } from "@/entities/channels/components/ChatCreationModal";
 import { ShareModal } from "@/components/permissions/ShareModal";
 
@@ -596,6 +596,8 @@ export function ProjectOverviewTab({ project }: { project: any }) {
       <TeamCreationModal
         open={teamModalOpen}
         onOpenChange={setTeamModalOpen}
+        defaultSpaceId={project.spaceId}
+        onCreated={() => refreshProject()}
       />
 
       <FolderCreationModal

@@ -25,7 +25,7 @@ import {
     Type,
     AlignLeft,
 } from "lucide-react";
-import type { ColumnKey } from "./listViewTypes";
+import type { ColumnKey } from "./viewTypes";
 
 export const FIELD_OPERATORS: Record<string, { id: string; label: string }[]> = {
     status: [

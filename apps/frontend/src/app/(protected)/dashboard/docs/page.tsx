@@ -31,6 +31,14 @@ import { cn } from "@/lib/utils";
 import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 import { useToast } from "@/hooks/useToast";
 
+import {
+  LocationTypeFilterSubmenu,
+  NestedLocationFilterSubmenu,
+  DashboardSortPopover,
+  LocationSelection,
+} from "@/features/dashboard/components/shared/DashboardFilterSubmenus";
+import { Filter } from "lucide-react";
+
 export default function DocsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -43,6 +51,9 @@ export default function DocsPage() {
   const [columnVisibility, setColumnVisibility] = useState<import("@tanstack/react-table").VisibilityState>({});
   const [table, setTable] = useState<import("@tanstack/react-table").Table<any> | null>(null);
   const [selectedGridIds, setSelectedGridIds] = useState<Set<string>>(new Set());
+
+  const [locationTypeFilter, setLocationTypeFilter] = useState<string>("all");
+  const [locationFilter, setLocationFilter] = useState<LocationSelection>(null);
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -58,7 +69,15 @@ export default function DocsPage() {
     query,
     setQuery,
     documents,
-  } = useDocumentList({ pageSize: 12, initialFilters: { parentId: null } });
+  } = useDocumentList({
+    pageSize: 12,
+    initialFilters: {
+      parentId: null,
+      workspaceId: locationFilter?.type === "workspace" ? locationFilter.id : undefined,
+      spaceId: locationFilter?.type === "space" ? locationFilter.id : undefined,
+      projectId: locationFilter?.type === "project" ? locationFilter.id : undefined,
+    }
+  });
 
   const hasNextPage = (data?.items?.length || 0) === pageSize;
   const hasPreviousPage = page > 1;
@@ -120,6 +139,8 @@ export default function DocsPage() {
     }
   };
 
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+
   const columns: ColumnDef<any>[] = [
     {
       id: "select",
@@ -151,18 +172,25 @@ export default function DocsPage() {
           <div className="flex items-center gap-3">
             <div className="flex flex-col min-w-0">
               <span
-                className="font-medium text-foreground hover:underline cursor-pointer truncate"
+                className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer truncate"
                 onClick={() => router.push(`/dashboard/docs/${doc.id}`)}
               >
                 {doc.title || "Untitled Document"}
               </span>
-              {doc.description && (
-                <span className="text-xs text-muted-foreground truncate max-w-[300px]">
-                  {doc.description}
-                </span>
-              )}
             </div>
           </div>
+        );
+      },
+    },
+    {
+      accessorKey: "description",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+      cell: ({ row }) => {
+        const desc = row.original.description;
+        return (
+          <span className="text-xs text-zinc-500 line-clamp-1 max-w-[260px]" title={desc}>
+            {desc || "-"}
+          </span>
         );
       },
     },
@@ -170,26 +198,44 @@ export default function DocsPage() {
       id: "owner",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Creator" />,
       cell: ({ row }) => {
-        const owner = row.original.owner;
-        if (!owner) return <span className="text-muted-foreground">-</span>;
+        const owner = row.original.owner || row.original.user || row.original.creator;
+        if (!owner) return <span className="text-xs text-zinc-500">You</span>;
         return (
           <div className="flex items-center gap-2">
-            <img
-              src={owner.avatar || owner.image || "/default-avatar.png"}
-              alt={owner.name || "User"}
-              className="h-6 w-6 rounded-full"
-            />
-            <span className="text-sm text-muted-foreground">{owner.name}</span>
+            {owner.avatar || owner.image ? (
+              <img
+                src={owner.avatar || owner.image}
+                alt={owner.name || "User"}
+                className="h-5 w-5 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-5 w-5 rounded-full bg-zinc-200 text-[10px] font-bold flex items-center justify-center text-zinc-700">
+                {(owner.name || "U")[0].toUpperCase()}
+              </div>
+            )}
+            <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{owner.name || "You"}</span>
           </div>
         );
       },
       enableSorting: false,
     },
     {
+      accessorKey: "createdAt",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date Created" />,
+      cell: ({ row }) => {
+        const date = row.original.createdAt;
+        return (
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
+            {date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: "updatedAt",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Last Updated" />,
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-xs text-zinc-500 whitespace-nowrap">
           {formatDistanceToNow(new Date(row.original.updatedAt), { addSuffix: true })}
         </span>
       ),
@@ -201,7 +247,7 @@ export default function DocsPage() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" className="h-8 w-8 p-0 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 hover:font-medium transition-colors cursor-pointer">
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -222,6 +268,18 @@ export default function DocsPage() {
       },
     },
   ];
+
+  const renderRowContextMenu = (doc: any) => (
+    <>
+      <ContextMenuItem onClick={() => router.push(`/dashboard/docs/${doc.id}`)} className="cursor-pointer">
+        <PenSquare className="mr-2 h-4 w-4" /> Edit Document
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => handleDelete(doc.id, doc.title)}>
+        <Trash className="mr-2 h-4 w-4" /> Delete Document
+      </ContextMenuItem>
+    </>
+  );
 
   return (
     <Shell>
@@ -254,6 +312,35 @@ export default function DocsPage() {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
           >
+            {/* Filter Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-9 px-3 gap-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all">
+                  <Filter className="h-4 w-4" />
+                  <span>Filter</span>
+                  {(locationTypeFilter !== "all" || locationFilter) && (
+                    <span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
+                      {(locationTypeFilter !== "all" ? 1 : 0) + (locationFilter ? 1 : 0)}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Filter by</div>
+                <DropdownMenuSeparator />
+
+                <LocationTypeFilterSubmenu
+                  selectedType={locationTypeFilter}
+                  onSelectType={setLocationTypeFilter}
+                />
+
+                <NestedLocationFilterSubmenu
+                  selectedLocation={locationFilter}
+                  onSelectLocation={setLocationFilter}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {/* Columns Dropdown (List View Only) */}
             {viewMode === "list" && table && (() => {
               const hideableColumns = table.getAllColumns().filter(
@@ -292,75 +379,13 @@ export default function DocsPage() {
             })()}
 
             {/* Sort Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="h-9 gap-1.5 px-3 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all cursor-pointer rounded-md outline-hidden focus:ring-0 focus-visible:ring-0"
-                >
-                  <ArrowUpDown className="h-4 w-4" />
-                  <span>Sort</span>
-                  {sort.length > 0 && (
-                    <span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-                      {sort.length}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200" sideOffset={8}>
-                <div className="px-2 py-1.5 mb-1">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Sort By</span>
-                </div>
-                <div className="space-y-0.5">
-                  <div
-                    className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-zinc-50 transition-colors text-zinc-600"
-                    onClick={() => setSort([])}
-                  >
-                    <span className="flex-1">None (default)</span>
-                    {sort.length === 0 && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-                  </div>
-                  {[
-                    { id: "title", label: "Title" },
-                    { id: "updatedAt", label: "Last Updated" },
-                  ].map((opt) => {
-                    const currentSortIndex = sort.findIndex((s) => s.id === opt.id);
-                    const isSelected = currentSortIndex >= 0;
-                    const currentSort = isSelected ? sort[currentSortIndex] : null;
-                    return (
-                      <div
-                        key={opt.id}
-                        className={cn(
-                          "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                          isSelected ? "bg-zinc-50 text-zinc-900" : "text-zinc-600 hover:bg-zinc-100"
-                        )}
-                        onClick={() => {
-                          if (isSelected) setSort((s) => s.filter((i) => i.id !== opt.id));
-                          else setSort((s) => [...s, { id: opt.id, desc: false }]);
-                        }}
-                      >
-                        <div
-                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-zinc-200 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isSelected) setSort((s) => s.map((i) => i.id === opt.id ? { ...i, desc: !i.desc } : i));
-                            else setSort((s) => [...s, { id: opt.id, desc: false }]);
-                          }}
-                        >
-                          {isSelected && (
-                            <div className="flex flex-col items-center -space-y-1">
-                              <ChevronUp className={`h-3.5 w-3.5 ${currentSort?.desc ? "text-zinc-800" : "text-zinc-300"}`} />
-                              <ChevronDown className={`h-3.5 w-3.5 ${currentSort?.desc ? "text-zinc-300" : "text-zinc-800"}`} />
-                            </div>
-                          )}
-                        </div>
-                        <span className="flex-1">{opt.label}</span>
-                        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
+            <DashboardSortPopover
+              sort={sort}
+              onSortChange={setSort}
+              options={[
+                { id: "title", label: "Title" },
+              ]}
+            />
           </SearchSection>
 
           {/* Filter Chips */}
@@ -457,6 +482,7 @@ export default function DocsPage() {
                 data={documents}
                 onDeleteSelected={handleBulkDelete}
                 onTableReady={setTable}
+                renderRowContextMenu={renderRowContextMenu}
                 hideToolbar
                 columnVisibility={columnVisibility}
                 onColumnVisibilityChange={setColumnVisibility}

@@ -12,12 +12,13 @@ interface EntityRenameDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     currentName: string;
-    entityType: "space" | "project" | "team" | "list" | "doc" | "folder";
+    entityType: "workspace" | "space" | "project" | "team" | "list" | "doc" | "folder";
     onSave: (newName: string) => void;
     isSaving?: boolean;
 }
 
 const IconMap = {
+    workspace: Briefcase,
     space: LayoutDashboard,
     project: Briefcase,
     team: Users,

@@ -3,17 +3,10 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-    DropdownMenuSub,
-    DropdownMenuSubContent,
-    DropdownMenuSubTrigger,
-    DropdownMenuPortal,
-} from "@/components/ui/dropdown-menu";
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { EnhancedIconPicker } from "@/components/ui/enhanced-icon-picker";
 import { ShareModal } from "@/components/permissions/ShareModal";
 import {
@@ -29,7 +22,7 @@ import {
     Shield,
     Crown,
     UserPlus,
-    LogOut,
+    ChevronRight,
     SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,17 +38,36 @@ import { TeamTransferModal } from "@/entities/teams/components/TeamTransferModal
 import { TeamMoveToPopover } from "@/entities/teams/components/TeamMoveToPopover";
 import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
+import { cn } from "@/lib/utils";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TeamActionsMenuProps {
     workspaceId: string;
     teamId: string;
     trigger?: React.ReactNode;
+    className?: string;
+    side?: "top" | "right" | "bottom" | "left";
+    align?: "start" | "center" | "end";
+    sideOffset?: number;
 }
 
-export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMenuProps) {
+export function TeamActionsMenu({
+    workspaceId,
+    teamId,
+    trigger,
+    className,
+    side = "right",
+    align = "start",
+    sideOffset = 6,
+}: TeamActionsMenuProps) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const queryClient = useQueryClient();
+    const [popoverOpen, setPopoverOpen] = useState(false);
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
     const [generalSettingsOpen, setGeneralSettingsOpen] = useState(false);
@@ -141,10 +153,12 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
         const url = `${window.location.origin}/dashboard/t/${teamId}`;
         navigator.clipboard.writeText(url);
         toast({ title: "Link copied to clipboard" });
+        setPopoverOpen(false);
     };
 
     const handleRename = () => {
         setRenameDialogOpen(true);
+        setPopoverOpen(false);
     };
 
     const handleSaveRename = (newName: string) => {
@@ -153,28 +167,64 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
 
     return (
         <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    {trigger || (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-400 hover:text-zinc-900 focus-visible:ring-0">
-                            <MoreHorizontal size={16} />
-                        </Button>
+            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    {trigger ? (
+                        <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            {trigger}
+                        </PopoverTrigger>
+                    ) : (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 inline-flex items-center justify-center rounded-sm hover:bg-zinc-200 text-muted-foreground hover:text-foreground cursor-pointer"
+                                    >
+                                        <MoreHorizontal size={16} />
+                                    </Button>
+                                </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Team settings</p>
+                            </TooltipContent>
+                        </Tooltip>
                     )}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuLabel className="text-xs text-zinc-400 uppercase tracking-wider">Actions</DropdownMenuLabel>
+                </PopoverTrigger>
+                <PopoverContent
+                    side={side}
+                    align={align}
+                    sideOffset={sideOffset}
+                    className={cn("w-56 p-1.5 bg-white rounded-xl shadow-xl border border-zinc-200/90 flex flex-col gap-0.5 z-50", className)}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setShareModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <UserPlus className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Invite</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setShareModalOpen(true)}>
-                        <UserPlus className="mr-2 h-4 w-4" /> Invite
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleRename}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Pencil className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Rename</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={handleRename}>
-                        <Pencil className="mr-2 h-4 w-4" /> Rename
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem onClick={handleCopyLink}>
-                        <Copy className="mr-2 h-4 w-4" /> Copy Link
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleCopyLink}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Copy className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Copy Link</span>
+                    </button>
 
                     <TemplateMenuPopover
                         entityType={"TEAM" as any}
@@ -182,45 +232,66 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                         contentToSave={{
                             id: teamId,
                             workspaceId: team?.workspaceId ?? workspaceId,
-                            spaceId: team?.spaceId ?? undefined,
                             teamId,
                             name: team?.name ?? "Team",
                         }}
-                        triggerClassName="text-sm"
+                        triggerClassName="text-sm font-normal"
                     />
 
-                    <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>
-                            <Palette className="mr-2 h-4 w-4" /> Color & Icon
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                            <DropdownMenuSubContent className="p-0 border-0 bg-transparent shadow-none w-auto" sideOffset={12}>
-                                <EnhancedIconPicker
-                                    icon={teamMeta?.icon || "Users"}
-                                    color={teamMeta?.color || "#8B5CF6"}
-                                    entityName={team?.name || "Team"}
-                                    onIconChange={(newIcon) => updateIconColor.mutate({ id: teamId, icon: newIcon, color: teamMeta?.color || "#8B5CF6" } as any)}
-                                    onColorChange={(newColor) => updateIconColor.mutate({ id: teamId, icon: teamMeta?.icon || "Users", color: newColor } as any)}
-                                />
-                            </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                    </DropdownMenuSub>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                className="flex items-center justify-between px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Palette className="h-4 w-4 shrink-0 text-zinc-500" />
+                                    <span>Color & Icon</span>
+                                </div>
+                                <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="right" align="start" className="p-0 border-0 bg-transparent shadow-none w-auto" sideOffset={12}>
+                            <EnhancedIconPicker
+                                icon={teamMeta?.icon || "Users"}
+                                color={teamMeta?.color || "#4F46E5"}
+                                entityName={team?.name || "Team"}
+                                onIconChange={(newIcon) => updateIconColor.mutate({ id: teamId, icon: newIcon, color: teamMeta?.color || "#4F46E5" } as any)}
+                                onColorChange={(newColor) => updateIconColor.mutate({ id: teamId, icon: teamMeta?.icon || "Users", color: newColor } as any)}
+                            />
+                        </PopoverContent>
+                    </Popover>
 
-                    <DropdownMenuItem onClick={() => setCustomFieldsModalOpen(true)}>
-                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setCustomFieldsModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <SlidersHorizontal className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Custom Fields</span>
+                    </button>
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
-                    <DropdownMenuItem onClick={() => toggleVisibility.mutate({ teamId })}>
-                        <EyeOff className="mr-2 h-4 w-4" /> Hide Team
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); toggleVisibility.mutate({ teamId }); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <EyeOff className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Hide Team</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setPermissionsModalOpen(true)}>
-                        <Shield className="mr-2 h-4 w-4" /> Manage Access
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setPermissionsModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Shield className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Manage Access</span>
+                    </button>
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
                     <TeamMoveToPopover
                         teamId={teamId}
@@ -228,30 +299,56 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                         workspaceId={workspaceId}
                     />
 
-                    <DropdownMenuItem onClick={() => setDuplicateModalOpen(true)}>
-                        <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setDuplicateModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <CopyPlus className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Duplicate</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setTransferModalOpen(true)}>
-                        <Crown className="mr-2 h-4 w-4" /> Transfer Ownership
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setTransferModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Crown className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Transfer Ownership</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setArchiveModalOpen(true)}>
-                        <Archive className="mr-2 h-4 w-4" /> Archive
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setArchiveModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Archive className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Archive</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setDeleteModalOpen(true)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setDeleteModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Trash2 className="h-4 w-4 shrink-0 text-red-500" />
+                        <span>Delete</span>
+                    </button>
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
-                    <DropdownMenuItem onClick={() => setGeneralSettingsOpen(true)}>
-                        <Settings className="mr-2 h-4 w-4" /> Settings
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setGeneralSettingsOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Settings className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Settings</span>
+                    </button>
+                </PopoverContent>
+            </Popover>
 
+            {/* Modals */}
             <EntityRenameDialog
                 open={renameDialogOpen}
                 onOpenChange={setRenameDialogOpen}
@@ -267,7 +364,7 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                 teamId={teamId}
                 teamName={team?.name || ""}
                 teamIcon={teamMeta?.icon || "👥"}
-                teamColor={teamMeta?.color || "#8B5CF6"}
+                teamColor={teamMeta?.color || "#4F46E5"}
             />
 
             <TeamGeneralSettingsModal
@@ -283,7 +380,7 @@ export function TeamActionsMenu({ workspaceId, teamId, trigger }: TeamActionsMen
                     itemType="team"
                     itemId={teamId}
                     itemName={team.name}
-                    workspaceId={team.workspaceId ?? workspaceId}
+                    workspaceId={team.workspaceId ?? workspaceId ?? ""}
                 />
             )}
 

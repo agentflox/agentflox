@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -20,6 +21,8 @@ import { cn } from "@/lib/utils";
 import DashboardProjectView from "@/features/dashboard/views/generic/DashboardProjectView";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
 import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
+import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
+import { ProjectSidebarItem } from "@/features/dashboard/components/sidebar/ProjectSidebarItem";
 import { SharedManageProjectsView } from "@/features/dashboard/views/shared/SharedManageProjectsView";
 import {
     DropdownMenu,
@@ -83,11 +86,20 @@ export default function WorkspaceProjectView({
     // --- Handlers ---
     const handleProjectClick = useCallback((projectId: string) => {
         setIsManageView(false);
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("pj", projectId);
-        router.push(`?${params.toString()}`, { scroll: false });
-        if (onProjectSelect) onProjectSelect(projectId);
-    }, [searchParams, router, onProjectSelect]);
+        if (onProjectSelect) {
+            onProjectSelect(projectId);
+        } else if (workspaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, type: "pj", id: projectId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "projects",
+                entityKey: "pj",
+                entityId: projectId,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
+    }, [searchParams, router, onProjectSelect, workspaceId]);
 
     // Auto-select first project when no selection exists
     useEffect(() => {
@@ -104,7 +116,7 @@ export default function WorkspaceProjectView({
         if (activeProjectId) {
             const activeProject = projects.find(p => p.id === activeProjectId);
             return (
-                <div className="flex-1 overflow-hidden bg-zinc-50 h-full">
+                <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_[role=tablist]]:pl-6")}>
                     <DashboardProjectView
                         projectId={activeProjectId}
                         workspaceId={workspaceId}
@@ -148,14 +160,14 @@ export default function WorkspaceProjectView({
             {/* Projects Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-                isSidebarCollapsed ? "w-0 border-none" : "w-[256px] border-r border-slate-200"
+                isSidebarCollapsed ? "w-0 border-l border-slate-200" : "w-[256px] border-x border-slate-200"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
                     {/* Header */}
                     {!isSidebarCollapsed && (
-                        <div className="flex flex-col border-b border-slate-200">
+                        <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
                             {isSearchOpen ? (
-                                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                                     <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                                     <Input
                                         autoFocus
@@ -174,7 +186,7 @@ export default function WorkspaceProjectView({
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between px-4 py-3">
+                                <div className="flex items-center justify-between px-4 h-full">
                                     <h2 className={cn("text-sm font-semibold", isManageView ? "text-indigo-600" : "text-foreground")}>
                                         {isManageView ? "Manage Projects" : "Projects"}
                                     </h2>
@@ -201,50 +213,50 @@ export default function WorkspaceProjectView({
                                                     Manage Projects
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
-                                    </DropdownMenu>
+                                        </DropdownMenu>
 
                                         <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsSearchOpen(true)}
-                                              >
-                                                  <Search className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Search</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSearchOpen(true)}
+                                                    >
+                                                        <Search className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Search</TooltipContent>
+                                            </Tooltip>
 
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsSidebarCollapsed(true)}
-                                              >
-                                                  <ChevronsLeft className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Collapse Sidebar</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSidebarCollapsed(true)}
+                                                    >
+                                                        <ChevronsLeft className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Collapse Sidebar</TooltipContent>
+                                            </Tooltip>
 
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsProjectModalOpen(true)}
-                                              >
-                                                  <Plus className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Create Project</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsProjectModalOpen(true)}
+                                                    >
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Create Project</TooltipContent>
+                                            </Tooltip>
                                         </TooltipProvider>
                                     </div>
                                 </div>
@@ -283,29 +295,13 @@ export default function WorkspaceProjectView({
                                         const isProjectActive = !isManageView && activeProjectId === project.id;
 
                                         return (
-                                            <div key={project.id} className="relative select-none">
-                                                {/* Project Row */}
-                                                <div
-                                                    className={cn(
-                                                        "group/project flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-foreground transition-colors hover:bg-slate-50 cursor-pointer",
-                                                        isProjectActive && "bg-slate-100"
-                                                    )}
-                                                    onClick={() => handleProjectClick(project.id)}
-                                                >
-                                                    <Briefcase className="h-4 w-4 text-indigo-500/80 shrink-0 ml-1" />
-                                                    <span className="flex-1 truncate">{project.name}</span>
-
-                                                    <div
-                                                        className="opacity-0 group-hover/project:opacity-100 transition-opacity flex items-center gap-0.5"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <ProjectActionsMenu
-                                                            workspaceId={workspaceId}
-                                                            projectId={project.id}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <ProjectSidebarItem
+                                                key={project.id}
+                                                workspaceId={workspaceId}
+                                                project={project}
+                                                isActive={isProjectActive}
+                                                onSelectProject={handleProjectClick}
+                                            />
                                         );
                                     })}
                                 </div>
@@ -319,15 +315,21 @@ export default function WorkspaceProjectView({
             <div className="flex-1 overflow-hidden relative flex flex-col">
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-3 z-30">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                            onClick={() => setIsSidebarCollapsed(false)}
-                            title="Expand Sidebar"
-                        >
-                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                >
+                                    <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Expand Sidebar</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
                 <div className="flex-1 overflow-hidden">

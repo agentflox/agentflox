@@ -102,8 +102,8 @@ import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { format } from "date-fns";
-import type { FilterCondition, FilterGroup, ListViewSavedConfig, FilterOperator } from "../listViewTypes";
-import { FILTER_OPTIONS, FIELD_OPERATORS } from "../listViewConstants";
+import type { FilterCondition, FilterGroup, ListViewSavedConfig, FilterOperator } from "../viewTypes";
+import { FILTER_OPTIONS, FIELD_OPERATORS } from "../viewConstants";
 
 // Types
 type Task = {

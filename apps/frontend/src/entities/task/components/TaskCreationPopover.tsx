@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ListCreationModal } from './ListCreationModal';
+import { ListCreationModal } from '../../lists/components/ListCreationModal';
 import { cn } from '@/lib/utils';
 
 type TaskContext = 'SPACE' | 'PROJECT' | 'TEAM' | 'GENERAL'

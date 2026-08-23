@@ -25,6 +25,17 @@ export default function TeamCard({
   onSelect?: (id: string, selected: boolean) => void;
   onDelete?: (id: string) => void;
 }) {
+  const locationText =
+    item.locationPath ||
+    [
+      item.workspace?.name || item.workspaceName,
+      item.space?.name || item.spaceName,
+      item.project?.name || item.projectName,
+    ]
+      .filter(Boolean)
+      .join(" / ") ||
+    null;
+
   return (
     <div
       className={cn(
@@ -74,6 +85,15 @@ export default function TeamCard({
 
       <div className="p-3 flex flex-col gap-4 flex-1 pt-12 relative z-0">
         <div className="min-w-0 space-y-2.5 flex-1">
+          {locationText && (
+            <div
+              className="flex items-center gap-1.5 text-xs text-slate-500 font-normal truncate min-w-0 max-w-full"
+              title={locationText}
+            >
+              <Folder className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              <span className="truncate">{locationText}</span>
+            </div>
+          )}
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-2">
               {item.icon && (

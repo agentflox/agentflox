@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -20,6 +21,8 @@ import { cn } from "@/lib/utils";
 import DashboardSpaceView from "@/features/dashboard/views/generic/DashboardSpaceView";
 import { SpaceCreationModal } from "@/entities/spaces/components/SpaceCreationModal";
 import { SpaceActionsMenu } from "@/features/dashboard/components/sidebar/SpaceActionsMenu";
+import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
+import { SpaceSidebarItem } from "@/features/dashboard/components/sidebar/SpaceSidebarItem";
 import { SharedManageSpacesView } from "@/features/dashboard/views/shared/SharedManageSpacesView";
 import {
     DropdownMenu,
@@ -83,11 +86,20 @@ export default function WorkspaceSpaceView({
     // --- Handlers ---
     const handleSpaceClick = useCallback((spaceId: string) => {
         setIsManageView(false);
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("sp", spaceId);
-        router.push(`?${params.toString()}`, { scroll: false });
-        if (onSpaceSelect) onSpaceSelect(spaceId);
-    }, [searchParams, router, onSpaceSelect]);
+        if (onSpaceSelect) {
+            onSpaceSelect(spaceId);
+        } else if (workspaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, type: "sp", id: spaceId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "spaces",
+                entityKey: "sp",
+                entityId: spaceId,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
+    }, [searchParams, router, onSpaceSelect, workspaceId]);
 
     // Auto-select first space when no selection exists
     useEffect(() => {
@@ -103,7 +115,7 @@ export default function WorkspaceSpaceView({
         }
         if (activeSpaceId) {
             return (
-                <div className="flex-1 overflow-hidden bg-zinc-50 h-full">
+                <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_[role=tablist]]:pl-6")}>
                     <DashboardSpaceView
                         spaceId={activeSpaceId}
                         workspaceId={workspaceId}
@@ -146,14 +158,14 @@ export default function WorkspaceSpaceView({
             {/* Spaces Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-                isSidebarCollapsed ? "w-0 border-none" : "w-[256px] border-r border-slate-200"
+                isSidebarCollapsed ? "w-0 border-l border-slate-200" : "w-[256px] border-x border-slate-200"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
                     {/* Header */}
                     {!isSidebarCollapsed && (
-                        <div className="flex flex-col border-b border-slate-200">
+                        <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
                             {isSearchOpen ? (
-                                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                                     <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                                     <Input
                                         autoFocus
@@ -172,7 +184,7 @@ export default function WorkspaceSpaceView({
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between px-4 py-3">
+                                <div className="flex items-center justify-between px-4 h-full">
                                     <h2 className={cn(
                                         "text-sm font-semibold",
                                         isManageView ? "text-indigo-600" : "text-foreground"
@@ -285,28 +297,13 @@ export default function WorkspaceSpaceView({
                                         const isSpaceActive = !isManageView && activeSpaceId === space.id;
 
                                         return (
-                                            <div key={space.id} className="relative select-none">
-                                                <div
-                                                    className={cn(
-                                                        "group/space flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-foreground transition-colors hover:bg-slate-50 cursor-pointer",
-                                                        isSpaceActive && "bg-slate-100"
-                                                    )}
-                                                    onClick={() => handleSpaceClick(space.id)}
-                                                >
-                                                    <LayoutDashboard className="h-4 w-4 text-indigo-500/80 shrink-0 ml-1" />
-                                                    <span className="flex-1 truncate">{space.name}</span>
-
-                                                    <div
-                                                        className="opacity-0 group-hover/space:opacity-100 transition-opacity flex items-center gap-0.5"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <SpaceActionsMenu
-                                                            workspaceId={workspaceId}
-                                                            spaceId={space.id}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <SpaceSidebarItem
+                                                key={space.id}
+                                                workspaceId={workspaceId}
+                                                space={space}
+                                                isActive={isSpaceActive}
+                                                onSelectSpace={handleSpaceClick}
+                                            />
                                         );
                                     })}
                                 </div>
@@ -320,15 +317,21 @@ export default function WorkspaceSpaceView({
             <div className="flex-1 overflow-hidden relative flex flex-col">
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-3 z-30">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                            onClick={() => setIsSidebarCollapsed(false)}
-                            title="Expand Sidebar"
-                        >
-                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                >
+                                    <ChevronsRight className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Expand Sidebar</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
                 <div className="flex-1 overflow-hidden">

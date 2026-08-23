@@ -293,14 +293,14 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
     <div className="flex h-full w-full min-h-0 gap-0 bg-background transition-all">
       <aside className={cn(
         "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-        (isSidebarCollapsed || hideSidebar) ? "w-0 border-none" : "w-[256px] border-x border-slate-200"
+        (isSidebarCollapsed || hideSidebar) ? "w-0 border-l border-slate-200" : "w-[256px] border-x border-slate-200"
       )}>
         <div className="flex h-full flex-col overflow-hidden">
           {/* Header */}
           {!isSidebarCollapsed && (
-            <div className="flex flex-col border-b border-slate-200">
+            <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
               {isSearchOpen ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                   <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Input
                     autoFocus
@@ -322,7 +322,7 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center justify-between px-4 h-full">
                   <div>
                     <h2 className="text-sm font-semibold text-foreground">AI Chats</h2>
                     <p className="text-xs text-muted-foreground truncate max-w-[120px]">{contextName}</p>
@@ -442,15 +442,21 @@ export function AIChatView({ contextType = 'PROJECT', contextId = '', contextNam
       <div className="flex-1 overflow-hidden relative min-h-0 flex flex-col">
         {isSidebarCollapsed && !hideSidebar && (
           <div className="absolute left-0 top-3 z-30">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-4 w-4 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-              onClick={() => setIsSidebarCollapsed(false)}
-              title="Expand Sidebar"
-            >
-              <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                  onClick={() => setIsSidebarCollapsed(false)}
+                >
+                  <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Expand Sidebar</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
         <div className="flex flex-1 flex-col min-h-0">

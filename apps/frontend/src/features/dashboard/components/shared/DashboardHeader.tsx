@@ -26,11 +26,19 @@ import {
     Copy,
     ExternalLink,
     ChevronDown,
-    SquareArrowOutUpRight as SquareArrowRightExit,
+    SquareArrowRightExit,
+    Briefcase,
+    FolderKanban,
+    Users,
+    LayoutDashboard,
+    Layers,
+    Building2,
+    SquareArrowOutUpRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { IoMdExit } from "react-icons/io";
 
 function AgentIcon({ className }: { className?: string }) {
     return (
@@ -99,6 +107,8 @@ export interface DashboardHeaderProps {
     entityType?: "project" | "space" | "team" | "workspace";
     /** Optional entity icon */
     entityIcon?: React.ReactNode;
+    /** Optional breadcrumbs element to render in place of the default entityIcon and entityName */
+    breadcrumbs?: React.ReactNode;
     /** Whether the entity is starred/favorited */
     isStarred?: boolean;
     /** Handler for star toggle */
@@ -128,6 +138,14 @@ export interface DashboardHeaderProps {
     askAIDisabled?: boolean;
     showShare?: boolean;
     showExit?: boolean;
+
+    /** Context IDs for dynamic scope switcher */
+    workspaceId?: string;
+    spaceId?: string;
+    projectId?: string;
+    teamId?: string;
+    currentScope?: "workspace" | "space" | "team" | "project";
+    showScopeSwitcher?: boolean;
 
     // Popover Contents (Optional): If provided, the action will trigger a popover instead of just onClick
     // However, onClick can still be used for state management (like setting open state)
@@ -181,6 +199,7 @@ export function DashboardHeader({
     entityName,
     entityType = "project",
     entityIcon,
+    breadcrumbs,
     isStarred = false,
     onToggleStar,
     shareUrl,
@@ -199,6 +218,12 @@ export function DashboardHeader({
     askAIDisabled = false,
     showShare = true,
     showExit = false,
+    workspaceId,
+    spaceId,
+    projectId,
+    teamId,
+    currentScope,
+    showScopeSwitcher = true,
     agentPopoverContent,
     agentOpen,
     onAgentOpenChange,
@@ -312,24 +337,17 @@ export function DashboardHeader({
     return (
         <header
             className={cn(
-                "flex items-center justify-between gap-4 border-x border-b border-slate-200 bg-white px-6 py-3",
+                "flex items-center justify-between gap-4 border-x border-b border-slate-200 bg-white px-2 py-3",
                 className
             )}
             role="banner"
         >
             {/* Left Section: Entity Info + Actions */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
-                {/* Entity Icon & Name */}
-                <div className="flex items-center gap-2 min-w-0">
-                    {entityIcon && (
-                        <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                            {entityIcon}
-                        </div>
-                    )}
+                {/* Entity Icon & Name / Breadcrumbs */}
+                {breadcrumbs ? (
                     <div className="flex items-center gap-2 min-w-0">
-                        <h1 className="text-lg font-semibold text-slate-900 truncate">
-                            {entityName}
-                        </h1>
+                        {breadcrumbs}
                         {onToggleStar && (
                             <TooltipProvider>
                                 <Tooltip>
@@ -354,7 +372,43 @@ export function DashboardHeader({
                             </TooltipProvider>
                         )}
                     </div>
-                </div>
+                ) : (
+                    <div className="flex items-center gap-2 min-w-0">
+                        {entityIcon && (
+                            <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                                {entityIcon}
+                            </div>
+                        )}
+                        <div className="flex items-center gap-2 min-w-0">
+                            <h1 className="text-lg font-semibold text-slate-900 truncate">
+                                {entityName}
+                            </h1>
+                            {onToggleStar && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                onClick={onToggleStar}
+                                                className="flex-shrink-0 text-slate-400 hover:text-amber-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 rounded"
+                                                aria-label={isStarred ? "Remove from favorites" : "Add to favorites"}
+                                            >
+                                                <Star
+                                                    className={cn(
+                                                        "h-4 w-4 transition-all",
+                                                        isStarred && "fill-amber-500 text-amber-500"
+                                                    )}
+                                                />
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{isStarred ? "Remove from favorites" : "Add to favorites"}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Divider */}
                 <div className="h-6 w-px bg-slate-200 hidden md:block" />
@@ -430,6 +484,82 @@ export function DashboardHeader({
                                 </TooltipProvider>
                             )
                         )
+                    )}
+
+                    {/* Scope View Switcher */}
+                    {showScopeSwitcher !== false && (workspaceId || spaceId || projectId || teamId) && (
+                        <DropdownMenu>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 relative group transition-all duration-200 ease-in-out w-8 hover:w-auto px-0 hover:px-2.5 justify-center hover:justify-start gap-1"
+                                            >
+                                                <div className="flex items-center justify-center w-8 h-8 shrink-0">
+                                                    <SquareArrowOutUpRight className="h-4 w-4 text-slate-500 group-hover:text-slate-900" />
+                                                </div>
+                                                <span className="hidden group-hover:inline overflow-hidden whitespace-nowrap text-xs font-medium transition-all duration-200">
+                                                    Open in...
+                                                </span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" align="start">
+                                        <p>Open view in dedicated page (Workspace, Space, Team, or Project)</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenuContent align="start" className="w-56">
+                                {workspaceId && currentScope !== "workspace" && (
+                                    <DropdownMenuItem
+                                        className="cursor-pointer gap-2"
+                                        onClick={() => {
+                                            let targetPath = `/dashboard/workspaces/${workspaceId}`;
+                                            if (projectId) targetPath += `/pj/${projectId}`;
+                                            else if (spaceId) targetPath += `/sp/${spaceId}`;
+                                            else if (teamId) targetPath += `/tm/${teamId}`;
+                                            router.push(targetPath);
+                                        }}
+                                    >
+                                        <Building2 className="h-4 w-4 text-indigo-500" />
+                                        <span>View in workspace page</span>
+                                    </DropdownMenuItem>
+                                )}
+
+                                {spaceId && currentScope !== "space" && (
+                                    <DropdownMenuItem
+                                        className="cursor-pointer gap-2"
+                                        onClick={() => router.push(`/dashboard/spaces/${spaceId}`)}
+                                    >
+                                        <Layers className="h-4 w-4 text-blue-500" />
+                                        <span>View in space page</span>
+                                    </DropdownMenuItem>
+                                )}
+
+                                {teamId && currentScope !== "team" && (
+                                    <DropdownMenuItem
+                                        className="cursor-pointer gap-2"
+                                        onClick={() => router.push(`/dashboard/teams/${teamId}`)}
+                                    >
+                                        <Users className="h-4 w-4 text-emerald-500" />
+                                        <span>View in team page</span>
+                                    </DropdownMenuItem>
+                                )}
+
+                                {projectId && currentScope !== "project" && (
+                                    <DropdownMenuItem
+                                        className="cursor-pointer gap-2"
+                                        onClick={() => router.push(`/dashboard/projects/${projectId}`)}
+                                    >
+                                        <Briefcase className="h-4 w-4 text-purple-500" />
+                                        <span>View in project page</span>
+                                    </DropdownMenuItem>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     )}
 
                     {/* Custom Left Actions */}

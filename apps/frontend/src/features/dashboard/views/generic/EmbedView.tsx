@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Globe, Maximize2, RefreshCw, ExternalLink, AlertCircle, X, Pin, Lock, Home, Link as LinkIcon, Users, Settings, ArrowLeft, ChevronRight } from "lucide-react";
+import { Globe, Maximize2, RefreshCw, ExternalLink, AlertCircle, X, Pin, Lock, Home, Link as LinkIcon, Users, Settings, ArrowLeft, ChevronRight, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { trpc } from "@/lib/trpc";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShareViewPermissionModal } from "@/features/dashboard/components/shared/ShareViewPermissionModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -371,6 +372,24 @@ export function EmbedView({
         }
     }, [customizePanelOpen, viewId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const viewContentToSave = useMemo(() => {
+        return {
+            id: viewId,
+            name: viewData?.name || "Embed",
+            type: "EMBED",
+            workspaceId: (workspaceId || viewData?.workspaceId) ?? undefined,
+            spaceId: spaceId || undefined,
+            projectId: projectId || undefined,
+            folderId: folderId || undefined,
+            listId: listId || undefined,
+            teamId: teamId || undefined,
+            config: {
+                ...(typeof viewData?.config === "object" && viewData?.config !== null ? viewData.config : {}),
+                url: currentUrl,
+            },
+        };
+    }, [viewId, viewData, workspaceId, spaceId, projectId, folderId, listId, teamId, currentUrl]);
+
     const transformUrlForEmbed = (inputUrl: string): string => {
         try {
             new URL(inputUrl);
@@ -506,7 +525,7 @@ export function EmbedView({
                     <>
                         {/* ── Toolbar ── */}
                         {!isReadOnly && (
-                            <div className="p-2 border-b flex items-center justify-between bg-slate-50 gap-2 shrink-0">
+                            <div className="p-2 border-b flex items-center justify-between bg-white border-zinc-200 gap-2 shrink-0">
                                 <div className="text-xs text-slate-500 truncate max-w-xl pl-2 font-mono">
                                     {isHtmlEmbed ? "HTML Embed" : currentUrl}
                                 </div>
@@ -699,7 +718,7 @@ export function EmbedView({
                                     <div className="space-y-1">
                                         <button
                                             type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
                                             onClick={() => {
                                                 setEditSourcePanelOpen(true);
                                                 setCustomizePanelOpen(false);
@@ -711,6 +730,22 @@ export function EmbedView({
                                             </span>
                                             <ChevronRight className="h-4 w-4 text-zinc-400" />
                                         </button>
+                                        <TemplateMenuPopover
+                                            entityType="VIEW"
+                                            workspaceId={(workspaceId || viewData?.workspaceId) ?? undefined}
+                                            contentToSave={viewContentToSave}
+                                        >
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                            >
+                                                <span className="flex items-center gap-2">
+                                                    <Wand2 className="h-4 w-4 text-zinc-400" />
+                                                    Templates
+                                                </span>
+                                                <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                            </button>
+                                        </TemplateMenuPopover>
                                     </div>
 
                                     <div className="h-px bg-zinc-100 my-2" />
@@ -744,7 +779,7 @@ export function EmbedView({
                                     <div className="space-y-1">
                                         <button
                                             type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
                                             onClick={() => {
                                                 const link = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
                                                 navigator.clipboard?.writeText(link);
@@ -758,7 +793,7 @@ export function EmbedView({
                                         </button>
                                         <button
                                             type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
                                             onClick={() => setIsShareModalOpen(true)}
                                         >
                                             <span className="flex items-center gap-2">

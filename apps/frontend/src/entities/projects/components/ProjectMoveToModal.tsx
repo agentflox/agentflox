@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
-import { Loader2, MoveRight, ChevronDown, Search, Network, Briefcase, Building2, Folder as FolderIconLucide, Check } from "lucide-react";
+import { Loader2, MoveRight, ChevronDown, Search, Network, Briefcase, Users, Folder as FolderIconLucide, Check, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 
 interface ProjectMoveToModalProps {
     projectId: string;
@@ -25,6 +26,18 @@ export function ProjectMoveToModal({ projectId, projectName, workspaceId, open, 
     const [destinationSearch, setDestinationSearch] = useState("");
     const [destinationOpen, setDestinationOpen] = useState(false);
     const [destinationKey, setDestinationKey] = useState("");
+    const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+
+    const toggleNode = (e: React.MouseEvent, key: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setCollapsedNodes((prev) => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
 
     const { data: spacesData } = trpc.space.list.useQuery({ workspaceId }, { enabled: open });
     const { data: projectsData } = trpc.project.list.useQuery({ workspaceId }, { enabled: open });
@@ -160,76 +173,140 @@ export function ProjectMoveToModal({ projectId, projectName, workspaceId, open, 
                                     <ChevronDown className="size-4 opacity-50" />
                                 </button>
                             </PopoverTrigger>
-                            <PopoverContent align="start" className="w-[380px] p-0 shadow-lg">
-                                <div className="p-2 border-b border-slate-100">
-                                    <div className="flex items-center rounded-md border border-indigo-500 px-2 h-9">
-                                        <Search className="size-4 text-slate-400 shrink-0" />
-                                        <input
-                                            value={destinationSearch}
-                                            onChange={(e) => setDestinationSearch(e.target.value)}
-                                            placeholder="Search locations..."
-                                            className="w-full bg-transparent px-2 text-sm outline-none"
-                                        />
-                                    </div>
+                            <PopoverContent
+                                align="start"
+                                side="bottom"
+                                sideOffset={4}
+                                className="w-[360px] p-0 rounded-xl shadow-xl border-zinc-200 bg-white overflow-hidden max-h-[380px] flex flex-col z-50"
+                            >
+                                <div className="flex h-8 items-center rounded-md border border-zinc-200 bg-white px-2.5 mx-2.5 mt-2.5 mb-1.5 shrink-0 focus-within:border-zinc-400">
+                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0 mr-2" />
+                                    <input
+                                        type="text"
+                                        value={destinationSearch}
+                                        onChange={(e) => setDestinationSearch(e.target.value)}
+                                        placeholder="Search locations..."
+                                        className="w-full bg-transparent border-0 p-0 text-xs outline-none placeholder:text-zinc-400"
+                                        autoFocus
+                                    />
                                 </div>
-                                <div className="max-h-[320px] overflow-y-auto py-1">
-                                    {treeNodes.spaces.filter((s: any) => !destinationSearch.trim() || s.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((space: any) => (
-                                        <div key={space.key}>
-                                            <button
-                                                type="button"
-                                                onClick={() => { setDestinationKey(space.key); setDestinationOpen(false); }}
-                                                className={cn(
-                                                    "w-full flex items-center justify-between py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-                                                    destinationKey === space.key && "bg-indigo-50 text-indigo-700"
-                                                )}
-                                                style={{ paddingLeft: "14px" }}
-                                            >
-                                                <span className="flex items-center gap-2">
-                                                    <Network className="size-3.5 text-slate-400 shrink-0" />
-                                                    <span className="font-medium">{space.name}</span>
-                                                </span>
-                                                {destinationKey === space.key && <Check className="size-3.5 text-indigo-600 shrink-0 mr-3" />}
-                                            </button>
-                                            {space.children.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase())).map((child: any) => (
-                                                <button
-                                                    type="button"
-                                                    key={child.key}
-                                                    onClick={() => { setDestinationKey(child.key); setDestinationOpen(false); }}
-                                                    className={cn(
-                                                        "w-full flex items-center justify-between py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-                                                        destinationKey === child.key && "bg-indigo-50 text-indigo-700"
-                                                    )}
-                                                    style={{ paddingLeft: `${child.depth * 14 + 14}px` }}
+                                <div className="overflow-y-auto flex-1 py-1 max-h-[320px] px-1">
+                                    {treeNodes.spaces.filter((s: any) => !destinationSearch.trim() || s.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((space: any) => {
+                                        const isSpaceCollapsed = collapsedNodes.has(`space-${space.key}`);
+                                        const hasChildren = space.children && space.children.length > 0;
+
+                                        return (
+                                            <div key={space.key} className="space-y-0.5">
+                                                <div
+                                                    className="group/space w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+                                                    onClick={(e) => {
+                                                        if (hasChildren) toggleNode(e, `space-${space.key}`);
+                                                        else {
+                                                            setDestinationKey(space.key);
+                                                            setDestinationOpen(false);
+                                                        }
+                                                    }}
                                                 >
-                                                    <span className="flex items-center gap-2">
-                                                        {child.kind === "project" && <Briefcase className="size-3.5 text-indigo-400 shrink-0" />}
-                                                        {child.kind === "team" && <Building2 className="size-3.5 text-blue-400 shrink-0" />}
-                                                        {child.kind === "folder" && <FolderIconLucide className="size-3.5 text-slate-400 shrink-0" />}
-                                                        <span>{child.label}</span>
-                                                    </span>
-                                                    {destinationKey === child.key && <Check className="size-3.5 text-indigo-600 shrink-0 mr-3" />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ))}
+                                                    <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                                                        <div className="relative h-5 w-5 rounded shrink-0 flex items-center justify-center">
+                                                            <span className={cn("h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center bg-indigo-500 text-white ml-0.5", hasChildren && "group-hover/space:hidden")}>
+                                                                <SpaceIcon icon={space.icon} className="text-white" size={13} fill />
+                                                            </span>
+                                                            {hasChildren && (
+                                                                <div
+                                                                    className="hidden group-hover/space:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
+                                                                    onClick={(e) => toggleNode(e, `space-${space.key}`)}
+                                                                >
+                                                                    <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isSpaceCollapsed && "rotate-90")} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <span className="truncate flex-1 font-medium">{space.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            className="text-[11px] text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 px-1.5 py-0.5 rounded transition-colors"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setDestinationKey(space.key);
+                                                                setDestinationOpen(false);
+                                                            }}
+                                                        >
+                                                            Select
+                                                        </button>
+                                                        {destinationKey === space.key && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                                                    </div>
+                                                </div>
+
+                                                {!isSpaceCollapsed && (
+                                                    <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
+                                                        {space.children.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase())).map((child: any) => (
+                                                            <button
+                                                                type="button"
+                                                                key={child.key}
+                                                                onClick={() => { setDestinationKey(child.key); setDestinationOpen(false); }}
+                                                                className={cn(
+                                                                    "w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                                                    destinationKey === child.key ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+                                                                )}
+                                                                style={{ paddingLeft: `${(child.depth - 1) * 12 + 8}px` }}
+                                                            >
+                                                                <div className="flex items-center gap-2 truncate">
+                                                                    {child.kind === "project" && (
+                                                                        <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                                                            <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                                                                        </div>
+                                                                    )}
+                                                                    {child.kind === "team" && (
+                                                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                                            <Users className="h-3 w-3 text-emerald-600 shrink-0" />
+                                                                        </div>
+                                                                    )}
+                                                                    {child.kind === "folder" && (
+                                                                        <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                                                            <FolderIconLucide className="h-3 w-3 text-blue-600 shrink-0" />
+                                                                        </div>
+                                                                    )}
+                                                                    <span className="truncate">{child.label}</span>
+                                                                </div>
+                                                                {destinationKey === child.key && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                     {treeNodes.rootChildren.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase())).map((child: any) => (
                                         <button
                                             type="button"
                                             key={child.key}
                                             onClick={() => { setDestinationKey(child.key); setDestinationOpen(false); }}
                                             className={cn(
-                                                "w-full flex items-center justify-between py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-                                                destinationKey === child.key && "bg-indigo-50 text-indigo-700"
+                                                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+                                                destinationKey === child.key ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
                                             )}
-                                            style={{ paddingLeft: "14px" }}
                                         >
-                                            <span className="flex items-center gap-2">
-                                                {child.kind === "project" && <Briefcase className="size-3.5 text-indigo-400 shrink-0" />}
-                                                {child.kind === "team" && <Building2 className="size-3.5 text-blue-400 shrink-0" />}
-                                                {child.kind === "folder" && <FolderIconLucide className="size-3.5 text-slate-400 shrink-0" />}
-                                                <span>{child.label}</span>
-                                            </span>
-                                            {destinationKey === child.key && <Check className="size-3.5 text-indigo-600 shrink-0 mr-3" />}
+                                            <div className="flex items-center gap-2 truncate">
+                                                {child.kind === "project" && (
+                                                    <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                                        <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                                                    </div>
+                                                )}
+                                                {child.kind === "team" && (
+                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                        <Users className="h-3 w-3 text-emerald-600 shrink-0" />
+                                                    </div>
+                                                )}
+                                                {child.kind === "folder" && (
+                                                    <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                                        <FolderIconLucide className="h-3 w-3 text-blue-600 shrink-0" />
+                                                    </div>
+                                                )}
+                                                <span className="truncate">{child.label}</span>
+                                            </div>
+                                            {destinationKey === child.key && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
                                         </button>
                                     ))}
                                 </div>

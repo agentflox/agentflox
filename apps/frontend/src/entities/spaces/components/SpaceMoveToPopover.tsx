@@ -56,10 +56,14 @@ export function SpaceMoveToPopover({ spaceId, spaceName, onSuccess }: SpaceMoveT
 
     const triggerNode = (
         <button
-            className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-slate-100 hover:text-slate-900 focus:bg-slate-100 focus:text-slate-900"
+            type="button"
+            className="flex items-center justify-between px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
         >
-            <LogOut className="mr-2 h-4 w-4" /> Move
-            <ChevronRight className="ml-auto h-4 w-4" />
+            <div className="flex items-center gap-2">
+                <LogOut className="h-4 w-4 shrink-0 text-zinc-500" />
+                <span>Move</span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-500" />
         </button>
     );
 
@@ -74,22 +78,22 @@ export function SpaceMoveToPopover({ spaceId, spaceName, onSuccess }: SpaceMoveT
                     {triggerNode}
                 </div>
             </HoverCardTrigger>
-            <HoverCardContent align="start" side="right" sideOffset={5} className="w-64 p-0 z-[9999] shadow-md border-muted">
-                <div className="p-2 border-b border-slate-100">
-                    <div className="flex items-center rounded-md border border-indigo-500 px-2 h-9">
-                        <Search className="size-4 text-slate-400 shrink-0" />
+            <HoverCardContent align="start" side="right" sideOffset={8} className="w-64 p-1.5 bg-white rounded-xl shadow-xl border border-zinc-200/90 flex flex-col gap-0.5 z-[9999]">
+                <div className="p-1 pb-1.5 border-b border-zinc-100 mb-1">
+                    <div className="flex items-center rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 h-8 focus-within:bg-white focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
+                        <Search className="size-3.5 text-zinc-400 shrink-0" />
                         <input
                             value={destinationSearch}
                             onChange={(e) => setDestinationSearch(e.target.value)}
                             placeholder="Search workspaces..."
-                            className="w-full bg-transparent px-2 text-sm outline-none"
+                            className="w-full bg-transparent px-2 text-xs outline-none placeholder:text-zinc-400"
                             autoFocus
                         />
                     </div>
                 </div>
-                <div className="max-h-[320px] overflow-y-auto py-1">
+                <div className="max-h-[320px] overflow-y-auto py-0.5 space-y-0.5">
                     {workspaces.filter((w: any) => !destinationSearch.trim() || w.name.toLowerCase().includes(destinationSearch.toLowerCase())).length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-slate-500 text-center italic">No workspaces found</div>
+                        <div className="px-3 py-2 text-sm text-zinc-500 text-center italic">No workspaces found</div>
                     ) : (
                         workspaces.filter((w: any) => !destinationSearch.trim() || w.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((workspace: any) => (
                             <button
@@ -102,14 +106,14 @@ export function SpaceMoveToPopover({ spaceId, spaceName, onSuccess }: SpaceMoveT
                                 }}
                                 disabled={isMoving}
                                 className={cn(
-                                    "w-full flex items-center gap-2 py-2 px-3 text-left text-[13.5px] cursor-pointer hover:bg-slate-50 transition-colors",
+                                    "w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer transition-colors font-normal",
                                     isMoving && movingToId === workspace.id && "bg-indigo-50 text-indigo-700 pointer-events-none"
                                 )}
                             >
                                 {isMoving && movingToId === workspace.id ? (
                                     <Loader2 className="size-3.5 text-indigo-500 shrink-0 animate-spin" />
                                 ) : (
-                                    <Network className="size-3.5 text-slate-400 shrink-0" />
+                                    <Network className="size-3.5 text-zinc-400 shrink-0" />
                                 )}
                                 <span className="font-medium truncate flex-1">{workspace.name}</span>
                             </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
     FileText,
@@ -19,6 +19,7 @@ import {
     Settings,
     ArrowRightLeft,
     Wand2,
+    Play,
     Loader2
 } from "lucide-react";
 import { Panel, Group, Separator as ResizableSeparator } from "react-resizable-panels";
@@ -44,7 +45,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import {
     Tooltip,
@@ -55,6 +56,7 @@ import {
 import { useRef } from "react";
 import { DynamicLucideIcon } from "@/lib/lucideIcon";
 import { getAgentMemoryTag, isPreferencesMemoryDoc } from "@/lib/agentMemory/memoryPolicy";
+import { parseDashboardState } from "@/features/dashboard/utils/dashboardUrl";
 
 import {
     DndContext,
@@ -127,10 +129,12 @@ interface DocViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     context?: string;
+    isMainSidebarCollapsed?: boolean;
 }
 
-export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, workspaceId: workspaceIdProp }: DocViewProps) {
+export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, workspaceId: workspaceIdProp, isMainSidebarCollapsed }: DocViewProps) {
     const params = useParams();
+    const searchParams = useSearchParams();
     const workspaceId = workspaceIdProp || (params?.workspaceId as string | undefined);
 
     // Derive scope from most-specific context available
@@ -322,7 +326,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
             // Switch from temp to real id; the get query will load fresh data
             loadedDocIdRef.current = null;
             isLoadingDocRef.current = false;
-            setSelectedDocId(newDoc.id);
+            handleSelectDoc(newDoc.id);
         },
         onError: (_err, _variables, context: any) => {
             if (context?.previousData) {
@@ -331,10 +335,28 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
                 });
             }
             // Restore selection to first available page
-            setSelectedDocId(null);
+            handleSelectDoc(null);
             toast({ title: "Failed to add page", variant: "destructive" });
         }
     });
+
+    const handleSelectDoc = useCallback((id: string | null) => {
+        setSelectedDocId(id);
+        const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+        let nextPath = pathname;
+        if (pathname.includes('/dv/') || pathname.includes('/dashboard/docs/')) {
+            const basePath = pathname.replace(/\/dc\/[^/]+/, "");
+            nextPath = id ? `${basePath}/dc/${id}` : basePath;
+        }
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.delete("doc");
+        nextParams.delete("page");
+        nextParams.delete("dc");
+        const qs = nextParams.toString();
+        if (typeof history !== "undefined") {
+            history.replaceState(null, "", qs ? `${nextPath}?${qs}` : nextPath);
+        }
+    }, [searchParams]);
 
     const handleAddPage = (e: React.MouseEvent, parentId?: string) => {
         e.stopPropagation();
@@ -385,12 +407,18 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
         return checkChildren(actualPages);
     }, [selectedDocId, actualPages]);
 
-    // Auto-select first doc
+    const subpath = Array.isArray(params?.subpath) ? params.subpath : undefined;
+    const parsedDashboardState = useMemo(() => parseDashboardState(searchParams, subpath), [searchParams, subpath]);
+    const urlDocId = parsedDashboardState.docItemId || searchParams.get("dc") || searchParams.get("doc") || searchParams.get("page");
+
+    // Auto-select first doc or sync with URL
     useEffect(() => {
-        if (actualPages.length > 0 && !selectedDocId) {
-            setSelectedDocId(actualPages[0].id);
+        if (urlDocId && urlDocId !== selectedDocId) {
+            setSelectedDocId(urlDocId);
+        } else if (actualPages.length > 0 && !selectedDocId && !urlDocId) {
+            handleSelectDoc(actualPages[0].id);
         }
-    }, [actualPages, selectedDocId]);
+    }, [actualPages, selectedDocId, urlDocId, handleSelectDoc]);
 
     const { data: selectedDocument } = trpc.document.get.useQuery(
         { id: selectedDocId as string },
@@ -446,10 +474,9 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
             return { previousListData, previousGetData };
         },
         onSuccess: (_data, variables) => {
+            // Re-fetch in background to align with server state
+            utils.document.get.invalidate({ id: variables.id });
             utils.document.list.invalidate();
-            // NOTE: Do NOT invalidate the GET query here. The optimistic update in onMutate already
-            // correctly patches the cache. Invalidating causes a refetch that races with user typing
-            // and triggers the isExternalUpdate check, reverting the title mid-keystroke.
         },
         onError: (_err, variables, context: any) => {
             if (context?.previousListData) {
@@ -458,21 +485,32 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
                 });
             }
             if (context?.previousGetData) {
-                queryClient.setQueryData([['document', 'get'], { input: { id: variables.id }, type: 'query' }], context.previousGetData);
+                queryClient.setQueryData([['document', 'get', { input: { id: variables.id } }]], context.previousGetData);
             }
+            toast({ title: "Failed to save changes", variant: "destructive" });
         }
     });
 
+    const deleteDocument = trpc.document.delete.useMutation({
+        onSuccess: () => {
+            utils.document.list.invalidate();
+            handleSelectDoc(null);
+            toast({ title: "Page deleted" });
+        },
+        onError: () => {
+            toast({ title: "Failed to delete page", variant: "destructive" });
+        }
+    });
 
+    // Normalise nullable strings to "" for safe comparisons
+    const norm = (v: string | null | undefined): string => v ?? "";
+
+    // True when the fetched document is a *different* doc than what's currently in the editor
+    const isDocChange = !!selectedDocument && selectedDocument.id !== loadedDocIdRef.current;
+
+    // Populate local editor state when selectedDocument finishes loading
     useEffect(() => {
         if (!selectedDocument) return;
-        // Don't overwrite the fresh state we just set for a newly created temp page
-        if (selectedDocId?.startsWith('temp-')) return;
-
-        // Normalize null/undefined → "" so null vs "" doesn't trigger false external updates
-        const norm = (v: string | null | undefined) => v ?? "";
-
-        const isDocChange = selectedDocument.id !== loadedDocIdRef.current;
         const titleExternal = norm(selectedDocument.title) !== norm(lastSyncedDataRef.current.title) && norm(selectedDocument.title) !== norm(title);
         const contentExternal = norm(selectedDocument.content) !== norm(lastSyncedDataRef.current.content) && norm(selectedDocument.content) !== norm(content);
         const coverExternal = norm(selectedDocument.coverImage) !== norm(lastSyncedDataRef.current.coverImage) && norm(selectedDocument.coverImage) !== norm(coverImage);
@@ -836,7 +874,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
                         activeId === page.id && "opacity-40"
                     )}
                     style={{ paddingLeft: `${0.5 + displayDepth * 1.25}rem` }}
-                    onClick={() => setSelectedDocId(page.id)}
+                    onClick={() => handleSelectDoc(page.id)}
                     onDoubleClick={(e) => {
                         e.stopPropagation();
                         setEditingPageId(page.id);
@@ -848,7 +886,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
                             className="p-0.5 -ml-1 rounded-sm hover:bg-zinc-300/50 transition-colors cursor-pointer"
                             onClick={(e) => togglePageExpand(e, page.id)}
                         >
-                            <ChevronRight className={cn("h-3.5 w-3.5 text-zinc-400 transition-transform duration-200", expandedPages[page.id] && "rotate-90")} />
+                            <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", expandedPages[page.id] && "rotate-90")} />
                         </div>
                     ) : (
                         <div className="w-4 h-4 shrink-0" />
@@ -948,14 +986,14 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
 
     return (
         <div className={cn(
-            "flex h-full w-full bg-white text-zinc-900 border-t border-zinc-200",
+            "flex h-full w-full bg-white text-zinc-900",
             pageSettings.fontStyle === 'serif' ? 'font-serif' : pageSettings.fontStyle === 'mono' ? 'font-mono' : 'font-sans',
             pageSettings.fontSize === 'small' ? 'text-sm' : pageSettings.fontSize === 'large' ? 'text-lg' : 'text-base'
         )}>
             {/* Sidebar */}
             {!(isSidebarCollapsed || pageSettings.focusModePage) ? (
                 <div
-                    className="flex flex-col shrink-0 bg-zinc-50/50 relative border-x border-zinc-200"
+                    className="flex flex-col shrink-0 bg-zinc-50/50 relative border-r border-zinc-200"
                     style={{ width: sidebarWidth, minWidth: sidebarWidth }}
                 >
                     {/* Resizer Handle */}
@@ -963,8 +1001,10 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
                         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-sky-400/50 active:bg-sky-500 z-10 transition-colors"
                         onMouseDown={startSidebarDrag}
                     />
-
-                    <div className="h-14 border-b border-zinc-200 flex items-center justify-between px-3 shrink-0">
+                    <div className={cn(
+                        "h-14 border-b border-zinc-200 flex items-center justify-between px-3 shrink-0",
+                        isMainSidebarCollapsed && "pl-8"
+                    )}>
                         <div className="flex items-center gap-2">
                             <div className="bg-sky-500 rounded p-1 flex items-center justify-center">
                                 <FileText className="h-3.5 w-3.5 text-white" />

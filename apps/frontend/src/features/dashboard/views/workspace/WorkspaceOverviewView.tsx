@@ -19,8 +19,8 @@ import { SpaceCreationModal } from "@/entities/spaces/components/SpaceCreationMo
 import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
 import { ChatCreationModal } from "@/entities/channels/components/ChatCreationModal";
-import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
-import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { FolderCreationModal } from "@/entities/folders/components/FolderCreationModal";
+import { ListCreationModal } from "@/entities/lists/components/ListCreationModal";
 import { WorkspaceGeneralSettingsModal, WorkspaceIcon } from "@/entities/workspace";
 import { ShareModal } from "@/components/permissions/ShareModal";
 import { formatDistanceToNow } from "date-fns";
@@ -403,9 +403,9 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 								<ScrollArea className="max-h-[320px]">
 									<div className="divide-y divide-slate-50">
 										{spaces.map((space: any) => {
-											const params = new URLSearchParams(searchParams.toString());
+											const params = new URLSearchParams();
 											params.set("tab", "spaces");
-											params.set("sid", space.id);
+											params.set("sp", space.id);
 											const url = `${pathname}?${params.toString()}`;
 											return (
 												<div
@@ -448,7 +448,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 								<ScrollArea className="max-h-[320px]">
 									<div className="divide-y divide-slate-50">
 										{projects.map((project: any) => {
-											const params = new URLSearchParams(searchParams.toString());
+											const params = new URLSearchParams();
 											params.set("tab", "projects");
 											params.set("pj", project.id);
 											const url = `${pathname}?${params.toString()}`;
@@ -497,7 +497,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 									<div className="divide-y divide-slate-50">
 										{teams.map((team: any) => {
 											const memberCount = team._count?.members ?? team.memberCount ?? team.members?.length ?? 0;
-											const params = new URLSearchParams(searchParams.toString());
+											const params = new URLSearchParams();
 											params.set("tab", "teams");
 											params.set("tm", team.id);
 											const url = `${pathname}?${params.toString()}`;
@@ -546,7 +546,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 								<ScrollArea className="max-h-[320px]">
 									<div className="divide-y divide-slate-50">
 										{channels.map((channel: any) => {
-											const params = new URLSearchParams(searchParams.toString());
+											const params = new URLSearchParams();
 											params.set("tab", "chats");
 											params.set("ch", channel.id);
 											const url = `${pathname}?${params.toString()}`;
@@ -777,7 +777,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 			/>
 
 			<FolderCreationModal
-				context="GENERAL"
+				context="WORKSPACE"
 				contextId={workspaceId}
 				workspaceId={workspaceId}
 				open={folderModalOpen}
@@ -788,7 +788,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 			/>
 
 			<ListCreationModal
-				context="GENERAL"
+				context="WORKSPACE"
 				contextId={workspaceId}
 				workspaceId={workspaceId}
 				open={listModalOpen}

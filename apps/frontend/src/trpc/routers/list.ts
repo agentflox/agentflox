@@ -83,12 +83,20 @@ async function assertContextAccess(
     const space = await prisma.space.findFirst({
       where: {
         id: spaceId,
-        workspace: {
-          OR: [
-            { ownerId: userId },
-            { members: { some: { userId } } },
-          ],
-        },
+        OR: [
+          // Space-level: owner or direct member
+          { ownerId: userId },
+          { members: { some: { userId } } },
+          // Workspace-level: workspace owner or workspace member
+          {
+            workspace: {
+              OR: [
+                { ownerId: userId },
+                { members: { some: { userId } } },
+              ],
+            },
+          },
+        ],
       },
       select: { id: true, workspaceId: true },
     });
@@ -343,13 +351,14 @@ export const listRouter = router({
         .extend({
           archived: z.boolean().optional(),
           includeViewDetails: z.boolean().optional().default(true),
+          directOnly: z.boolean().optional().default(false),
         })
         .refine(
           (data) =>
-            data.workspaceId || data.spaceId || data.projectId || data.teamId,
+            data.workspaceId || data.spaceId || data.projectId || data.teamId || data.folderId,
           {
             message:
-              "At least one context (workspace, space, project, or team) must be provided",
+              "At least one context (workspace, space, project, team, or folder) must be provided",
           }
         )
     )
@@ -372,6 +381,23 @@ export const listRouter = router({
       if (input.projectId) where.projectId = input.projectId;
       if (input.teamId) where.teamId = input.teamId;
       if (input.folderId) where.folderId = input.folderId;
+
+      if (input.directOnly) {
+        // Workspace root lists only: exclude Space, Team, Project, and Folders
+        if (input.workspaceId && !input.spaceId && !input.projectId && !input.teamId && !input.folderId) {
+          where.spaceId = null;
+          where.projectId = null;
+          where.teamId = null;
+        }
+        // Space root lists only: exclude nested project lists
+        if (input.spaceId && !input.projectId && !input.folderId) {
+          where.projectId = null;
+        }
+        // Team root lists only: exclude nested project lists
+        if (input.teamId && !input.projectId && !input.folderId) {
+          where.projectId = null;
+        }
+      }
 
       // Filter by archived status (default to false if not specified)
       if (input.archived !== undefined) {

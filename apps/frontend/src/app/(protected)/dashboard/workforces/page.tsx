@@ -46,6 +46,14 @@ import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
 import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 
+import {
+  LocationTypeFilterSubmenu,
+  NestedLocationFilterSubmenu,
+  DashboardSortPopover,
+  LocationSelection,
+} from "@/features/dashboard/components/shared/DashboardFilterSubmenus";
+import { Globe, User, Users, Circle, Workflow, Cpu } from "lucide-react";
+
 export default function WorkforcePage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -66,6 +74,9 @@ export default function WorkforcePage() {
     hasNextPage,
     hasPreviousPage,
   } = useWorkforceList("owned", { includeCounts: false });
+
+  const [locationTypeFilter, setLocationTypeFilter] = useState<string>("all");
+  const [locationFilter, setLocationFilter] = useState<LocationSelection>(null);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -148,6 +159,9 @@ export default function WorkforcePage() {
     }
   };
 
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { EntityStatusBadge, EntityModeBadge } from "@/components/ui/status-badge";
+
   const columns: ColumnDef<any>[] = [
     {
       id: "select",
@@ -178,52 +192,65 @@ export default function WorkforcePage() {
         return (
           <div className="flex flex-col">
             <span
-              className="font-medium text-foreground hover:underline cursor-pointer"
+              className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer"
               onClick={() => router.push(DASHBOARD_ROUTES.WORKFORCE_CREATE(workforce.id))}
             >
               {workforce.name || "Untitled Workforce"}
             </span>
-            {workforce.description && (
-              <span className="text-xs text-muted-foreground truncate max-w-[250px]">
-                {workforce.description}
-              </span>
-            )}
           </div>
+        );
+      },
+    },
+    {
+      accessorKey: "description",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+      cell: ({ row }) => {
+        const desc = row.original.description;
+        return (
+          <span className="text-xs text-zinc-500 line-clamp-1 max-w-[240px]" title={desc}>
+            {desc || "-"}
+          </span>
         );
       },
     },
     {
       accessorKey: "mode",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Mode" />,
-      cell: ({ row }) => {
-        const mode = row.original.mode || "FLOW";
-        return (
-          <Badge variant="outline">
-            {mode === "FLOW" ? "Workflow" : "Swarm"}
-          </Badge>
-        );
-      },
+      cell: ({ row }) => <EntityModeBadge mode={row.original.mode || "FLOW"} />,
     },
     {
       accessorKey: "status",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+      cell: ({ row }) => <EntityStatusBadge status={row.original.status || "ACTIVE"} />,
+    },
+    {
+      id: "owner",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Owner" />,
       cell: ({ row }) => {
-        const status = row.original.status || "ACTIVE";
+        const owner = row.original.owner || row.original.user || row.original.creator;
+        return <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{owner?.name || "You"}</span>;
+      },
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date Created" />,
+      cell: ({ row }) => {
+        const date = row.original.createdAt;
         return (
-          <Badge variant={status === "ACTIVE" ? "default" : "secondary"}>
-            {status}
-          </Badge>
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
+            {date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+          </span>
         );
       },
     },
     {
       id: "updatedAt",
       accessorKey: "updatedAt",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Last Modified" />,
       cell: ({ row }) => {
         if (!row.original.updatedAt) return null;
         return (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
             {formatDistanceToNow(new Date(row.original.updatedAt), { addSuffix: true })}
           </span>
         );
@@ -236,7 +263,7 @@ export default function WorkforcePage() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" className="h-8 w-8 p-0 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 hover:font-medium transition-colors cursor-pointer">
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -259,6 +286,18 @@ export default function WorkforcePage() {
       },
     },
   ];
+
+  const renderRowContextMenu = (workforce: any) => (
+    <>
+      <ContextMenuItem onClick={() => router.push(DASHBOARD_ROUTES.WORKFORCE_CREATE(workforce.id))} className="cursor-pointer">
+        <PenSquare className="mr-2 h-4 w-4" /> Edit Workforce
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem className="text-red-600 focus:text-red-600 cursor-pointer" onClick={() => handleDelete(workforce.id)}>
+        <Trash className="mr-2 h-4 w-4" /> Delete Workforce
+      </ContextMenuItem>
+    </>
+  );
 
   const handleBulkDelete = (rows: any[]) => handleBulkDeleteModal(rows);
 
@@ -330,50 +369,103 @@ export default function WorkforcePage() {
                 <Button variant="ghost" className="h-9 px-3 gap-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all">
                   <Filter className="h-4 w-4" />
                   <span>Filter</span>
-                  {(scope !== "all" || filters.status || filters.mode) && (
+                  {(scope !== "all" || filters.status || filters.mode || locationTypeFilter !== "all" || locationFilter) && (
                     <span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-                      {(scope !== "all" ? 1 : 0) + (filters.status ? 1 : 0) + (filters.mode ? 1 : 0)}
+                      {(scope !== "all" ? 1 : 0) + (filters.status ? 1 : 0) + (filters.mode ? 1 : 0) + (locationTypeFilter !== "all" ? 1 : 0) + (locationFilter ? 1 : 0)}
                     </span>
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[180px]">
+              <DropdownMenuContent align="end" className="w-[200px]">
                 <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                   Filter by
                 </div>
                 <DropdownMenuSeparator />
 
+                <LocationTypeFilterSubmenu
+                  selectedType={locationTypeFilter}
+                  onSelectType={setLocationTypeFilter}
+                  allowedTypes={["workspace", "space", "project", "team"]}
+                />
+
+                <NestedLocationFilterSubmenu
+                  selectedLocation={locationFilter}
+                  onSelectLocation={setLocationFilter}
+                />
+
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Scope</DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-zinc-500" />
+                    <span>Scope</span>
+                  </DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuSubContent>
-                      <DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")}>All Workforces</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={scope === ("owned" as any)} onCheckedChange={() => setScope("owned" as any)}>Owned by me</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={scope === "member"} onCheckedChange={() => setScope("member")}>Shared with me</DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")} className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-zinc-400" />
+                        <span>All Workforces</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={scope === ("owned" as any)} onCheckedChange={() => setScope("owned" as any)} className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-blue-500" />
+                        <span>Owned by me</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={scope === "member"} onCheckedChange={() => setScope("member")} className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-emerald-500" />
+                        <span>Shared with me</span>
+                      </DropdownMenuCheckboxItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
 
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger className="flex items-center gap-2">
+                    <Circle className="h-4 w-4 text-zinc-500" />
+                    <span>Status</span>
+                  </DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuSubContent>
-                      <DropdownMenuCheckboxItem checked={!filters.status} onCheckedChange={() => setFilters({ ...filters, status: "" as any })}>All Status</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={filters.status === "ACTIVE"} onCheckedChange={() => setFilters({ ...filters, status: "ACTIVE" })}>Active</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={filters.status === "PAUSED"} onCheckedChange={() => setFilters({ ...filters, status: "PAUSED" })}>Paused</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={filters.status === "DRAFT"} onCheckedChange={() => setFilters({ ...filters, status: "DRAFT" })}>Draft</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={filters.status === "ARCHIVED"} onCheckedChange={() => setFilters({ ...filters, status: "ARCHIVED" })}>Archived</DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={!filters.status} onCheckedChange={() => setFilters({ ...filters, status: "" as any })} className="flex items-center gap-2">
+                        <Circle className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>All Status</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={filters.status === "ACTIVE"} onCheckedChange={() => setFilters({ ...filters, status: "ACTIVE" })} className="flex items-center gap-2">
+                        <Circle className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500" />
+                        <span>Active</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={filters.status === "PAUSED"} onCheckedChange={() => setFilters({ ...filters, status: "PAUSED" })} className="flex items-center gap-2">
+                        <Circle className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                        <span>Paused</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={filters.status === "DRAFT"} onCheckedChange={() => setFilters({ ...filters, status: "DRAFT" })} className="flex items-center gap-2">
+                        <Circle className="h-3.5 w-3.5 text-zinc-400 fill-zinc-400" />
+                        <span>Draft</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={filters.status === "ARCHIVED"} onCheckedChange={() => setFilters({ ...filters, status: "ARCHIVED" })} className="flex items-center gap-2">
+                        <Circle className="h-3.5 w-3.5 text-red-500 fill-red-500" />
+                        <span>Archived</span>
+                      </DropdownMenuCheckboxItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
 
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Mode</DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger className="flex items-center gap-2">
+                    <Workflow className="h-4 w-4 text-zinc-500" />
+                    <span>Mode</span>
+                  </DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuSubContent>
-                      <DropdownMenuCheckboxItem checked={!filters.mode} onCheckedChange={() => setFilters({ ...filters, mode: "" as any })}>All Modes</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={filters.mode === "FLOW"} onCheckedChange={() => setFilters({ ...filters, mode: "FLOW" })}>Workflow</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem checked={filters.mode === "SWARM"} onCheckedChange={() => setFilters({ ...filters, mode: "SWARM" })}>Swarm</DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={!filters.mode} onCheckedChange={() => setFilters({ ...filters, mode: "" as any })} className="flex items-center gap-2">
+                        <Workflow className="h-4 w-4 text-zinc-400" />
+                        <span>All Modes</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={filters.mode === "FLOW"} onCheckedChange={() => setFilters({ ...filters, mode: "FLOW" })} className="flex items-center gap-2">
+                        <Workflow className="h-4 w-4 text-indigo-500" />
+                        <span>Workflow</span>
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem checked={filters.mode === "SWARM"} onCheckedChange={() => setFilters({ ...filters, mode: "SWARM" })} className="flex items-center gap-2">
+                        <Cpu className="h-4 w-4 text-violet-500" />
+                        <span>Swarm</span>
+                      </DropdownMenuCheckboxItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
                 </DropdownMenuSub>
@@ -417,78 +509,15 @@ export default function WorkforcePage() {
             })()}
 
             {/* Sort Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="h-9 gap-1.5 px-3 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all cursor-pointer rounded-md outline-hidden focus:ring-0 focus-visible:ring-0"
-                >
-                  <ArrowUpDown className="h-4 w-4" />
-                  <span>Sort</span>
-                  {sort.length > 0 && (
-                    <span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-                      {sort.length}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200" sideOffset={8}>
-                <div className="px-2 py-1.5 mb-1">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Sort By</span>
-                </div>
-                <div className="space-y-0.5">
-                  <div
-                    className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-zinc-50 transition-colors text-zinc-600"
-                    onClick={() => setSort([])}
-                  >
-                    <span className="flex-1">None (default)</span>
-                    {sort.length === 0 && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-                  </div>
-                  {[
-                    { id: "name", label: "Name" },
-                    { id: "mode", label: "Mode" },
-                    { id: "status", label: "Status" },
-                    { id: "updatedAt", label: "Updated Date" },
-                  ].map((opt) => {
-                    const currentSortIndex = sort.findIndex(s => s.id === opt.id);
-                    const isSelected = currentSortIndex >= 0;
-                    const currentSort = isSelected ? sort[currentSortIndex] : null;
-
-                    return (
-                      <div
-                        key={opt.id}
-                        className={cn(
-                          "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item",
-                          isSelected ? "bg-zinc-50 text-zinc-900" : "text-zinc-600 hover:bg-zinc-100"
-                        )}
-                        onClick={() => {
-                          if (isSelected) setSort(s => s.filter(i => i.id !== opt.id));
-                          else setSort(s => [...s, { id: opt.id, desc: false }]);
-                        }}
-                      >
-                        <div
-                          className="h-5 w-5 flex items-center justify-center rounded hover:bg-zinc-200 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isSelected) setSort(s => s.map(i => i.id === opt.id ? { ...i, desc: !i.desc } : i));
-                            else setSort(s => [...s, { id: opt.id, desc: false }]);
-                          }}
-                        >
-                          {isSelected &&
-                            <div className="flex flex-col items-center -space-y-1">
-                              <ChevronUp className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-800' : 'text-zinc-300'}`} />
-                              <ChevronDown className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-300' : 'text-zinc-800'}`} />
-                            </div>
-                          }
-                        </div>
-                        <span className="flex-1">{opt.label}</span>
-                        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
+            <DashboardSortPopover
+              sort={sort}
+              onSortChange={setSort}
+              options={[
+                { id: "name", label: "Name" },
+                { id: "mode", label: "Mode" },
+                { id: "status", label: "Status" },
+              ]}
+            />
           </SearchSection>
 
           {filterChips.length > 0 && (
@@ -578,7 +607,16 @@ export default function WorkforcePage() {
                 )}
               </>
             ) : (
-              <DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
+              <DataTable
+                columns={columns}
+                data={data.items}
+                onDeleteSelected={handleBulkDelete}
+                onTableReady={setTable}
+                renderRowContextMenu={renderRowContextMenu}
+                hideToolbar
+                columnVisibility={columnVisibility}
+                onColumnVisibilityChange={setColumnVisibility}
+              />
             )
           ) : (
             <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">

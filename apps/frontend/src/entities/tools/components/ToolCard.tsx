@@ -11,6 +11,7 @@ import {
 	DropdownMenuTrigger,
 	DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { EntityModeBadge } from "@/components/ui/status-badge";
 
 type ToolSummary = {
 	id: string;
@@ -100,15 +101,7 @@ export function ToolCard({ item, onOpen, onManage, onDelete, isSelected, onSelec
 							</h3>
 
 							{/* Mode Badge */}
-							<span className={cn(
-								"shrink-0 flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider shadow-sm",
-								isAI
-									? "bg-violet-500 text-white dark:bg-violet-600"
-									: "bg-sky-500 text-white dark:bg-sky-600"
-							)}>
-								{isAI ? <Sparkles className="h-3 w-3" /> : <Workflow className="h-3 w-3" />}
-								{isAI ? "AI Mode" : "Flow Mode"}
-							</span>
+							<EntityModeBadge mode={isAI ? "AI Mode" : "Flow Mode"} />
 						</div>
 						<p className="line-clamp-2 text-sm text-slate-500 leading-relaxed">
 							{item.description || "No description provided."}

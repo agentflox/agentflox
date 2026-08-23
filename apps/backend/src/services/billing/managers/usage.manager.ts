@@ -1095,7 +1095,7 @@ export class UsageManager {
             [NotificationType.SUBSCRIPTION_EXPIRED]: {
                 title: 'Subscription Usage Limit Reached',
                 generateMessage: (service: Service) =>
-                    `Your subscription usage for ${service} service has been reached. Doc2Product will use your active credit packages.`
+                    `Your subscription usage for ${service} service has been reached. Agentflox will use your active credit packages.`
             }
         };
         return configs[type as keyof typeof configs];

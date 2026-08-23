@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 import DashboardProjectView from "@/features/dashboard/views/generic/DashboardProjectView";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
 import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
+import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TeamProjectViewProps {
@@ -58,6 +60,9 @@ export default function TeamProjectView({
     // URL-derived active items
     const activeProjectId = searchParams.get("pj") || selectedProjectId || null;
 
+    // Fetch team to get spaceId
+    const { data: teamData } = trpc.team.get.useQuery({ id: teamId }, { enabled: !!teamId });
+
     // Fetch projects scoped to this team
     const { data: projectsData, isLoading: isLoadingProjects, refetch: refetchProjects } = trpc.project.list.useQuery(
         { workspaceId, teamId, scope: "owned", pageSize: 50 } as any,
@@ -73,10 +78,17 @@ export default function TeamProjectView({
 
     // --- Handlers ---
     const handleProjectClick = useCallback((projectId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("pj", projectId);
-        router.push(`?${params.toString()}`, { scroll: false });
-        if (onProjectSelect) onProjectSelect(projectId);
+        if (onProjectSelect) {
+            onProjectSelect(projectId);
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "projects",
+                entityKey: "pj",
+                entityId: projectId,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     }, [searchParams, router, onProjectSelect]);
 
     // Auto-select first project when no selection exists
@@ -90,7 +102,7 @@ export default function TeamProjectView({
     const renderMainContent = () => {
         if (activeProjectId) {
             return (
-                <div className="flex-1 overflow-hidden bg-zinc-50 h-full">
+                <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_[role=tablist]]:pl-6")}>
                     <DashboardProjectView
                         projectId={activeProjectId}
                         workspaceId={workspaceId}
@@ -134,14 +146,14 @@ export default function TeamProjectView({
             {/* Projects Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-                isSidebarCollapsed ? "w-0 border-none" : "w-[256px] border-r border-slate-200"
+                isSidebarCollapsed ? "w-0 border-l border-slate-200" : "w-[256px] border-x border-slate-200"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
                     {/* Header */}
                     {!isSidebarCollapsed && (
-                        <div className="flex flex-col border-b border-slate-200">
+                        <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
                             {isSearchOpen ? (
-                                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                                     <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                                     <Input
                                         autoFocus
@@ -160,51 +172,51 @@ export default function TeamProjectView({
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between px-4 py-3">
+                                <div className="flex items-center justify-between px-4 h-full">
                                     <h2 className="text-sm font-semibold text-foreground">Projects</h2>
                                     <div className="flex items-center gap-1">
                                         <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsSearchOpen(true)}
-                                              >
-                                                  <Search className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Search</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSearchOpen(true)}
+                                                    >
+                                                        <Search className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Search</TooltipContent>
+                                            </Tooltip>
 
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsSidebarCollapsed(true)}
-                                              >
-                                                  <ChevronsLeft className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Collapse Sidebar</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSidebarCollapsed(true)}
+                                                    >
+                                                        <ChevronsLeft className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Collapse Sidebar</TooltipContent>
+                                            </Tooltip>
 
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsProjectModalOpen(true)}
-                                              >
-                                                  <Plus className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Create Project</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsProjectModalOpen(true)}
+                                                    >
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Create Project</TooltipContent>
+                                            </Tooltip>
                                         </TooltipProvider>
                                     </div>
                                 </div>
@@ -247,13 +259,29 @@ export default function TeamProjectView({
                                                 {/* Project Row */}
                                                 <div
                                                     className={cn(
-                                                        "group/project flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-foreground transition-colors hover:bg-slate-50 cursor-pointer",
+                                                        "group/project flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors cursor-pointer",
+                                                        "hover:bg-slate-50",
                                                         isProjectActive && "bg-slate-100"
                                                     )}
                                                     onClick={() => handleProjectClick(project.id)}
                                                 >
-                                                    <Briefcase className="h-4 w-4 text-indigo-500/80 shrink-0 ml-1" />
-                                                    <span className="flex-1 truncate">{project.name}</span>
+                                                    <span
+                                                        className="h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center ml-0.5"
+                                                        style={{ backgroundColor: project.icon ? (project.color || "#6366f1") : "transparent" }}
+                                                    >
+                                                        <ProjectIcon
+                                                            icon={project.icon}
+                                                            className={cn(project.icon ? "text-white" : isProjectActive ? "text-indigo-500" : "text-indigo-500/80")}
+                                                            size={14}
+                                                            fill
+                                                        />
+                                                    </span>
+                                                    <span className={cn(
+                                                        "flex-1 truncate text-sm",
+                                                        isProjectActive ? "font-normal text-foreground" : "text-zinc-600 group-hover/project:text-foreground"
+                                                    )}>
+                                                        {project.name}
+                                                    </span>
 
                                                     <div
                                                         className="opacity-0 group-hover/project:opacity-100 transition-opacity flex items-center gap-0.5"
@@ -299,6 +327,7 @@ export default function TeamProjectView({
             <ProjectCreationModal
                 open={isProjectModalOpen}
                 onOpenChange={setIsProjectModalOpen}
+                defaultSpaceId={teamData?.spaceId}
                 onCreated={(id) => {
                     refetchProjects();
                     handleProjectClick(id);

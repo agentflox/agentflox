@@ -12,13 +12,14 @@ import {
 	Users,
 	Briefcase,
 	User,
+	List as ListIcon,
 	FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-export type WorkspaceView = "overview" | "personal" | "spaces" | "projects" | "teams" | "docs" | "chats" | "ai-chat";
+export type WorkspaceView = "overview" | "personal" | "spaces" | "projects" | "teams" | "lists" | "docs" | "chats" | "ai-chat";
 
 interface NavigationSidebarProps {
 	workspaceId: string;
@@ -41,6 +42,7 @@ const navigationItems: Array<{
 		{ id: "spaces", label: "Spaces", icon: FolderKanban },
 		{ id: "projects", label: "Projects", icon: Briefcase },
 		{ id: "teams", label: "Teams", icon: Users },
+		{ id: "lists", label: "Lists", icon: ListIcon },
 		{ id: "docs", label: "Docs", icon: FileText },
 		{ id: "chats", label: "Chats", icon: MessageSquare },
 		{ id: "ai-chat", label: "AI Chat", icon: Sparkles },

@@ -20,7 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ViewTabsOverflow } from "@/features/dashboard/components/shared/ViewTabsOverflow";
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
-import { SpaceViewContextMenu } from "@/features/dashboard/components/space/SpaceViewContextMenu";
+import { ViewContextMenu } from "@/features/dashboard/components/shared/ViewContextMenu";
 
 import {
     ListView,
@@ -71,6 +71,7 @@ import {
 import { SaveTemplateModal } from "@/features/dashboard/components/modals/SaveTemplateModal";
 import { Input } from "@/components/ui/input";
 import { DashboardHeader } from "@/features/dashboard/components/shared/DashboardHeader";
+import { SpaceHeaderBreadcrumbs } from "@/features/dashboard/components/shared/SpaceHeaderBreadcrumbs";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
 import { AgentsPopover } from "@/features/automations/components/AgentsPopover";
 import { AutomationsHubPopover } from "@/features/automations/components/AutomationsHubPopover";
@@ -134,11 +135,21 @@ type LayoutMode = "sidebar" | "top";
 
 interface SpaceDashboardViewProps {
     spaceId?: string;
+    subpath?: string[];
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
 }
 
+import {
+    clearAllSubParams,
+    buildCleanDashboardParams,
+    setCleanViewParam,
+    parseDashboardState,
+    buildDashboardPath,
+} from "@/features/dashboard/utils/dashboardUrl";
+
 const viewConfig: Record<
+
     ViewType,
     {
         label: string;
@@ -200,7 +211,7 @@ const viewConfig: Record<
     MEMBERS: { label: "Members", icon: Users, description: "Members" },
 };
 
-export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, onTaskSelect }: SpaceDashboardViewProps) {
+export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFromParent, onTaskSelect }: SpaceDashboardViewProps) {
     const searchParams = useSearchParams();
     const router = useRouter();
     const utils = trpc.useUtils();
@@ -211,14 +222,15 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
     // Item selection states
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-    // URL-based selection states
-    const selectedProjectId = searchParams.get("pj");
-    const selectedTeamId = searchParams.get("tm");
-    const selectedChannelId = searchParams.get("ch");
-    const selectedAiChatId = searchParams.get("aid");
-    const selectedTaskId = searchParams.get("task");
-    const selectedListId = searchParams.get("list");
-    const selectedFolderId = searchParams.get("folder");
+    // URL-based selection states (supports query params and path-based routing)
+    const parsedState = useMemo(() => parseDashboardState(searchParams, subpath), [searchParams, subpath]);
+    const selectedProjectId = parsedState.projectId;
+    const selectedTeamId = parsedState.teamId;
+    const selectedChannelId = parsedState.chatId;
+    const selectedAiChatId = parsedState.aiChatId;
+    const selectedTaskId = parsedState.taskId;
+    const selectedListId = parsedState.listId;
+    const selectedFolderId = parsedState.folderId;
 
     // Dialog states
     const [addViewModalOpen, setAddViewModalOpen] = useState(false);
@@ -323,10 +335,11 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
         return space?.teams ?? [];
     }, [space?.teams]);
 
-    // Derived views from DB
+    // Derived views from DB - only show views with sidebarView false
     const views = useMemo(() => {
         if (!space?.views) return [];
-        return [...space.views].sort((a: any, b: any) => {
+        const nonSidebarViews = space.views.filter((v: any) => !v.sidebarView);
+        return [...nonSidebarViews].sort((a: any, b: any) => {
             // 1. Overview always first
             if (a.type === "OVERVIEW") return -1;
             if (b.type === "OVERVIEW") return 1;
@@ -341,59 +354,90 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
     }, [space?.views]);
 
     // Check tabs
-    const currentTab = searchParams.get("tab");
+    const currentTab = parsedState.tab;
     const isViewsTab = (currentTab === "overview" || !currentTab) && !selectedListId;
     const isListsTab = currentTab === "lists" || !!selectedListId;
 
+    const clearSubParams = (params: URLSearchParams) => {
+        clearAllSubParams(params);
+    };
+
     // Active Tab Logic - use view ID for the tab value
-    const urlTabId = searchParams.get("v");
+    const urlTabId = parsedState.viewId;
     const activeView = views.find(v => v.id === urlTabId) || views[0];
     const activeTab = activeView?.id;
 
     const handleTabChange = useCallback((viewId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        // Only keep existing non-conflicting params, but for simplicity we rely on current params
-        // Ensure we are in views mode visually too if not set
-        if (!params.get("tab")) {
-            params.set("tab", "overview");
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "overview",
+                viewId,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
         }
-        params.set("v", viewId);
-        router.push(`?${params.toString()}`, { scroll: false });
-    }, [searchParams, router]);
+    }, [spaceId, searchParams, router, parsedState.taskId]);
 
     const handleChatSelect = (chatId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (chatId) params.set("ch", chatId);
-        else params.delete("ch");
-        router.push(`?${params.toString()}`, { scroll: false });
+        const clean = buildCleanDashboardParams(searchParams, {
+            tab: "chats",
+            entityKey: "ch",
+            entityId: chatId || null,
+        });
+        router.push(`?${clean.toString()}`, { scroll: false });
     };
 
     const handleAIChatSelect = (chatId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (chatId) params.set("aid", chatId);
-        else params.delete("aid");
-        router.push(`?${params.toString()}`, { scroll: false });
+        const clean = buildCleanDashboardParams(searchParams, {
+            tab: "ai-chat",
+            entityKey: "ai",
+            entityId: chatId || null,
+        });
+        router.push(`?${clean.toString()}`, { scroll: false });
     };
 
     const handleProjectSelect = (projectId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (projectId) params.set("pj", projectId);
-        else params.delete("pj");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "pj", id: projectId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "projects",
+                entityKey: "pj",
+                entityId: projectId || null,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleTeamSelect = (teamId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (teamId) params.set("tm", teamId);
-        else params.delete("tm");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "tm", id: teamId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "teams",
+                entityKey: "tm",
+                entityId: teamId || null,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleListSelect = (listId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (listId) params.set("lt", listId);
-        else params.delete("lt");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: listId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "lists",
+                entityKey: "lt",
+                entityId: listId || null,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleTaskSelect = (taskId: string | null) => {
@@ -483,29 +527,42 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
 
     useEffect(() => {
         if (isViewsTab && !urlTabId && views.length > 0) {
-            // Use replace instead of push to avoid history clutter on default load
-            const params = new URLSearchParams(searchParams.toString());
-            if (!params.get("tab")) params.set("tab", "overview");
-            params.set("v", views[0].id);
-            history.replaceState(null, "", `?${params.toString()}`);
+            if (spaceId) {
+                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, viewId: views[0].id, taskId: parsedState.taskId }));
+            } else {
+                const clean = buildCleanDashboardParams(searchParams, {
+                    tab: "overview",
+                    viewId: views[0].id,
+                    keepTask: true,
+                });
+                history.replaceState(null, "", `?${clean.toString()}`);
+            }
         }
-    }, [urlTabId, views, isViewsTab, searchParams, router]);
+    }, [urlTabId, views, isViewsTab, spaceId, parsedState.taskId, searchParams]);
 
     // Auto-select Project if none selected but available
     useEffect(() => {
         if (currentTab === "projects" && !selectedProjectId && spaceProjects.length > 0) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("pj", spaceProjects[0].id);
-            history.replaceState(null, "", `?${params.toString()}`);
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "projects",
+                entityKey: "pj",
+                entityId: spaceProjects[0].id,
+                keepTask: true,
+            });
+            history.replaceState(null, "", `?${clean.toString()}`);
         }
     }, [currentTab, selectedProjectId, spaceProjects, searchParams, router]);
 
     // Auto-select Team if none selected but available
     useEffect(() => {
         if (currentTab === "teams" && !selectedTeamId && spaceTeams.length > 0) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("tm", spaceTeams[0].id);
-            history.replaceState(null, "", `?${params.toString()}`);
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "teams",
+                entityKey: "tm",
+                entityId: spaceTeams[0].id,
+                keepTask: true,
+            });
+            history.replaceState(null, "", `?${clean.toString()}`);
         }
     }, [currentTab, selectedTeamId, spaceTeams, searchParams, router]);
 
@@ -773,40 +830,32 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                             spaceId={spaceId!}
                             activeView={(isListsTab ? "lists" : currentTab || "overview") as SpaceView}
                             onViewChange={(view: SpaceView) => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.delete("v"); // Always clear view ID when switching main contexts
-                                params.delete("pj");
-                                params.delete("tm");
-                                params.delete("lt");
-                                params.delete("ch");
-                                params.delete("ai");
-                                params.delete("aid");
-                                params.delete("nv");
-                                params.delete("docView");
-                                params.delete("scope");
-                                params.delete("status");
-                                params.delete("page");
+                                const targetTab = (view as string) === "project" ? "projects" : (view as string) === "team" ? "teams" : view;
 
-                                // Special handling for "overview" tab - show tab-based interface
-                                if (view === "overview") {
-                                    params.set("tab", "overview");
-                                    if (views.length > 0) {
-                                        params.set("v", views[0].id);
-                                    }
-                                    router.push(`?${params.toString()}`, { scroll: false });
+                                if (targetTab === "overview") {
+                                    const clean = buildCleanDashboardParams(searchParams, {
+                                        tab: "overview",
+                                        viewId: views.length > 0 ? views[0].id : null,
+                                        keepTask: true,
+                                    });
+                                    router.push(`?${clean.toString()}`, { scroll: false });
                                     return;
                                 }
 
-                                params.set("tab", view);
+                                const entityKey = (targetTab === "projects" ? "pj" : targetTab === "teams" ? "tm" : undefined);
+                                const entityId = targetTab === "projects" && spaceProjects.length > 0
+                                    ? spaceProjects[0].id
+                                    : targetTab === "teams" && spaceTeams.length > 0
+                                    ? spaceTeams[0].id
+                                    : null;
 
-                                // Handle auto-selection for projects and teams (client side optimistic)
-                                if (view === "projects" && spaceProjects.length > 0) {
-                                    params.set("pj", spaceProjects[0].id);
-                                } else if (view === "teams" && spaceTeams.length > 0) {
-                                    params.set("tm", spaceTeams[0].id);
-                                }
-
-                                router.push(`?${params.toString()}`, { scroll: false });
+                                const clean = buildCleanDashboardParams(searchParams, {
+                                    tab: targetTab,
+                                    entityKey,
+                                    entityId,
+                                    keepTask: true,
+                                });
+                                router.push(`?${clean.toString()}`, { scroll: false });
                             }}
                             collapsed={sidebarCollapsed}
                             onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
@@ -814,27 +863,81 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                     )}
 
                     {/* Main Content */}
-                    {/* Main Content */}
                     <div className="flex-1 overflow-hidden w-full max-w-full h-full bg-slate-50 flex flex-col">
                         <DashboardHeader
-                            entityName={
-                                selectedListId && selectedList ? (
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <span className="truncate text-muted-foreground hover:text-foreground transition-colors cursor-pointer" onClick={() => router.push(`?tab=overview`)}>{space.name || "Untitled Space"}</span>
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                                        <div className="flex items-center gap-1.5">
-                                            <List className="h-4 w-4 shrink-0" style={{ color: selectedList.color || undefined }} />
-                                            <span className="truncate font-semibold text-foreground">{selectedList.name}</span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    space.name || "Untitled Space"
-                                )
-                            }
+                            entityName={space.name || "Untitled Space"}
                             entityType="space"
                             entityIcon={<Layers className="h-4 w-4" />}
+                            breadcrumbs={
+                                <SpaceHeaderBreadcrumbs
+                                    workspaceId={resolvedWorkspaceId!}
+                                    spaceId={spaceId!}
+                                    spaceName={space.name || "Untitled Space"}
+                                    currentTab={currentTab ?? ""}
+                                    selectedProjectId={selectedProjectId || undefined}
+                                    selectedTeamId={selectedTeamId || undefined}
+                                    selectedListId={selectedListId || undefined}
+                                    selectedFolderId={selectedFolderId || undefined}
+                                    selectedChannelId={selectedChannelId || undefined}
+                                    selectedAiChatId={selectedAiChatId || undefined}
+                                    onSelectProject={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "projects");
+                                        params.set("pj", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectTeam={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "teams");
+                                        params.set("tm", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectList={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "lists");
+                                        params.set("list", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectFolder={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "lists");
+                                        params.set("folder", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectChannel={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "chats");
+                                        params.set("ch", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectAiChat={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "ai-chat");
+                                        params.set("aid", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onNavigateSpace={() => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "overview");
+                                        if (views.length > 0) params.set("v", views[0].id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                />
+                            }
                             shareUrl={`${window.location.origin}${window.location.pathname}?spaceId=${spaceId}`}
                             showSettings={false}
+                            workspaceId={resolvedWorkspaceId || space.workspaceId || undefined}
+                            spaceId={spaceId}
+                            projectId={selectedProjectId || undefined}
+                            teamId={selectedTeamId || undefined}
+                            currentScope="space"
                             askAIDisabled={currentTab === "ai-chat"}
                             onAskAIClick={() => {
                                 automations.closeAgentPanel();
@@ -849,7 +952,6 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                         setIsAskAIOpen(false);
                                         automations.openAgentPanel(req);
                                     }}
-                                    onManageAgents={automations.openManage}
                                 />
                             ) : undefined}
                             agentOpen={automations.agentOpen}
@@ -933,14 +1035,14 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                     selectedListId={selectedListId || undefined}
                                                     onListSelect={handleListSelect}
                                                 />
-                                            ) : currentTab === "projects" ? (
+                                            ) : (currentTab === "projects" || currentTab === "project") ? (
                                                 <SpaceProjectView
                                                     spaceId={spaceId!}
                                                     workspaceId={resolvedWorkspaceId!}
                                                     selectedProjectId={selectedProjectId || undefined}
                                                     onProjectSelect={handleProjectSelect}
                                                 />
-                                            ) : currentTab === "teams" ? (
+                                            ) : (currentTab === "teams" || currentTab === "team") ? (
                                                 <SpaceTeamView
                                                     spaceId={spaceId!}
                                                     workspaceId={resolvedWorkspaceId!}
@@ -949,9 +1051,9 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                 />
                                             ) : currentTab === "personal" ? (
                                                 <SpacePersonalView spaceId={spaceId!} workspaceId={resolvedWorkspaceId!} />
-                                            ) : currentTab === "docs" ? (
+                                            ) : (currentTab === "docs" || currentTab === "doc") ? (
                                                 <SpaceDocsView spaceId={spaceId!} />
-                                            ) : currentTab === "chats" ? (
+                                            ) : (currentTab === "chats" || currentTab === "chat" || currentTab === "channels") ? (
                                                 <ChatView
                                                     workspaceId={resolvedWorkspaceId!}
                                                     spaceId={spaceId!}
@@ -973,9 +1075,9 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                 />
                                             ) : isViewsTab ? (
                                                 <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col gap-0">
-                                                    <div className="border-b border-slate-200 bg-white px-4 py-1">
-                                                        <div className="flex items-center gap-1 min-w-0 overflow-visible">
-                                                            <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
+                                                    <div className="border-b border-slate-200 bg-white px-4 py-2 h-[57px] flex items-center shrink-0">
+                                                        <div className="flex items-center gap-1 min-w-0 overflow-visible w-full">
+                                                            <TabsList className="h-10 bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible transition-all duration-200">
                                                                 <ViewTabsOverflow
                                                                     views={views}
                                                                     activeTab={activeTab}
@@ -1066,7 +1168,7 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                                             <ContextMenuTrigger asChild>
                                                                                 {trigger}
                                                                             </ContextMenuTrigger>
-                                                                            <SpaceViewContextMenu
+                                                                            <ViewContextMenu
                                                                                 view={view}
                                                                                 onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
                                                                                 onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
@@ -1092,16 +1194,16 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                                         const config = viewConfig[viewType] || { label: view.name, icon: FileText };
                                                                         const Icon = config.icon;
                                                                         return (
-                                                                            <ContextMenu key={view.id}>
-                                                                                <ContextMenuTrigger>
-                                                                                    <Tooltip>
+                                                                            <Tooltip key={view.id}>
+                                                                                <ContextMenu>
+                                                                                    <ContextMenuTrigger asChild>
                                                                                         <TooltipTrigger asChild>
                                                                                             <TabsTrigger value={view.id} asChild>
                                                                                                 <div className={cn(
                                                                                                     "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
                                                                                                     activeTab === view.id
                                                                                                         ? "text-primary font-medium"
-                                                                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                                                                                                 )}>
                                                                                                     <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
                                                                                                     <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
@@ -1114,29 +1216,30 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                                                                 </div>
                                                                                             </TabsTrigger>
                                                                                         </TooltipTrigger>
-                                                                                        <TooltipContent>{view.name}</TooltipContent>
-                                                                                    </Tooltip>
-                                                                                </ContextMenuTrigger>
-                                                                                <SpaceViewContextMenu
-                                                                                    view={view}
-                                                                                    onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
-                                                                                    onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
-                                                                                    onDuplicate={(v) => {
-                                                                                        createViewMutation.mutate({
-                                                                                            name: `${v.name} Copy`,
-                                                                                            type: v.type,
-                                                                                            spaceId: v.spaceId,
-                                                                                        });
-                                                                                    }}
-                                                                                    onTogglePin={togglePin}
-                                                                                    onTogglePrivate={togglePrivate}
-                                                                                    onToggleLock={toggleLock}
-                                                                                    onToggleDefault={toggleDefault}
-                                                                                    onCopyLink={handleCopyViewLink}
-                                                                                    onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
-                                                                                    onSaveTemplate={(v) => setViewToTemplate(v)}
-                                                                                />
-                                                                            </ContextMenu>
+                                                                                    </ContextMenuTrigger>
+                                                                                    <ViewContextMenu
+                                                                                        view={view}
+                                                                                        onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
+                                                                                        onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
+                                                                                        onDuplicate={(v) => {
+                                                                                            createViewMutation.mutate({
+                                                                                                name: `${v.name} Copy`,
+                                                                                                type: v.type,
+                                                                                                spaceId: v.spaceId,
+                                                                                                config: v.config || {}
+                                                                                            });
+                                                                                        }}
+                                                                                        onTogglePin={togglePin}
+                                                                                        onTogglePrivate={togglePrivate}
+                                                                                        onToggleLock={toggleLock}
+                                                                                        onToggleDefault={toggleDefault}
+                                                                                        onCopyLink={handleCopyViewLink}
+                                                                                        onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
+                                                                                        onSaveTemplate={(v) => setViewToTemplate(v)}
+                                                                                    />
+                                                                                </ContextMenu>
+                                                                                <TooltipContent>{view.name}</TooltipContent>
+                                                                            </Tooltip>
                                                                         );
                                                                     }}
                                                                     renderMeasureTab={(view) => {
@@ -1155,15 +1258,22 @@ export default function SpaceDashboardView({ spaceId, selectedTaskIdFromParent, 
                                                                 />
                                                             </TabsList>
                                                             <div className="flex items-center shrink-0">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => setAddViewModalOpen(true)}
-                                                                    className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-                                                                >
-                                                                    <Plus className="h-4 w-4 mr-1" />
-                                                                    View
-                                                                </Button>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={() => setAddViewModalOpen(true)}
+                                                                            className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                                                        >
+                                                                            <Plus className="h-4 w-4 mr-1" />
+                                                                            View
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="top">
+                                                                        <p className="text-xs">Add view</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
                                                             </div>
                                                         </div>
                                                     </div>

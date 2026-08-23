@@ -2,6 +2,11 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import {
+  clearAllSubParams,
+  buildCleanDashboardParams,
+  parseDashboardState,
+} from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
@@ -32,7 +37,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ViewTabsOverflow } from "@/features/dashboard/components/shared/ViewTabsOverflow";
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
-import { TeamViewContextMenu } from "@/features/dashboard/components/team/TeamViewContextMenu";
+import { ViewContextMenu } from "@/features/dashboard/components/shared/ViewContextMenu";
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -49,6 +54,7 @@ import {
 import { SaveTemplateModal } from "@/features/dashboard/components/modals/SaveTemplateModal";
 import { Input } from "@/components/ui/input";
 import { DashboardHeader } from "@/features/dashboard/components/shared/DashboardHeader";
+import { TeamHeaderBreadcrumbs } from "@/features/dashboard/components/shared/TeamHeaderBreadcrumbs";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
 import { AgentsPopover } from "@/features/automations/components/AgentsPopover";
 import { AutomationsHubPopover } from "@/features/automations/components/AutomationsHubPopover";
@@ -200,8 +206,6 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
   const [viewToDelete, setViewToDelete] = useState<{ id: string, name: string } | null>(null);
   const [viewToShare, setViewToShare] = useState<{ id: string, name: string } | null>(null);
   const [viewToTemplate, setViewToTemplate] = useState<any | null>(null);
-  const selectedAIChatId = searchParams.get("aid") || undefined;
-  const selectedChatId = searchParams.get("ch") || undefined;
   const [taskViewMode, setTaskViewMode] = useState<TaskLayoutMode>("modal");
 
   // URL-based selection statesAgentModalOpen, setIsAgentModalOpen] = useState(false);
@@ -298,12 +302,13 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
     onError: (err) => toast.error(`Failed to reorder views: ${err.message}`)
   });
 
-  // Derived views from DB
+  // Derived views from DB - only show views with sidebarView false
   const views = useMemo(() => {
     if (!team?.views || team.views.length === 0) {
       return [];
     }
-    return [...team.views].sort((a: any, b: any) => {
+    const nonSidebarViews = team.views.filter((v: any) => !v.sidebarView);
+    return [...nonSidebarViews].sort((a: any, b: any) => {
       if (a.type === "OVERVIEW") return -1;
       if (b.type === "OVERVIEW") return 1;
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -311,23 +316,26 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
     });
   }, [team?.views]);
 
-  const currentTab = searchParams.get("tab") || "overview";
-  const selectedListIdFromUrl = searchParams.get("list");
-  const isOverviewTab = currentTab === "overview" || (!searchParams.get("tab") && !selectedListIdFromUrl);
+  const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
+  const selectedAIChatId = parsedState.aiChatId;
+  const selectedChatId = parsedState.chatId;
+  const currentTab = parsedState.tab || "overview";
+  const selectedListIdFromUrl = parsedState.listId;
+  const isOverviewTab = currentTab === "overview" || (!parsedState.tab && !selectedListIdFromUrl);
   const isListsTab = currentTab === "lists" || !!selectedListIdFromUrl;
 
   // Active Tab Logic
-  const urlTabId = searchParams.get("v");
+  const urlTabId = parsedState.viewId;
   const activeView = views.find((v: any) => v.id === urlTabId) || views[0];
   const activeTab = activeView?.id;
 
   const handleTabChange = useCallback((viewId: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (!params.get("tab")) {
-      params.set("tab", "views");
-    }
-    params.set("v", viewId);
-    router.push(`?${params.toString()}`, { scroll: false });
+    const clean = buildCleanDashboardParams(searchParams, {
+      tab: "overview",
+      viewId,
+      keepTask: true,
+    });
+    router.push(`?${clean.toString()}`, { scroll: false });
   }, [searchParams, router]);
 
   const handleRenameView = (name: string) => {
@@ -391,19 +399,23 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
   const toggleDefault = (view: any) => updateViewMutation.mutate({ id: view.id, isDefault: !view.isDefault });
 
   const handleListSelect = useCallback((listId: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "lists");
-    params.set("list", listId);
-    params.delete("folder"); // If a list is selected, folder should be cleared in main view
-    router.push(`?${params.toString()}`, { scroll: false });
+    const clean = buildCleanDashboardParams(searchParams, {
+      tab: "lists",
+      entityKey: "list",
+      entityId: listId,
+      keepTask: true,
+    });
+    router.push(`?${clean.toString()}`, { scroll: false });
   }, [searchParams, router]);
 
   useEffect(() => {
     if (isOverviewTab && !urlTabId && views.length > 0) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "overview");
-      params.set("v", views[0].id);
-      history.replaceState(null, "", `?${params.toString()}`);
+      const clean = buildCleanDashboardParams(searchParams, {
+        tab: "overview",
+        viewId: views[0].id,
+        keepTask: true,
+      });
+      history.replaceState(null, "", `?${clean.toString()}`);
     }
   }, [urlTabId, views, isOverviewTab, searchParams, router]);
 
@@ -647,6 +659,12 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
   const activeTeamId = team.id;
   const activeWorkspaceId = team.workspaceId ?? "";
 
+  const clearSubParams = (params: URLSearchParams) => {
+    [
+      "v", "sid", "sp", "pj", "tm", "ch", "ai", "aid", "nv", "docView", "list", "folder", "fv", "lt", "task", "taskId", "scope", "status", "page", "ptab", "ttab"
+    ].forEach((p) => params.delete(p));
+  };
+
   return (
     <DashboardEntityProvider
       workspaceId={activeWorkspaceId}
@@ -655,29 +673,36 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
       <div className="flex h-full flex-col">
         {/* Main Layout - Sidebar visibility controlled by layoutMode */}
         <div className="flex h-full gap-1 flex-1 overflow-hidden">
+          {/* Navigation Sidebar - Show only when layoutMode is "sidebar" */}
           {layoutMode === "sidebar" && (
             <TeamNavigationSidebar
               teamId={activeTeamId}
               activeView={(isListsTab ? "lists" : currentTab) as any}
               onViewChange={(viewId) => {
-                const params = new URLSearchParams(searchParams.toString());
-                params.delete("v");
-                params.delete("ptab");
-                params.delete("docView");
-                params.delete("nv");
-                params.delete("aid");
-                params.delete("scope");
-                params.delete("status");
-                params.delete("page");
-                if (viewId === "lists") {
-                  params.set("tab", "lists");
-                } else if (viewId === "overview") {
-                  params.set("tab", "overview");
-                  if (views.length > 0) params.set("v", views[0].id);
-                } else {
-                  params.set("tab", viewId);
+                const targetTab = (viewId as string) === "project" ? "projects" : viewId;
+
+                if (targetTab === "overview") {
+                  const clean = buildCleanDashboardParams(searchParams, {
+                    tab: "overview",
+                    viewId: views.length > 0 ? views[0].id : null,
+                    keepTask: true,
+                  });
+                  router.push(`?${clean.toString()}`, { scroll: false });
+                  return;
                 }
-                router.push(`?${params.toString()}`, { scroll: false });
+
+                const entityKey = targetTab === "projects" ? "pj" : undefined;
+                const entityId = targetTab === "projects" && (team as any)?.projects?.length > 0
+                  ? (team as any).projects[0].id
+                  : null;
+
+                const clean = buildCleanDashboardParams(searchParams, {
+                  tab: targetTab,
+                  entityKey,
+                  entityId,
+                  keepTask: true,
+                });
+                router.push(`?${clean.toString()}`, { scroll: false });
               }}
               collapsed={sidebarCollapsed}
               onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
@@ -690,12 +715,72 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
               entityName={team.name || "Untitled Team"}
               entityType="team"
               entityIcon={<Users className="h-4 w-4" />}
+              breadcrumbs={
+                <TeamHeaderBreadcrumbs
+                  workspaceId={activeWorkspaceId!}
+                  teamId={activeTeamId!}
+                  teamName={team.name || "Untitled Team"}
+                  currentTab={currentTab}
+                  selectedProjectId={selectedProjectId || undefined}
+                  selectedListId={selectedListId || undefined}
+                  selectedFolderId={selectedFolderId || undefined}
+                  selectedChatId={selectedChatId || undefined}
+                  selectedAiChatId={selectedAIChatId || undefined}
+                  onSelectProject={(id) => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    clearSubParams(params);
+                    params.set("tab", "projects");
+                    params.set("pj", id);
+                    router.push(`?${params.toString()}`, { scroll: false });
+                  }}
+                  onSelectList={(id) => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    clearSubParams(params);
+                    params.set("tab", "lists");
+                    params.set("list", id);
+                    router.push(`?${params.toString()}`, { scroll: false });
+                  }}
+                  onSelectFolder={(id) => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    clearSubParams(params);
+                    params.set("tab", "lists");
+                    params.set("folder", id);
+                    router.push(`?${params.toString()}`, { scroll: false });
+                  }}
+                  onSelectChat={(id) => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    clearSubParams(params);
+                    params.set("tab", "chats");
+                    params.set("ch", id);
+                    router.push(`?${params.toString()}`, { scroll: false });
+                  }}
+                  onSelectAiChat={(id) => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    clearSubParams(params);
+                    params.set("tab", "ai-chat");
+                    params.set("aid", id);
+                    router.push(`?${params.toString()}`, { scroll: false });
+                  }}
+                  onNavigateTeam={() => {
+                    const params = new URLSearchParams(searchParams.toString());
+                    clearSubParams(params);
+                    params.set("tab", "overview");
+                    if (views.length > 0) params.set("v", views[0].id);
+                    router.push(`?${params.toString()}`, { scroll: false });
+                  }}
+                />
+              }
               isStarred={false}
               onToggleStar={() => {
                 toast.info("Star toggle coming soon");
               }}
               shareUrl={`${window.location.origin}${window.location.pathname}?teamId=${teamId}`}
               showSettings={false}
+              workspaceId={activeWorkspaceId || undefined}
+              spaceId={team.spaceId || undefined}
+              projectId={selectedProjectId || undefined}
+              teamId={activeTeamId || teamId}
+              currentScope="team"
               askAIDisabled={currentTab === "ai-chat"}
               onAskAIClick={() => {
                 automations.closeAgentPanel();
@@ -710,7 +795,6 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                     setIsAskAIOpen(false);
                     automations.openAgentPanel(req);
                   }}
-                  onManageAgents={automations.openManage}
                 />
               ) : undefined}
               agentOpen={automations.agentOpen}
@@ -774,9 +858,9 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                     ) : isOverviewTab && activeView ? (
                       <div className="flex-1 overflow-hidden relative">
                         <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col gap-0">
-                          <div className="border-b border-slate-200 bg-white px-4 py-1">
-                            <div className="flex items-center gap-1 min-w-0 overflow-visible">
-                              <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
+                          <div className="border-b border-slate-200 bg-white px-4 py-2 h-[57px] flex items-center shrink-0">
+                            <div className="flex items-center gap-1 min-w-0 overflow-visible w-full">
+                              <TabsList className="h-10 bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible transition-all duration-200">
                                 <ViewTabsOverflow
                                   views={views}
                                   activeTab={activeTab}
@@ -861,7 +945,7 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                                   renderDropdownItem={(view, trigger) => (
                                     <ContextMenu key={`dd-${view.id}`}>
                                       <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
-                                      <TeamViewContextMenu
+                                      <ViewContextMenu
                                         view={view}
                                         onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
                                         onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
@@ -881,16 +965,16 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                                     const config = viewConfig[viewType] || { label: view.name, icon: FileText };
                                     const Icon = config.icon;
                                     return (
-                                      <ContextMenu key={view.id}>
-                                        <ContextMenuTrigger>
-                                          <Tooltip>
+                                      <Tooltip key={view.id}>
+                                        <ContextMenu>
+                                          <ContextMenuTrigger asChild>
                                             <TooltipTrigger asChild>
                                               <TabsTrigger value={view.id} asChild>
                                                 <div className={cn(
                                                   "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
                                                   activeTab === view.id
                                                     ? "text-primary font-medium"
-                                                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                                                 )}>
                                                   <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
                                                   <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
@@ -903,23 +987,23 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                                                 </div>
                                               </TabsTrigger>
                                             </TooltipTrigger>
-                                            <TooltipContent>{view.name}</TooltipContent>
-                                          </Tooltip>
-                                        </ContextMenuTrigger>
-                                        <TeamViewContextMenu
-                                          view={view}
-                                          onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
-                                          onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
-                                          onDuplicate={(v) => createViewMutation.mutate({ name: `${v.name} Copy`, type: v.type as any, teamId })}
-                                          onTogglePin={togglePin}
-                                          onTogglePrivate={togglePrivate}
-                                          onToggleLock={toggleLock}
-                                          onToggleDefault={toggleDefault}
-                                          onCopyLink={handleCopyViewLink}
-                                          onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
-                                          onSaveTemplate={(v) => setViewToTemplate(v)}
-                                        />
-                                      </ContextMenu>
+                                          </ContextMenuTrigger>
+                                          <ViewContextMenu
+                                            view={view}
+                                            onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
+                                            onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
+                                            onDuplicate={(v) => createViewMutation.mutate({ name: `${v.name} Copy`, type: v.type as any, teamId })}
+                                            onTogglePin={togglePin}
+                                            onTogglePrivate={togglePrivate}
+                                            onToggleLock={toggleLock}
+                                            onToggleDefault={toggleDefault}
+                                            onCopyLink={handleCopyViewLink}
+                                            onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
+                                            onSaveTemplate={(v) => setViewToTemplate(v)}
+                                          />
+                                        </ContextMenu>
+                                        <TooltipContent>{view.name}</TooltipContent>
+                                      </Tooltip>
                                     );
                                   }}
                                   renderMeasureTab={(view) => {
@@ -940,14 +1024,22 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                                   }}
                                 />
                               </TabsList>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 rounded-md hover:bg-slate-100 shrink-0 self-center"
-                                onClick={() => setAddViewModalOpen(true)}
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setAddViewModalOpen(true)}
+                                    className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                  >
+                                    <Plus className="h-4 w-4 mr-1" />
+                                    View
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <p className="text-xs">Add view</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </div>
 
@@ -990,30 +1082,33 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                       </div>
                     ) : currentTab === "personal" ? (
                       <TeamPersonalView teamId={teamId!} workspaceId={resolvedWorkspaceId!} />
-                    ) : currentTab === "projects" ? (
+                    ) : (currentTab === "projects" || currentTab === "project") ? (
                       <TeamProjectView
                         teamId={teamId!}
                         workspaceId={resolvedWorkspaceId!}
                         selectedProjectId={selectedProjectId || undefined}
                         onProjectSelect={(id) => {
                           const params = new URLSearchParams(searchParams.toString());
+                          clearSubParams(params);
+                          params.set("tab", "projects");
                           params.set("pj", id);
                           router.push(`?${params.toString()}`, { scroll: false });
                         }}
                         selectedTaskIdFromParent={selectedTaskIdFromParent}
                         onTaskSelect={onTaskSelect}
                       />
-                    ) : currentTab === "docs" ? (
-                      <TeamDocsView teamId={teamId!} />
-                    ) : currentTab === "chats" ? (
+                    ) : (currentTab === "docs" || currentTab === "doc") ? (
+                      <TeamDocsView teamId={teamId!} workspaceId={activeWorkspaceId} />
+                    ) : (currentTab === "chats" || currentTab === "chat") ? (
                       <ChatView
                         workspaceId={activeWorkspaceId}
                         teamId={teamId!}
                         selectedChatId={selectedChatId}
                         onChatSelect={(id) => {
                           const params = new URLSearchParams(searchParams.toString());
-                          if (id) params.set("ch", id);
-                          else params.delete("ch");
+                          clearSubParams(params);
+                          params.set("tab", "chats");
+                          params.set("ch", id);
                           router.push(`?${params.toString()}`, { scroll: false });
                         }}
                       />

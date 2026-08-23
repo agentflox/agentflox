@@ -1,5 +1,5 @@
 
-import type { FilterCondition, FilterGroup, FilterOperator } from "./listViewTypes";
+import type { FilterCondition, FilterGroup, FilterOperator } from "./viewTypes";
 
 export const isEmpty = (v: any) => v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
 

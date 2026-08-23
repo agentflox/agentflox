@@ -665,9 +665,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
       >
         <div className="flex h-full flex-col overflow-hidden">
           {!isSidebarCollapsed && (
-            <div className="flex flex-col border-b border-slate-200">
+            <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
               {isSearchOpen ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                   <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                   <Input
                     autoFocus
@@ -689,7 +689,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center justify-between px-4 h-full">
                   <div>
                     <h2 className="text-sm font-semibold text-foreground">Agent Chats</h2>
                     <p className="text-xs text-muted-foreground truncate max-w-[120px]">

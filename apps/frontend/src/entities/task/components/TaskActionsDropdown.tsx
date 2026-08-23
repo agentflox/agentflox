@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import {
     Star, Copy, Clock, BellOff, Mail, Plus, GitMerge, ArrowRight,
-    Printer, History, Link, LayoutTemplate, PenTool, Archive, Trash2,
-    Shield, MoreHorizontal, Edit3, FileText, Repeat, EyeOff, FolderInput,
-    Share2, Link2, ExternalLink, Type, Smartphone, ListPlus, UserPlus, ChevronRight, Store
+    Printer, History, Link, LayoutTemplate, PenTool, Archive, Trash2, CheckSquare, ListTodo, 
+    Shield, MoreHorizontal, Edit3, FileText, Repeat, EyeOff, FolderInput, Heart, Users,
+    Share2, Link2, ExternalLink, Type, Smartphone, ListPlus, UserPlus, ChevronRight, Store, ListChecks 
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -130,8 +130,8 @@ export function TaskActionsDropdown({
         if (subMenu) {
             return (
                 <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="text-xs py-1.5 focus:bg-zinc-100 data-[state=open]:bg-zinc-100">
-                        <Icon className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                    <DropdownMenuSubTrigger className="text-sm py-1.5 text-zinc-800 hover:text-zinc-900 focus:bg-zinc-100 data-[state=open]:bg-zinc-100">
+                        <Icon className="h-4 w-4 mr-1 text-zinc-500" />
                         {label}
                     </DropdownMenuSubTrigger>
                     {subMenu}
@@ -141,9 +141,9 @@ export function TaskActionsDropdown({
         return (
             <DropdownMenuItem
                 onClick={onClick}
-                className={cn("text-xs py-1.5 focus:bg-zinc-100 cursor-pointer", className)}
+                className={cn("text-sm py-1.5 text-zinc-800 hover:text-zinc-900 focus:bg-zinc-100 cursor-pointer", className)}
             >
-                <Icon className={cn("h-3.5 w-3.5 mr-2 text-zinc-500", className?.includes('text-red') && "text-red-500")} />
+                <Icon className={cn("h-4 w-4 mr-1 text-zinc-500", className?.includes('text-red') && "text-red-500")} />
                 {label}
                 {shortcut && <span className="ml-auto text-[10px] text-zinc-400">{shortcut}</span>}
             </DropdownMenuItem>
@@ -198,24 +198,33 @@ export function TaskActionsDropdown({
                     />
 
                     <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="text-xs py-1.5 focus:bg-zinc-100 data-[state=open]:bg-zinc-100">
-                            <Repeat className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                        <DropdownMenuSubTrigger className="text-sm py-1.5 text-zinc-800 hover:text-zinc-900 focus:bg-zinc-100 data-[state=open]:bg-zinc-100">
+                            <Repeat className="h-4 w-4 mr-1 text-zinc-500" />
                             Convert to
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-48">
-                            <DropdownMenuItem className="text-xs" onClick={() => { onAction?.("convertToTask"); setIsOpen(false); }}>Task</DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs" onClick={() => { onAction?.("convertToList"); toast.info("Coming soon"); setIsOpen(false); }}>List</DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs" onClick={() => { onAction?.("convertToSubtask"); toast.info("Coming soon"); setIsOpen(false); }}>Subtask</DropdownMenuItem>
+                            <DropdownMenuItem className="text-sm" onClick={() => { onAction?.("convertToTask"); setIsOpen(false); }}>
+                                <CheckSquare className="mr-1 h-4 w-4" />
+                                Task
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-sm" onClick={() => { onAction?.("convertToList"); toast.info("Coming soon"); setIsOpen(false); }}>
+                                <ListTodo className="mr-1 h-4 w-4" />
+                                List
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-sm" onClick={() => { onAction?.("convertToSubtask"); toast.info("Coming soon"); setIsOpen(false); }}>
+                                <ListChecks className="mr-1 h-4 w-4" />
+                                Subtask
+                            </DropdownMenuItem>
                         </DropdownMenuSubContent>
                     </DropdownMenuSub>
 
                     <TemplateMenuPopover entityType="TASK" workspaceId={workspaceId} contentToSave={task}>
                         <button 
-                            className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
+                            className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-zinc-800 hover:text-zinc-900 outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
                         >
-                            <LayoutTemplate className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                            <LayoutTemplate className="h-4 w-4 mr-1 text-zinc-500" />
                             Templates
-                            <ChevronRight className="ml-auto size-4 text-zinc-500" />
+                            <ChevronRight className="ml-auto size-3.5 text-zinc-500" />
                         </button>
                     </TemplateMenuPopover>
 
@@ -239,11 +248,11 @@ export function TaskActionsDropdown({
 
                     <RemindMePopover taskId={task.id}>
                         <button 
-                            className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
+                            className="relative text-zinc-800 hover:text-zinc-900 w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
                         >
-                            <Clock className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                            <Clock className="h-4 w-4 mr-1 text-zinc-500" />
                             Remind me in Inbox
-                            <ChevronRight className="ml-auto size-4 text-zinc-500" />
+                            <ChevronRight className="ml-auto size-3.5 text-zinc-500" />
                         </button>
                     </RemindMePopover>
 
@@ -262,14 +271,23 @@ export function TaskActionsDropdown({
                     />
 
                     <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="text-xs py-1.5 focus:bg-zinc-100 data-[state=open]:bg-zinc-100">
-                            <ListPlus className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                        <DropdownMenuSubTrigger className="text-sm py-1.5 text-zinc-800 hover:text-zinc-900 focus:bg-zinc-100 data-[state=open]:bg-zinc-100">
+                            <ListPlus className="h-4 w-4 mr-1 text-zinc-500" />
                             Add to
                         </DropdownMenuSubTrigger>
                         <DropdownMenuSubContent className="w-48">
-                            <DropdownMenuItem className="text-xs" onClick={() => { setMoveModalOpen(true); setIsOpen(false); }}>Another List</DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs" onClick={() => { handleToggleFavorite(); }}>Favorites</DropdownMenuItem>
-                            <DropdownMenuItem className="text-xs" onClick={() => { toast.info("LineUp coming soon"); setIsOpen(false); }}>LineUp</DropdownMenuItem>
+                            <DropdownMenuItem className="text-sm" onClick={() => { setMoveModalOpen(true); setIsOpen(false); }}>
+                                <FolderInput className="mr-1 h-4 w-4" />
+                                Another List
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-sm" onClick={() => { handleToggleFavorite(); }}>
+                                <Heart className="mr-1 h-4 w-4" />
+                                Favorites
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-sm" onClick={() => { toast.info("LineUp coming soon"); setIsOpen(false); }}>
+                                <Users className="mr-1 h-4 w-4" />
+                                LineUp
+                            </DropdownMenuItem>
                         </DropdownMenuSubContent>
                     </DropdownMenuSub>
 
@@ -357,9 +375,9 @@ export function TaskActionsDropdown({
                         defaultParentId={task.id}
                         trigger={
                             <div 
-                                className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left"
+                                className="relative w-full flex select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-zinc-100 focus:bg-zinc-100 cursor-pointer text-left text-zinc-800 hover:text-zinc-900"
                             >
-                                <Plus className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                                <Plus className="h-4 w-4 mr-1 text-zinc-500" />
                                 Add Subtask
                             </div>
                         }
@@ -381,9 +399,9 @@ export function TaskActionsDropdown({
                                 toast.error("Failed to archive. Use a list with an Archived status or handle via parent.");
                             }
                         }}
-                        className="text-xs py-1.5 focus:bg-zinc-100 cursor-pointer"
+                        className="text-sm py-1.5 focus:bg-zinc-100 cursor-pointer text-zinc-800 hover:text-zinc-900"
                     >
-                        <Archive className="h-3.5 w-3.5 mr-2 text-zinc-500" />
+                        <Archive className="h-4 w-4 mr-1 text-zinc-500" />
                         Archive
                     </DropdownMenuItem>
 
@@ -393,9 +411,9 @@ export function TaskActionsDropdown({
                             setIsOpen(false);
                             onDelete(task.id);
                         }}
-                        className="text-xs py-1.5 focus:bg-red-50 focus:text-red-600 text-red-600 cursor-pointer"
+                        className="text-sm py-1.5 focus:bg-red-50 focus:text-red-600 text-red-600 cursor-pointer"
                     >
-                        <Trash2 className="h-3.5 w-3.5 mr-2 text-red-500" />
+                        <Trash2 className="h-4 w-4 mr-1 text-red-500" />
                         Delete
                     </DropdownMenuItem>
                 </div>

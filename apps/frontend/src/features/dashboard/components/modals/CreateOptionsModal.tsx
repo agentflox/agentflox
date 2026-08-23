@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { List as ListIcon, CheckSquare } from "lucide-react";
-import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { ListCreationModal } from "@/entities/lists/components/ListCreationModal";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
 
 interface CreateOptionsModalProps {
@@ -36,8 +36,8 @@ export function CreateOptionsModal({
     selectedFolderId,
     onListCreated,
 }: CreateOptionsModalProps) {
-    const listContext = teamId ? "TEAM" as const : projectId ? "PROJECT" as const : "SPACE" as const;
-    const listContextId = teamId ?? projectId ?? spaceId ?? "";
+    const listContext = teamId ? "TEAM" as const : projectId ? "PROJECT" as const : spaceId ? "SPACE" as const : "WORKSPACE" as const;
+    const listContextId = teamId ?? projectId ?? spaceId ?? workspaceId ?? "";
     const [showListModal, setShowListModal] = useState(false);
     const [showTaskModal, setShowTaskModal] = useState(false);
 

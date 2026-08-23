@@ -1,6 +1,7 @@
 "use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EntityStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -90,18 +91,7 @@ export function OverviewView({ agent }: { agent: any }) {
             onUpdated={() => void refetch()}
             className="min-w-0 flex-1 max-w-2xl"
           />
-          <Badge
-            variant={
-              agent.status === 'ACTIVE'
-                ? 'default'
-                : agent.status === 'DRAFT'
-                  ? 'secondary'
-                  : 'destructive'
-            }
-            className="shrink-0"
-          >
-            {agent.status}
-          </Badge>
+          <EntityStatusBadge status={agent.status} className="shrink-0" />
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -336,13 +326,7 @@ export function OverviewView({ agent }: { agent: any }) {
               {executions.items.slice(0, 5).map((execution: any) => (
                 <div key={execution.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <Badge variant={
-                      execution.status === 'COMPLETED' ? 'default' :
-                        execution.status === 'FAILED' ? 'destructive' :
-                          'secondary'
-                    }>
-                      {execution.status}
-                    </Badge>
+                    <EntityStatusBadge status={execution.status} />
                     <span className="text-sm text-muted-foreground">
                       {execution.startedAt ? new Date(execution.startedAt).toLocaleString() : 'Unknown'}
                     </span>

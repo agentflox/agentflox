@@ -21,7 +21,7 @@ import {
     Type, Hash, CheckSquare, Tag, DollarSign, Globe, FunctionSquare, FileText,
     Phone, Mail, MapPin, TrendingUp, Heart, PenTool, MousePointer, MousePointer2, ListTodo, AlertTriangle, CircleMinus, Link, Slash, Box, List as ListIcon, CircleSlash,
     Archive, UserPlus, CalendarCheck, CalendarClock, CalendarRange, Hourglass, UserCheck, RefreshCw, Timer, Download, Undo, ToggleLeft,
-    Check, Eye, Pencil, PenOff
+    Check, Eye, Pencil, PenOff, Wand2, LayoutTemplate
 } from "lucide-react";
 import {
     Table,
@@ -82,7 +82,7 @@ import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
-import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { ListCreationModal } from "@/entities/lists/components/ListCreationModal";
 import { AssigneeSelector, formatAssigneeIdsForSelector } from "@/entities/task/components/AssigneeSelector";
 import { TaskActionsPopover } from "@/entities/task/components/TaskActionsPopover";
 import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/components/LazyTaskDetailModal";
@@ -96,16 +96,17 @@ import { ShareViewPermissionModal } from "@/features/dashboard/components/shared
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { parseEncodedTag, formatEncodedTag } from "@/entities/task/utils/tags";
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
 import { TaskStatusPopover } from "@/entities/task/components/TaskStatusPopover";
 import { format } from "date-fns";
-import type { FilterCondition, FilterGroup, ListViewSavedConfig, FilterOperator } from "./listViewTypes";
-import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
+import type { FilterCondition, FilterGroup, ListViewSavedConfig, FilterOperator } from "./viewTypes";
+import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./viewConstants";
 import { evaluateGroup, hasFilterValue, hasAnyValueInGroup, getCustomFieldValue } from "./filterUtils";
-import { ListViewFilterPopoverContent } from "./ListViewFilterPopoverContent";
-export type { FilterOperator, FilterCondition, FilterGroup } from "./listViewTypes";
+import { ViewFilterPopoverContent } from "./ViewFilterPopoverContent";
+export type { FilterOperator, FilterCondition, FilterGroup } from "./viewTypes";
 import {
     DndContext,
     DragOverlay,
@@ -766,6 +767,53 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
             });
         return [...standardFields, ...customFieldsConfig];
     }, [customFields]);
+
+    const viewContentToSave = useMemo(() => {
+        return {
+            id: viewId,
+            name: viewData?.name || "List",
+            type: "LIST",
+            workspaceId: (workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined,
+            spaceId: (spaceId || viewData?.spaceId) ?? undefined,
+            projectId: (projectId || viewData?.projectId) ?? undefined,
+            folderId: (folderId || viewData?.folderId) ?? undefined,
+            listId: (listId || viewData?.listId) ?? undefined,
+            teamId: (teamId || viewData?.teamId) ?? undefined,
+            config: {
+                listView: {
+                    groupBy,
+                    alsoGroupByList,
+                    groupDirection,
+                    expandedSubtaskMode,
+                    showCompleted,
+                    showCompletedSubtasks,
+                    showEmptyStatuses,
+                    wrapText,
+                    showTaskLocations,
+                    showSubtaskParentNames,
+                    showTaskProperties,
+                    pinDescription,
+                    showTasksFromOtherLists,
+                    showSubtasksFromOtherLists,
+                    defaultToMeMode,
+                    visibleColumns: Array.from(visibleColumns),
+                    filterGroups,
+                    viewAutosave,
+                }
+            },
+            grouping: { groupBy, groupDirection, alsoGroupByList },
+            sorting: { sortBy, sortDirection },
+            filters: filterGroups,
+            columns: Array.from(visibleColumns),
+        };
+    }, [
+        viewId, viewData, workspaceId, resolvedWorkspaceId, spaceId, projectId, folderId, listId, teamId,
+        groupBy, alsoGroupByList, groupDirection, expandedSubtaskMode, showCompleted,
+        showCompletedSubtasks, showEmptyStatuses, wrapText, showTaskLocations,
+        showSubtaskParentNames, showTaskProperties, pinDescription, showTasksFromOtherLists,
+        showSubtasksFromOtherLists, defaultToMeMode, visibleColumns, filterGroups,
+        viewAutosave, sortBy, sortDirection
+    ]);
 
     const allAvailableStatuses = useMemo(() => {
         if (listId && currentList?.statuses) {
@@ -1506,7 +1554,8 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
     const subtaskCount = (task: Task) => (task._count?.other_tasks ?? 0);
     const hasSubtasks = (task: Task, scopeTasks: Task[]) => scopeTasks.some((t: Task) => t.parentId === task.id);
 
-    const addFilterCondition = (groupId: string = "root") => {
+    const addFilterCondition = (groupId?: string) => {
+        const targetId = groupId || "root";
         // Start with an empty field so the UI shows "Select filter" like ClickUp
         const newCond: FilterCondition = {
             id: Math.random().toString(36).substring(7),
@@ -1515,7 +1564,7 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
             value: [],
         };
         const update = (group: FilterGroup): FilterGroup => {
-            if (group.id === groupId) return { ...group, conditions: [...group.conditions, newCond] };
+            if (group.id === targetId) return { ...group, conditions: [...group.conditions, newCond] };
             return { ...group, conditions: group.conditions.map(c => "conditions" in c ? update(c as FilterGroup) : c) };
         };
         setFilterGroups(update(filterGroups));
@@ -3913,7 +3962,7 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
     ]);
 
     const renderFilterContent = (opts?: { onClose?: () => void }) => (
-        <ListViewFilterPopoverContent
+        <ViewFilterPopoverContent
             onClose={opts?.onClose ?? (() => setFiltersPanelOpen(false))}
             savedFiltersPanelOpen={savedFiltersPanelOpen}
             setSavedFiltersPanelOpen={setSavedFiltersPanelOpen}
@@ -3948,7 +3997,7 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
     return (
         <div className="h-full w-full flex flex-col bg-white shadow-sm overflow-hidden font-sans relative min-w-0">
             {/* Toolbar ?EClickUp layout */}
-            <div className="border-x border-t border-slate-200 bg-white px-3 py-2 shrink-0">
+            <div className="bg-white px-3 py-2 shrink-0">
                 <>
                     <div className="flex items-center justify-between gap-3 overflow-x-auto">
                         {/* Left: Group, Expanded, Columns */}
@@ -4343,12 +4392,12 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                     </div>
                 )}
                 {isLoading ? (
-                    <div className="flex flex-col items-center justify-center h-full p-8 border border-slate-200">
+                    <div className="flex flex-col items-center justify-center h-full p-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
                         <p className="text-xs text-zinc-500 mt-3">Loading tasks...</p>
                     </div>
                 ) : filteredTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full p-8 text-center border border-slate-200">
+                    <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                         <p className="text-sm font-medium text-zinc-700">No tasks found</p>
                         <p className="text-xs text-zinc-500 mt-1">Adjust filters or create a task.</p>
                         <TaskCreationModal context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"} contextId={spaceId || projectId} workspaceId={resolvedWorkspaceId} users={users} lists={lists} defaultListId={listId} availableStatuses={allAvailableStatuses} trigger={<button type="button" className="flex items-center gap-1.5 h-8 px-3 mt-4 rounded-lg text-[13px] font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transition-all cursor-pointer shadow-sm"><CheckSquare className="h-3 w-3" />Create a task</button>} />
@@ -5020,6 +5069,22 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
                                     </div>
                                 </PopoverContent>
                             </Popover>
+                            <TemplateMenuPopover
+                                entityType="VIEW"
+                                workspaceId={(workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined}
+                                contentToSave={viewContentToSave}
+                            >
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <Wand2 className="h-4 w-4 text-zinc-400" />
+                                        Templates
+                                    </span>
+                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                </button>
+                            </TemplateMenuPopover>
                         </div>
                         <div className="h-px bg-zinc-100 my-2" />
                         <div className="space-y-1">

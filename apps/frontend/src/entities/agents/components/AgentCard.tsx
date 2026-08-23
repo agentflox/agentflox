@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { Calendar, MoreVertical, Eye, Trash2, Bot, ArrowRight, PenSquare } from "lucide-react";
+import { Calendar, MoreVertical, Eye, Trash2, Bot, ArrowRight, PenSquare, Folder } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +38,9 @@ export interface AgentCardProps {
   onSelect?: (id: string, selected: boolean) => void;
   onDelete?: (id: string) => void;
   className?: string;
+  locationPath?: string | null;
+  workspaceName?: string | null;
+  spaceName?: string | null;
 }
 
 export function AgentCard({
@@ -51,11 +54,19 @@ export function AgentCard({
   onSelect,
   onDelete,
   className,
+  locationPath,
+  workspaceName,
+  spaceName,
 }: AgentCardProps) {
   const router = useRouter();
   const typeStyle = agentTypeStyles[agentType] ?? agentTypeStyles["TASK_EXECUTOR"];
   const statusStyle = statusStyles[status] ?? statusStyles["DRAFT"];
   const updatedDate = updatedAt ? new Date(updatedAt) : null;
+
+  const locationText =
+    locationPath ||
+    [workspaceName, spaceName].filter(Boolean).join(" / ") ||
+    null;
 
   return (
     <div
@@ -109,6 +120,15 @@ export function AgentCard({
       <div className="p-3 flex flex-col gap-4 flex-1 pt-12 relative z-0">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 space-y-2.5 flex-1">
+            {locationText && (
+              <div
+                className="flex items-center gap-1.5 text-xs text-slate-500 font-normal truncate min-w-0 max-w-full"
+                title={locationText}
+              >
+                <Folder className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                <span className="truncate">{locationText}</span>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
                 <div

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { EntityStatusBadge } from '@/components/ui/status-badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Zap, 
@@ -58,9 +59,7 @@ export function AutomationView({ agent }: AutomationViewProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={agent.isActive ? 'default' : 'secondary'}>
-            {agent.isActive ? 'Active' : 'Inactive'}
-          </Badge>
+          <EntityStatusBadge status={agent.status || (agent.isActive ? 'ACTIVE' : 'ARCHIVED')} />
         </div>
       </div>
 

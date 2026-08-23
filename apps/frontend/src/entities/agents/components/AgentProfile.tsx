@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EntityStatusBadge } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -191,38 +192,18 @@ export function AgentProfile({
     }
 
     if (isBuilding) {
-      return (
-        <Badge variant="secondary" className="bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20">
-          <Sparkles className="w-3 h-3 mr-1.5 animate-pulse" />
-          Building
-        </Badge>
-      );
+      return <EntityStatusBadge status="BUILDING" />;
     }
 
     if (isLive) {
-      return (
-        <Badge variant="default" className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">
-          <CheckCircle2 className="w-3 h-3 mr-1.5" />
-          Live
-        </Badge>
-      );
+      return <EntityStatusBadge status="ACTIVE" />;
     }
 
     if (isDraft) {
-      return (
-        <Badge variant="secondary">
-          <Clock className="w-3 h-3 mr-1.5" />
-          Draft
-        </Badge>
-      );
+      return <EntityStatusBadge status="DRAFT" />;
     }
 
-    return (
-      <Badge variant="outline">
-        <AlertCircle className="w-3 h-3 mr-1.5" />
-        Inactive
-      </Badge>
-    );
+    return <EntityStatusBadge status="ARCHIVED" />;
   };
 
   const getTriggerIcon = (triggerType: string | null | undefined) => {

@@ -46,12 +46,16 @@ export function DocumentDuplicateModal({
     });
 
     const handleDuplicate = () => {
-        if (!newName.trim() || !documentToCopy) return;
+        if (!newName.trim() || !documentToCopy || !documentToCopy.viewId) return;
         createMutation.mutate({
+            viewId: documentToCopy.viewId,
             workspaceId,
             spaceId: documentToCopy.spaceId || undefined,
             projectId: documentToCopy.projectId || undefined,
             folderId: documentToCopy.folderId || undefined,
+            teamId: documentToCopy.teamId || undefined,
+            listId: documentToCopy.listId || undefined,
+            parentId: documentToCopy.parentId || undefined,
             title: newName.trim(),
             content: documentToCopy.content || "",
             icon: documentToCopy.icon || "",
@@ -93,7 +97,7 @@ export function DocumentDuplicateModal({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleDuplicate} disabled={!newName.trim() || createMutation.isPending || !documentToCopy}>
+                    <Button onClick={handleDuplicate} disabled={!newName.trim() || createMutation.isPending || !documentToCopy?.viewId}>
                         {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Duplicate
                     </Button>

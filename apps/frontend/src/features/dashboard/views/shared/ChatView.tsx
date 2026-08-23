@@ -606,19 +606,25 @@ export default function ChatView({ workspaceId, spaceId, projectId, teamId, sele
             {/* Main chat area */}
             <div id="channel-post-modal-root" className="relative flex flex-1 flex-col min-h-0 overflow-hidden">
                 {isSidebarCollapsed && (
-                    <div className="absolute left-0 top-3 z-30 hidden lg:block">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-4 w-4 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                            onClick={() => setIsSidebarCollapsed(false)}
-                            title="Expand Sidebar"
-                        >
-                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                    <div className="absolute left-0 top-3 z-10 hidden lg:block">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                                className="h-6 w-6 rounded-l-none border-l border-slate-200 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                              onClick={() => setIsSidebarCollapsed(false)}
+                            >
+                              <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>Expand Sidebar</p>
+                          </TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
-                <div className="flex-1 flex flex-col min-h-0 bg-white border-x border-slate-200/60 shadow-[0_0_15px_rgba(0,0,0,0.02)] relative z-0">
+                <div className="flex-1 flex flex-col min-h-0 bg-white border-x border-slate-200 shadow-[0_0_15px_rgba(0,0,0,0.02)] relative z-0">
 
                     <div className="flex-1 min-h-0 px-6 py-4 bg-[#f8fafc] flex flex-col">
                         {isLoadingMessages ? (

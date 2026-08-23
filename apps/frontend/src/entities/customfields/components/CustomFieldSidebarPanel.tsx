@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PanelRightClose, ChevronDown, Plus, Pencil, Trash2, Search, Briefcase, Folder, List, Layers, Globe, Check, ChevronRight, PlusCircle, MousePointer2, Eye, Lock, X, User, Users } from "lucide-react";
+import { PanelRightClose, ChevronDown, Plus, Pencil, Trash2, Search, Briefcase, Folder, List, Layers, Globe, Check, ChevronRight, PlusCircle, MousePointer2, Eye, Lock, X, User, Users, Play } from "lucide-react";
 import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
 import { WorkspaceIcon } from "@/entities/workspace/components/WorkspaceIcon";
@@ -132,36 +132,34 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
             <div key={item.id} className="space-y-0.5 w-full">
                 <div
                     className={cn(
-                        "group w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] text-left transition-all cursor-pointer relative",
-                        indentLevel === 1 && "pl-9",
-                        indentLevel === 2 && "pl-14",
-                        indentLevel === 3 && "pl-20",
+                        "group/item w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-left transition-all cursor-pointer relative",
+                        indentLevel === 1 && "pl-6",
+                        indentLevel === 2 && "pl-10",
+                        indentLevel === 3 && "pl-14",
                         "hover:bg-zinc-100/80 text-zinc-600 hover:text-zinc-900 font-medium"
                     )}
                     onClick={() => onSelect({ id: item.id, type, name: item.name })}
                 >
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                         <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
+                            <span className={cn("flex items-center justify-center", hasChildren && "group-hover/item:hidden")}>
+                                {icon}
+                            </span>
                             {hasChildren && (
                                 <div
-                                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-white shadow-sm border border-zinc-200 rounded-md cursor-pointer z-10 hover:bg-zinc-50 hover:scale-105 active:scale-95"
+                                    className="hidden group-hover/item:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
                                     onClick={(e) => toggleRow(id, e)}
                                 >
-                                    {isExpanded ? (
-                                        <ChevronDown className="h-3.5 w-3.5 text-zinc-600" />
-                                    ) : (
-                                        <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />
-                                    )}
+                                    <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
                                 </div>
                             )}
-                            {icon}
                         </div>
                         <span className="truncate">{item.name}</span>
                     </div>
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-700 hover:text-white rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm shrink-0"
+                        className="h-6 px-2 text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-700 hover:text-white rounded-md opacity-0 group-hover/item:opacity-100 transition-all shadow-sm shrink-0"
                         onClick={(e) => {
                             e.stopPropagation();
                             onSelect({ id: item.id, type, name: item.name });
@@ -182,14 +180,14 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
     return (
         <div className="flex flex-col max-h-[400px]">
             <div className="p-3 border-b border-zinc-100 bg-white sticky top-0 z-10">
-                <div className="flex items-center gap-2 px-3 h-9 bg-zinc-50 border border-zinc-200 rounded-lg transition-colors focus-within:border-violet-400 focus-within:ring-4 focus-within:ring-violet-500/10">
+                <div className="flex items-center gap-2 px-3 h-8 bg-zinc-50 border border-zinc-200 rounded-lg transition-colors focus-within:border-zinc-400">
                     <Search className="h-3.5 w-3.5 text-zinc-400" />
                     <Input
                         variant="ghost"
                         value={search}
                         onChange={(e) => onSearch(e.target.value)}
                         placeholder="Search destinations..."
-                        className="border-0 bg-transparent p-0 h-full focus:outline-none focus:ring-0 text-sm shadow-none"
+                        className="border-0 bg-transparent p-0 h-full focus:outline-none focus:ring-0 text-xs shadow-none"
                     />
                 </div>
             </div>
@@ -210,31 +208,29 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                     return (
                         <div key={ws.id} className="space-y-0.5 w-full">
                             <div
-                                className="group w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[13px] text-left transition-all cursor-pointer relative hover:bg-zinc-100/80 text-zinc-600 hover:text-zinc-900 font-medium"
+                                className="group/ws w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-left transition-all cursor-pointer relative hover:bg-zinc-100/80 text-zinc-600 hover:text-zinc-900 font-medium"
                                 onClick={() => onSelect({ id: ws.id, type: "WORKSPACE", name: ws.name })}
                             >
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                     <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
+                                        <span className={cn("flex items-center justify-center", hasChildren && "group-hover/ws:hidden")}>
+                                            <WorkspaceIcon icon={ws.avatar ?? null} size={18} className="text-zinc-400 group-hover:text-indigo-500 transition-colors" />
+                                        </span>
                                         {hasChildren && (
                                             <div
-                                                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-white shadow-sm border border-zinc-200 rounded-md cursor-pointer z-10 hover:bg-zinc-50 hover:scale-105 active:scale-95"
+                                                className="hidden group-hover/ws:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
                                                 onClick={(e) => toggleRow(ws.id, e)}
                                             >
-                                                {isExpanded ? (
-                                                    <ChevronDown className="h-3.5 w-3.5 text-zinc-600" />
-                                                ) : (
-                                                    <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />
-                                                )}
+                                                <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
                                             </div>
                                         )}
-                                        <WorkspaceIcon icon={ws.avatar ?? null} size={18} className="text-zinc-400 group-hover:text-indigo-500 transition-colors" />
                                     </div>
                                     <span className="truncate">{ws.name}</span>
                                 </div>
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 px-2 text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-700 hover:text-white rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm shrink-0"
+                                    className="h-6 px-2 text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-700 hover:text-white rounded-md opacity-0 group-hover/ws:opacity-100 transition-all shadow-sm shrink-0"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onSelect({ id: ws.id, type: "WORKSPACE", name: ws.name });
@@ -247,7 +243,11 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                             {isExpanded && (
                                 <div className="space-y-0.5">
                                     {wsTeams.map((team: any) => renderItem(
-                                        team, "TEAM", <Users size={16} className="text-blue-500" />, 1, null, false, team.id
+                                        team, "TEAM",
+                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                            <Users size={12} className="text-emerald-600" />
+                                        </div>,
+                                        1, null, false, team.id
                                     ))}
                                     {wsSpaces.map((space: any) => {
                                         const spaceProjects = projects.filter((p: any) => p.spaceId === space.id);
@@ -258,8 +258,18 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                                             const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
                                             const hasFolderChildren = folderLists.length > 0;
                                             return renderItem(
-                                                folder, "FOLDER", <Folder size={16} className="text-yellow-500" />, level,
-                                                folderLists.map((list: any) => renderItem(list, "LIST", <List size={16} className="text-emerald-500" />, level + 1, null, false, list.id)),
+                                                folder, "FOLDER",
+                                                <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                                    <Folder size={12} className="text-blue-600" />
+                                                </div>,
+                                                level,
+                                                folderLists.map((list: any) => renderItem(
+                                                    list, "LIST",
+                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                        <List size={12} className="text-emerald-600" />
+                                                    </div>,
+                                                    level + 1, null, false, list.id
+                                                )),
                                                 hasFolderChildren,
                                                 folder.id
                                             );
@@ -271,10 +281,20 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                                             const hasProjChildren = projectFolders.length > 0 || projectLists.length > 0;
 
                                             return renderItem(
-                                                project, "PROJECT", <ProjectIcon icon={project.logo} size={16} className="text-indigo-500" />, level,
+                                                project, "PROJECT",
+                                                <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                                    <Briefcase size={12} className="text-purple-600" />
+                                                </div>,
+                                                level,
                                                 <>
                                                     {projectFolders.map((f: any) => renderFolder(f, level + 1))}
-                                                    {projectLists.map((l: any) => renderItem(l, "LIST", <List size={16} className="text-emerald-500" />, level + 1, null, false, l.id))}
+                                                    {projectLists.map((l: any) => renderItem(
+                                                        l, "LIST",
+                                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                            <List size={12} className="text-emerald-600" />
+                                                        </div>,
+                                                        level + 1, null, false, l.id
+                                                    ))}
                                                 </>,
                                                 hasProjChildren,
                                                 project.id
@@ -284,11 +304,26 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                                         const hasSpaceChildren = spaceProjects.length > 0 || spaceFolders.length > 0 || spaceLists.length > 0;
 
                                         return renderItem(
-                                            space, "SPACE", <SpaceIcon icon={space.icon} size={16} className="text-violet-500" />, 1,
+                                            space, "SPACE",
+                                            <div className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center">
+                                                <span
+                                                    className="h-4 w-4 rounded shrink-0 overflow-hidden grid place-items-center bg-indigo-500 text-white"
+                                                    style={{ backgroundColor: space.color || "#6366f1" }}
+                                                >
+                                                    <SpaceIcon icon={space.icon} size={11} className="text-white" fill />
+                                                </span>
+                                            </div>,
+                                            1,
                                             <>
                                                 {spaceProjects.map((p: any) => renderProject(p, 2))}
                                                 {spaceFolders.map((f: any) => renderFolder(f, 2))}
-                                                {spaceLists.map((l: any) => renderItem(l, "LIST", <List size={16} className="text-emerald-500" />, 2, null, false, l.id))}
+                                                {spaceLists.map((l: any) => renderItem(
+                                                    l, "LIST",
+                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                        <List size={12} className="text-emerald-600" />
+                                                    </div>,
+                                                    2, null, false, l.id
+                                                ))}
                                             </>,
                                             hasSpaceChildren,
                                             space.id
@@ -302,17 +337,37 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                                             const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
                                             const hasFolderChildren = folderLists.length > 0;
                                             return renderItem(
-                                                folder, "FOLDER", <Folder size={16} className="text-yellow-500" />, level,
-                                                folderLists.map((list: any) => renderItem(list, "LIST", <List size={16} className="text-emerald-500" />, level + 1, null, false, list.id)),
+                                                folder, "FOLDER",
+                                                <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                                    <Folder size={12} className="text-blue-600" />
+                                                </div>,
+                                                level,
+                                                folderLists.map((list: any) => renderItem(
+                                                    list, "LIST",
+                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                        <List size={12} className="text-emerald-600" />
+                                                    </div>,
+                                                    level + 1, null, false, list.id
+                                                )),
                                                 hasFolderChildren,
                                                 folder.id
                                             );
                                         };
                                         return renderItem(
-                                            project, "PROJECT", <ProjectIcon icon={project.logo} size={16} className="text-indigo-500" />, 1,
+                                            project, "PROJECT",
+                                            <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                                <Briefcase size={12} className="text-purple-600" />
+                                            </div>,
+                                            1,
                                             <>
                                                 {projectFolders.map((f: any) => renderFolder(f, 2))}
-                                                {projectLists.map((l: any) => renderItem(l, "LIST", <List size={16} className="text-emerald-500" />, 2, null, false, l.id))}
+                                                {projectLists.map((l: any) => renderItem(
+                                                    l, "LIST",
+                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                        <List size={12} className="text-emerald-600" />
+                                                    </div>,
+                                                    2, null, false, l.id
+                                                ))}
                                             </>,
                                             hasProjChildren,
                                             project.id
@@ -322,13 +377,29 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                                         const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
                                         const hasFolderChildren = folderLists.length > 0;
                                         return renderItem(
-                                            folder, "FOLDER", <Folder size={16} className="text-yellow-500" />, 1,
-                                            folderLists.map((list: any) => renderItem(list, "LIST", <List size={16} className="text-emerald-500" />, 2, null, false, list.id)),
+                                            folder, "FOLDER",
+                                            <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                                <Folder size={12} className="text-blue-600" />
+                                            </div>,
+                                            1,
+                                            folderLists.map((list: any) => renderItem(
+                                                list, "LIST",
+                                                <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                    <List size={12} className="text-emerald-600" />
+                                                </div>,
+                                                2, null, false, list.id
+                                            )),
                                             hasFolderChildren,
                                             folder.id
                                         );
                                     })}
-                                    {wsLists.map((list: any) => renderItem(list, "LIST", <List size={16} className="text-emerald-500" />, 1, null, false, list.id))}
+                                    {wsLists.map((list: any) => renderItem(
+                                        list, "LIST",
+                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                            <List size={12} className="text-emerald-600" />
+                                        </div>,
+                                        1, null, false, list.id
+                                    ))}
                                 </div>
                             )}
                         </div>

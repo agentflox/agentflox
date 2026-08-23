@@ -69,6 +69,7 @@ type Props = {
 		teamId?: string;
 		folderId?: string;
 		listId?: string;
+		viewId?: string;
 		targetDocId?: string;
 		/** Whether the target document has children */
 		targetDocHasChildren?: boolean;
@@ -105,7 +106,7 @@ function EntityIcon({ type, className }: { type: TemplateEntityType; className?:
 		case TemplateEntityType.SPACE: return <Layers className={cn(base, "text-blue-500")} />;
 		case TemplateEntityType.AGENT: return <Wand2 className={cn(base, "text-purple-500")} />;
 		case TemplateEntityType.WORKFORCE: return <User className={cn(base, "text-indigo-500")} />;
-		default: return <LayoutDashboard className={cn(base, "text-slate-400")} />;
+		default: return <LayoutDashboard className={cn(base, "text-zinc-400")} />;
 	}
 }
 
@@ -113,12 +114,12 @@ function EntityIcon({ type, className }: { type: TemplateEntityType; className?:
 function TemplateCard({ template, onClick }: { template: any; onClick?: () => void }) {
 	return (
 		<Card onClick={onClick} className="overflow-hidden border border-muted/40 shadow-none hover:shadow-md transition-all rounded-lg group cursor-pointer hover:border-indigo-200">
-			<div className="relative aspect-[16/9] w-full bg-gradient-to-br from-slate-50 to-slate-100 border-b border-muted/40">
+			<div className="relative aspect-[16/9] w-full bg-gradient-to-br from-zinc-50 to-zinc-100 border-b border-muted/40">
 				<div className="absolute inset-0 p-4 pt-6 flex items-center justify-center opacity-50">
 					<EntityIcon type={template.entityType} className="size-10 opacity-30" />
 				</div>
 				{template.isFeatured && (
-					<div className="absolute top-2 left-2 flex size-6 items-center justify-center rounded-full bg-white shadow-sm border border-slate-100 z-10">
+					<div className="absolute top-2 left-2 flex size-6 items-center justify-center rounded-full bg-white shadow-sm border border-zinc-100 z-10">
 						<Star className="size-3 text-amber-500 fill-amber-500" />
 					</div>
 				)}
@@ -138,13 +139,13 @@ function TemplateCard({ template, onClick }: { template: any; onClick?: () => vo
 			<div className="p-3.5 bg-white">
 				<div className="flex items-center gap-2">
 					<EntityIcon type={template.entityType} />
-					<span className="text-[13px] font-medium text-slate-700 truncate">{template.name}</span>
+					<span className="text-[13px] font-medium text-zinc-700 truncate">{template.name}</span>
 				</div>
 				{template.description && (
-					<p className="mt-1 text-[12px] text-slate-400 line-clamp-1">{template.description}</p>
+					<p className="mt-1 text-[12px] text-zinc-400 line-clamp-1">{template.description}</p>
 				)}
 				{template.category && (
-					<span className="mt-1.5 inline-block text-[11px] text-slate-400">{template.category}</span>
+					<span className="mt-1.5 inline-block text-[11px] text-zinc-400">{template.category}</span>
 				)}
 			</div>
 		</Card>
@@ -178,13 +179,13 @@ function TemplateSection({
 	groupByType?: boolean;
 }) {
 	const titleClassName = id === "workspace"
-		? "text-[22px] font-semibold text-slate-900"
-		: "text-[17px] font-semibold text-slate-900";
+		? "text-[22px] font-semibold text-zinc-900"
+		: "text-[17px] font-semibold text-zinc-900";
 
 	const renderSectionHeader = () => (
 		<div className="flex items-center gap-3">
 			<h2 className={titleClassName}>{title}</h2>
-			<div className="h-px flex-1 bg-slate-200" />
+			<div className="h-px flex-1 bg-zinc-200" />
 		</div>
 	);
 
@@ -202,10 +203,10 @@ function TemplateSection({
 				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 					{Array.from({ length: 6 }).map((_, i) => (
 						<Card key={`skeleton-${id}-${i}`} className="overflow-hidden border border-muted/40 rounded-lg shadow-none">
-							<div className="aspect-[16/9] w-full bg-slate-100 animate-pulse border-b border-muted/40" />
+							<div className="aspect-[16/9] w-full bg-zinc-100 animate-pulse border-b border-muted/40" />
 							<div className="p-3.5 bg-white space-y-2.5">
-								<div className="h-3.5 w-2/3 rounded bg-slate-100 animate-pulse" />
-								<div className="h-3 w-1/2 rounded bg-slate-100 animate-pulse" />
+								<div className="h-3.5 w-2/3 rounded bg-zinc-100 animate-pulse" />
+								<div className="h-3 w-1/2 rounded bg-zinc-100 animate-pulse" />
 							</div>
 						</Card>
 					))}
@@ -218,7 +219,7 @@ function TemplateSection({
 		return (
 			<section id={`section-${id}`} className="space-y-4 scroll-mt-20">
 				{renderSectionHeader()}
-				<p className="text-[13px] text-slate-400">No templates found.</p>
+				<p className="text-[13px] text-zinc-400">No templates found.</p>
 			</section>
 		);
 	}
@@ -242,7 +243,7 @@ function TemplateSection({
 				{renderSectionHeader()}
 				{orderedTypeKeys.map((typeKey) => (
 					<div key={typeKey} className="space-y-3">
-						<h3 className="text-[18px] font-semibold text-slate-700">
+						<h3 className="text-[18px] font-semibold text-zinc-700">
 							{typeLabelMap.get(typeKey) ?? typeKey}
 						</h3>
 						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -698,7 +699,7 @@ export function TemplateCenterModal({
 										<span className="text-xs text-muted-foreground">{filteredBuiltin.length}</span>
 									</button>
 								</div>
-								<div className="mt-4 border-t border-slate-200" />
+								<div className="mt-4 border-t border-zinc-200" />
 
 								{/* Template Types */}
 								<div className="mt-8 mb-4">
@@ -714,7 +715,7 @@ export function TemplateCenterModal({
 													onCheckedChange={() => toggleType(type.id)}
 													className="rounded-[4px] border-muted-foreground/30 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 cursor-pointer"
 												/>
-												<label htmlFor={`type-${type.id}`} className="text-[13.5px] font-normal leading-none text-slate-700 cursor-pointer">
+												<label htmlFor={`type-${type.id}`} className="text-[13.5px] font-normal leading-none text-zinc-700 cursor-pointer">
 													{type.label}
 												</label>
 											</div>
@@ -723,12 +724,12 @@ export function TemplateCenterModal({
 								</div>
 							</div>
 
-							<div className="p-4 border-t border-slate-100 bg-slate-50/30">
+							<div className="p-4 border-t border-zinc-100 bg-zinc-50/30">
 								<button
 									onClick={() => setView("auditLog")}
-									className="group flex w-full items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-[13px] font-medium text-slate-600 hover:text-slate-900 border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer"
+									className="group flex w-full items-center justify-center gap-2 rounded-lg bg-white px-3 py-2 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 border border-zinc-200 shadow-sm hover:shadow-md hover:border-zinc-300 transition-all cursor-pointer"
 								>
-									<Activity className="size-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+									<Activity className="size-4 text-zinc-400 group-hover:text-indigo-500 transition-colors" />
 									View Audit Log
 								</button>
 							</div>
@@ -737,25 +738,25 @@ export function TemplateCenterModal({
 						{/* Right Content */}
 						<div className="flex flex-1 flex-col bg-background relative min-w-0">
 							{/* Top header bar */}
-							<div className="h-[36px] border-b border-slate-100 shrink-0 w-full flex items-center justify-end px-3">
+							<div className="h-[36px] border-b border-zinc-100 shrink-0 w-full flex items-center justify-end px-3">
 								<button
 									onClick={() => onOpenChange?.(false)}
-									className="size-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+									className="size-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
 								>
 									<X className="size-4" />
 								</button>
 							</div>
 
 							{/* Filter bar */}
-							<div className="flex items-center gap-3 border-b border-slate-100 px-6 py-4 bg-white/50 backdrop-blur-sm shrink-0 w-full">
+							<div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-4 bg-white/50 backdrop-blur-sm shrink-0 w-full">
 								<div className="flex-1 max-w-lg">
-									<div className="flex w-full overflow-hidden h-10 items-center rounded-md border border-slate-200 bg-white px-3 shadow-sm transition-colors focus-within:ring-1 focus-within:ring-indigo-500 focus-within:border-indigo-500">
-										<Search className="h-4 w-4 shrink-0 text-slate-400" />
+									<div className="flex w-full overflow-hidden h-10 items-center rounded-md border border-zinc-200 bg-white px-3 shadow-sm transition-colors focus-within:ring-1 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+										<Search className="h-4 w-4 shrink-0 text-zinc-400" />
 										<Input
 											value={search}
 											onChange={(e) => setSearch(e.target.value)}
 											placeholder="Search templates…"
-											className="h-full bg-transparent pl-2 pr-0 !border-0 focus:outline-none focus:ring-0 focus-visible:ring-0 shadow-none text-[14px] font-medium placeholder:text-slate-400 placeholder:font-normal"
+											className="h-full bg-transparent pl-2 pr-0 !border-0 focus:outline-none focus:ring-0 focus-visible:ring-0 shadow-none text-[14px] font-medium placeholder:text-zinc-400 placeholder:font-normal"
 										/>
 									</div>
 								</div>
@@ -764,8 +765,8 @@ export function TemplateCenterModal({
 									<Popover>
 										<PopoverTrigger asChild>
 											<div className="relative">
-												<Button variant="outline" size="sm" className="h-10 rounded-md border-slate-200 bg-white shadow-sm px-3 text-slate-600 hover:bg-slate-50 cursor-pointer">
-													<Briefcase className="mr-2 size-4 text-slate-400" />
+												<Button variant="outline" size="sm" className="h-10 rounded-md border-zinc-200 bg-white shadow-sm px-3 text-zinc-600 hover:bg-zinc-50 cursor-pointer">
+													<Briefcase className="mr-2 size-4 text-zinc-400" />
 													Category
 												</Button>
 												{selectedCategories.size > 0 && (
@@ -775,38 +776,38 @@ export function TemplateCenterModal({
 												)}
 											</div>
 										</PopoverTrigger>
-										<PopoverContent align="start" className="w-[280px] p-0 shadow-lg border-slate-200 rounded-xl overflow-hidden bg-white" sideOffset={8}>
+										<PopoverContent align="start" className="w-[280px] p-0 shadow-lg border-zinc-200 rounded-xl overflow-hidden bg-white" sideOffset={8}>
 											<div className="p-3 pb-1">
 												<Input
 													placeholder="Search…"
 													value={categorySearch}
 													onChange={(e) => setCategorySearch(e.target.value)}
-													className="h-[34px] w-full bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-slate-400 rounded-[5px] text-[14px] shadow-none"
+													className="h-[34px] w-full bg-white border-zinc-300 focus-visible:ring-1 focus-visible:ring-zinc-400 rounded-[5px] text-[14px] shadow-none"
 												/>
 											</div>
 											<div className="flex justify-end px-3 py-1.5">
 												<button
 													onClick={() => setSelectedCategories(new Set(allCategories))}
-													className="text-[12.5px] font-medium text-slate-600 hover:text-slate-900 transition-colors"
+													className="text-[12.5px] font-medium text-zinc-600 hover:text-zinc-900 transition-colors"
 												>
 													Select all
 												</button>
 											</div>
 											<div onWheel={(e) => e.stopPropagation()} className="max-h-[320px] overflow-y-auto pb-3 px-1.5">
 												{filteredCategories.length === 0 ? (
-													<p className="text-[13px] text-slate-400 px-3 py-2">No categories found.</p>
+													<p className="text-[13px] text-zinc-400 px-3 py-2">No categories found.</p>
 												) : filteredCategories.map((cat) => (
 													<div
 														key={cat}
 														onClick={() => toggleCategory(cat)}
-														className="flex items-center justify-between w-full rounded-md px-2.5 py-2.5 text-[14px] font-normal hover:bg-slate-50 cursor-pointer text-slate-700 transition-colors leading-none"
+														className="flex items-center justify-between w-full rounded-md px-2.5 py-2.5 text-[14px] font-normal hover:bg-zinc-50 cursor-pointer text-zinc-700 transition-colors leading-none"
 													>
 														<label htmlFor={`cat-${cat}`} className="flex-1 cursor-pointer">{cat}</label>
 														<Checkbox
 															id={`cat-${cat}`}
 															checked={selectedCategories.has(cat)}
 															onCheckedChange={() => toggleCategory(cat)}
-															className="rounded-[4px] border-slate-400 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 h-4 w-4 shrink-0 cursor-pointer"
+															className="rounded-[4px] border-zinc-400 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 h-4 w-4 shrink-0 cursor-pointer"
 														/>
 													</div>
 												))}
@@ -821,8 +822,8 @@ export function TemplateCenterModal({
 										allAvailableTags={allTags}
 										trigger={
 											<div className="relative">
-												<Button variant="outline" size="sm" className="h-10 rounded-md border-slate-200 bg-white shadow-sm px-3 text-slate-600 hover:bg-slate-50 cursor-pointer w-full">
-													<Tag className="mr-2 size-4 text-slate-400" />
+												<Button variant="outline" size="sm" className="h-10 rounded-md border-zinc-200 bg-white shadow-sm px-3 text-zinc-600 hover:bg-zinc-50 cursor-pointer w-full">
+													<Tag className="mr-2 size-4 text-zinc-400" />
 													Tags
 												</Button>
 												{selectedTags.length > 0 && (
@@ -838,8 +839,8 @@ export function TemplateCenterModal({
 									<Popover>
 										<PopoverTrigger asChild>
 											<div className="relative">
-												<Button variant="outline" size="sm" className="h-10 rounded-md border-slate-200 bg-white shadow-sm px-3 text-slate-600 hover:bg-slate-50 cursor-pointer w-full">
-													<User className="mr-2 size-4 text-slate-400" />
+												<Button variant="outline" size="sm" className="h-10 rounded-md border-zinc-200 bg-white shadow-sm px-3 text-zinc-600 hover:bg-zinc-50 cursor-pointer w-full">
+													<User className="mr-2 size-4 text-zinc-400" />
 													Created by
 												</Button>
 												{selectedUsers.size > 0 && (
@@ -849,10 +850,10 @@ export function TemplateCenterModal({
 												)}
 											</div>
 										</PopoverTrigger>
-										<PopoverContent align="start" className="w-[260px] p-0 shadow-lg border-slate-200 rounded-xl overflow-hidden" sideOffset={8}>
+										<PopoverContent align="start" className="w-[260px] p-0 shadow-lg border-zinc-200 rounded-xl overflow-hidden" sideOffset={8}>
 											<div className="p-3 pb-1">
-												<div className="flex w-full overflow-hidden h-[34px] items-center rounded-md border border-slate-300 bg-white px-2 shadow-sm focus-within:ring-1 focus-within:ring-indigo-500 focus-within:border-indigo-500">
-													<Search className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+												<div className="flex w-full overflow-hidden h-[34px] items-center rounded-md border border-zinc-300 bg-white px-2 shadow-sm focus-within:ring-1 focus-within:ring-indigo-500 focus-within:border-indigo-500">
+													<Search className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
 													<Input
 														placeholder="Search users…"
 														value={userSearch}
@@ -863,12 +864,12 @@ export function TemplateCenterModal({
 											</div>
 											<div onWheel={(e) => e.stopPropagation()} className="max-h-[250px] overflow-y-auto p-2 bg-white space-y-0.5">
 												{filteredUsers.length === 0 ? (
-													<p className="text-[13px] text-slate-400 px-2 py-2">No users found.</p>
+													<p className="text-[13px] text-zinc-400 px-2 py-2">No users found.</p>
 												) : filteredUsers.map((user) => (
 													<div
 														key={user.id}
 														onClick={() => toggleUser(user.id)}
-														className="flex items-center justify-between w-full rounded-md px-2.5 py-2 text-[13px] font-medium hover:bg-slate-50 cursor-pointer text-slate-700 transition-colors"
+														className="flex items-center justify-between w-full rounded-md px-2.5 py-2 text-[13px] font-medium hover:bg-zinc-50 cursor-pointer text-zinc-700 transition-colors"
 													>
 														<label htmlFor={`user-${user.id}`} className="flex flex-1 items-center gap-2.5 cursor-pointer">
 															{user.image ? (
@@ -884,7 +885,7 @@ export function TemplateCenterModal({
 															id={`user-${user.id}`}
 															checked={selectedUsers.has(user.id)}
 															onCheckedChange={() => toggleUser(user.id)}
-															className="rounded-[4px] border-slate-400 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 h-4 w-4 shrink-0 cursor-pointer ml-3"
+															className="rounded-[4px] border-zinc-400 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 h-4 w-4 shrink-0 cursor-pointer ml-3"
 														/>
 													</div>
 												))}
@@ -960,29 +961,29 @@ export function TemplateCenterModal({
 					</>
 				) : view === "detail" && selectedTemplate ? (
 					// ── Template Detail view ────────────────────────────────────
-					<div className="flex flex-col w-full h-full bg-slate-50/50 relative">
-						<div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-white sticky top-0 z-20 shrink-0">
+					<div className="flex flex-col w-full h-full bg-zinc-50/50 relative">
+						<div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-200 bg-white sticky top-0 z-20 shrink-0">
 							<button
 								onClick={() => setView("templates")}
-								className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-slate-600 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
+								className="flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-medium text-zinc-600 hover:text-zinc-900 bg-zinc-100/80 hover:bg-zinc-200 rounded-md transition-colors cursor-pointer"
 							>
 								<ArrowLeft className="size-3.5" />
 								Back
 							</button>
-							<div className="text-[14px] font-semibold text-slate-800">Template Center</div>
+							<div className="text-[14px] font-semibold text-zinc-800">Template Center</div>
 							<button
 								onClick={() => onOpenChange?.(false)}
-								className="size-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+								className="size-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
 							>
 								<X className="size-4" />
 							</button>
 						</div>
 
-						<div className="flex-1 overflow-y-auto w-full px-8 py-4 bg-slate-50">
+						<div className="flex-1 overflow-y-auto w-full px-8 py-4 bg-zinc-50">
 							<div className="mx-auto w-full">
 								<div className="flex items-start justify-between mb-7">
 									<div className="flex items-center gap-4 flex-1 min-w-0">
-										<div className="size-16 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+										<div className="size-16 rounded-xl bg-white border border-zinc-200 shadow-sm flex items-center justify-center">
 											<EntityIcon type={selectedTemplate.entityType} className="size-8" />
 										</div>
 										<div className="flex-1 min-w-0">
@@ -991,22 +992,22 @@ export function TemplateCenterModal({
 													<Input
 														value={editingName}
 														onChange={(e) => setEditingName(e.target.value)}
-														className="h-8 w-full max-w-[640px] flex-1 min-w-[260px] text-[14px] font-normal border-slate-300 bg-white focus-visible:border-indigo-500 focus-visible:ring-1 focus-visible:ring-indigo-100"
+														className="h-8 w-full max-w-[640px] flex-1 min-w-[260px] text-[14px] font-normal border-zinc-300 bg-white focus-visible:border-indigo-500 focus-visible:ring-1 focus-visible:ring-indigo-100"
 													/>
 												) : (
-													<h1 className="text-2xl font-bold text-slate-800">{selectedTemplate.name}</h1>
+													<h1 className="text-2xl font-bold text-zinc-800">{selectedTemplate.name}</h1>
 												)}
 												{!isEditMode && (
 													<Popover>
 														<PopoverTrigger asChild>
-															<button className="size-7 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">
+															<button className="size-7 rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer">
 																<span className="text-xl leading-none">⋯</span>
 															</button>
 														</PopoverTrigger>
 														<PopoverContent align="start" className="w-44 p-1.5">
 															<button
 																onClick={() => setIsEditMode(true)}
-																className="w-full text-left text-sm px-2.5 py-2 rounded-md hover:bg-slate-100 flex items-center gap-2 cursor-pointer"
+																className="w-full text-left text-sm px-2.5 py-2 rounded-md hover:bg-zinc-100 flex items-center gap-2 cursor-pointer"
 															>
 																<Pencil className="size-3.5" /> Edit
 															</button>
@@ -1025,14 +1026,14 @@ export function TemplateCenterModal({
 															variant="ghost"
 															size="sm"
 															onClick={() => setIsEditMode(false)}
-															className="h-10 px-5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl"
+															className="h-10 px-5 bg-zinc-100 text-zinc-600 hover:bg-zinc-200 rounded-xl"
 														>
 															Cancel
 														</Button>
 														<Button
 															size="sm"
 															onClick={handleSaveTemplate}
-															className="h-10 px-5 bg-white text-slate-600 border border-slate-300 hover:bg-slate-50 rounded-xl shadow-none"
+															className="h-10 px-5 bg-white text-zinc-600 border border-zinc-300 hover:bg-zinc-50 rounded-xl shadow-none"
 														>
 															Save
 														</Button>
@@ -1040,17 +1041,17 @@ export function TemplateCenterModal({
 												)}
 											</div>
 											<div className="flex items-center gap-2 mt-2">
-												<span className="text-[13px] text-slate-500">Tags:</span>
+												<span className="text-[13px] text-zinc-500">Tags:</span>
 												{(isEditMode ? editingTags : selectedTemplate.tags)?.length > 0 ? (
 													<div className="flex flex-wrap gap-1.5">
 														{(isEditMode ? editingTags : selectedTemplate.tags).map((tag: any, idx: number) => (
-															<Badge key={idx} variant="outline" className="text-[11px] px-1.5 py-0 h-5 font-normal border-slate-200 text-slate-600 bg-white">
+															<Badge key={idx} variant="outline" className="text-[11px] px-1.5 py-0 h-5 font-normal border-zinc-200 text-zinc-600 bg-white">
 																{typeof tag === "string" ? tag : tag?.name}
 															</Badge>
 														))}
 													</div>
 												) : (
-													<button className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer pt-1">
+													<button className="text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer pt-1">
 														<Tag className="size-3.5" />
 													</button>
 												)}
@@ -1073,20 +1074,20 @@ export function TemplateCenterModal({
 													variant="outline"
 													size="sm"
 													onClick={() => void copyTemplateLink()}
-													className="h-8.5 px-3.5 border-slate-200 text-slate-600 shadow-sm cursor-pointer"
+													className="h-8.5 px-3.5 border-zinc-200 text-zinc-600 shadow-sm cursor-pointer"
 												>
-													<Globe className="mr-2 size-3.5 text-slate-400" />
+													<Globe className="mr-2 size-3.5 text-zinc-400" />
 													Copy link
 												</Button>
 												<Popover open={sharePopoverOpen} onOpenChange={setSharePopoverOpen}>
 													<PopoverTrigger asChild>
-														<Button variant="outline" size="sm" className="h-8.5 px-3.5 border-slate-200 text-slate-600 shadow-sm cursor-pointer">
+														<Button variant="outline" size="sm" className="h-8.5 px-3.5 border-zinc-200 text-zinc-600 shadow-sm cursor-pointer">
 															Share
-															<ChevronDown className="ml-1.5 size-3.5 text-slate-400" />
+															<ChevronDown className="ml-1.5 size-3.5 text-zinc-400" />
 														</Button>
 													</PopoverTrigger>
 													<PopoverContent align="end" className="w-[280px] p-0">
-														<div className="px-4 py-3 text-sm font-medium text-slate-500">Share with</div>
+														<div className="px-4 py-3 text-sm font-medium text-zinc-500">Share with</div>
 														<div className="px-2 pb-2 space-y-1">
 															{[
 																["everyone", "Everyone"],
@@ -1098,7 +1099,7 @@ export function TemplateCenterModal({
 																<button
 																	key={id}
 																	onClick={() => void updateSharing(id as any, publicSharing)}
-																	className="w-full text-left px-2.5 py-1.5 rounded hover:bg-slate-100 text-sm flex items-center justify-between"
+																	className="w-full text-left px-2.5 py-1.5 rounded hover:bg-zinc-100 text-sm flex items-center justify-between"
 																>
 																	{label}
 																	{shareWithValue === id && <span className="text-indigo-600">✓</span>}
@@ -1106,11 +1107,11 @@ export function TemplateCenterModal({
 															))}
 														</div>
 														<div className="border-t px-4 py-3 flex items-center justify-between">
-															<span className="text-sm text-slate-600">Public sharing</span>
+															<span className="text-sm text-zinc-600">Public sharing</span>
 															<Switch checked={publicSharing} onCheckedChange={(v) => void updateSharing(shareWithValue, v)} />
 														</div>
 														<div className="border-t px-4 py-3 flex items-center justify-between">
-															<span className="text-sm text-slate-600">Private link</span>
+															<span className="text-sm text-zinc-600">Private link</span>
 															<Button variant="outline" size="sm" onClick={() => void copyTemplateLink()}>
 																Copy link
 															</Button>
@@ -1199,16 +1200,16 @@ export function TemplateCenterModal({
 
 								<div className="flex items-stretch gap-0">
 									<div className="space-y-6 flex-1 pr-4">
-										<div className="flex bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-h-[300px]">
-											<div className="w-[45%] bg-slate-50/50 border-r border-slate-100 flex flex-col items-center justify-center p-6 min-h-[300px]">
+										<div className="flex bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden min-h-[300px]">
+											<div className="w-[45%] bg-zinc-50/50 border-r border-zinc-100 flex flex-col items-center justify-center p-6 min-h-[300px]">
 												{editingCoverImage || selectedTemplate.coverImage ? (
 													<img src={(editingCoverImage || selectedTemplate.coverImage) as string} alt="Template cover" className="h-full w-full object-cover rounded-lg" />
 												) : (
 													<>
-														<div className="size-12 rounded-lg bg-slate-100 flex items-center justify-center mb-3">
-															<span className="text-slate-300 text-2xl">🖼️</span>
+														<div className="size-12 rounded-lg bg-zinc-100 flex items-center justify-center mb-3">
+															<span className="text-zinc-300 text-2xl">🖼️</span>
 														</div>
-														<p className="text-[13px] text-slate-400">No images uploaded</p>
+														<p className="text-[13px] text-zinc-400">No images uploaded</p>
 													</>
 												)}
 												{isEditMode && (
@@ -1227,16 +1228,16 @@ export function TemplateCenterModal({
 												)}
 											</div>
 											<div className="flex flex-1 min-h-0 flex-col p-6">
-												<h3 className="text-[14px] font-semibold text-slate-800 mb-2">Template Description</h3>
+												<h3 className="text-[14px] font-semibold text-zinc-800 mb-2">Template Description</h3>
 												{isEditMode ? (
 													<textarea
 														value={editingDescription}
 														onChange={(e) => setEditingDescription(e.target.value)}
 														placeholder="Enter description..."
-														className="w-full flex-1 min-h-0 rounded-md border border-slate-200 px-3 py-2 text-[14px] text-slate-700 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-100"
+														className="w-full flex-1 min-h-0 rounded-md border border-zinc-200 px-3 py-2 text-[14px] text-zinc-700 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-100"
 													/>
 												) : (
-													<p className="text-[14px] text-slate-500 whitespace-pre-wrap">
+													<p className="text-[14px] text-zinc-500 whitespace-pre-wrap">
 														{selectedTemplate.description || "No description..."}
 													</p>
 												)}
@@ -1244,18 +1245,18 @@ export function TemplateCenterModal({
 										</div>
 
 										<div className="space-y-3 pt-4">
-											<h3 className="text-[14px] font-semibold text-slate-800">Template includes</h3>
-											<div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 cursor-pointer hover:border-indigo-200 transition-colors flex items-center justify-between group">
+											<h3 className="text-[14px] font-semibold text-zinc-800">Template includes</h3>
+											<div className="bg-white rounded-xl border border-zinc-200 shadow-sm p-5 cursor-pointer hover:border-indigo-200 transition-colors flex items-center justify-between group">
 												<div className="flex items-center gap-4">
-													<div className="size-10 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-														<CheckCircle2 className="size-5 text-slate-400" />
+													<div className="size-10 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center shrink-0">
+														<CheckCircle2 className="size-5 text-zinc-400" />
 													</div>
 													<div>
-														<h4 className="text-[14px] font-semibold text-slate-800">Status groups</h4>
-														<p className="text-[12.5px] text-slate-500">1 status group included</p>
+														<h4 className="text-[14px] font-semibold text-zinc-800">Status groups</h4>
+														<p className="text-[12.5px] text-zinc-500">1 status group included</p>
 													</div>
 												</div>
-												<div className="text-slate-300 group-hover:text-indigo-500 transition-colors">
+												<div className="text-zinc-300 group-hover:text-indigo-500 transition-colors">
 													<span className="text-lg leading-none">›</span>
 												</div>
 											</div>
@@ -1263,26 +1264,26 @@ export function TemplateCenterModal({
 									</div>
 
 									{/* Right sidebar info */}
-									<aside className="basis-[180px] max-w-[180px] min-w-[180px] self-stretch shrink-0 border-l border-slate-200 pl-4 pt-1 space-y-4">
+									<aside className="basis-[180px] max-w-[180px] min-w-[180px] self-stretch shrink-0 border-l border-zinc-200 pl-4 pt-1 space-y-4">
 										<div>
-											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Created By</h4>
+											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 mb-1.5">Created By</h4>
 											<div className="flex items-center gap-2">
 												{selectedTemplate.createdBy?.image ? (
-													<img src={selectedTemplate.createdBy.image} className="size-7 rounded-full bg-slate-100 object-cover" alt="" />
+													<img src={selectedTemplate.createdBy.image} className="size-7 rounded-full bg-zinc-100 object-cover" alt="" />
 												) : (
-													<div className="size-7 rounded-full bg-slate-600 flex items-center justify-center text-[10px] text-white font-semibold">
+													<div className="size-7 rounded-full bg-zinc-600 flex items-center justify-center text-[10px] text-white font-semibold">
 														{(selectedTemplate.createdBy?.name || "U").slice(0, 2).toUpperCase()}
 													</div>
 												)}
-												<span className="text-[13px] text-slate-700 font-medium">
+												<span className="text-[13px] text-zinc-700 font-medium">
 													{selectedTemplate.createdBy?.name || "Unknown user"}
 												</span>
 											</div>
 										</div>
 
 										<div>
-											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Shared With</h4>
-											<p className="text-[13px] text-slate-700">
+											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 mb-1">Shared With</h4>
+											<p className="text-[13px] text-zinc-700">
 												{shareWithValue === "everyone" && "Everyone"}
 												{shareWithValue === "members" && "Members and admins"}
 												{shareWithValue === "admins" && "Admins only"}
@@ -1292,15 +1293,15 @@ export function TemplateCenterModal({
 										</div>
 
 										<div>
-											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Created Date</h4>
-											<p className="text-[13px] text-slate-700">
+											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 mb-1">Created Date</h4>
+											<p className="text-[13px] text-zinc-700">
 												{format(new Date(selectedTemplate.createdAt), "MMMM d, yyyy")}
 											</p>
 										</div>
 
 										<div>
-											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Last Updated</h4>
-											<p className="text-[13px] text-slate-700">
+											<h4 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 mb-1">Last Updated</h4>
+											<p className="text-[13px] text-zinc-700">
 												{format(new Date(selectedTemplate.updatedAt), "MMMM d, yyyy")}
 											</p>
 										</div>
@@ -1394,12 +1395,15 @@ export function TemplateCenterModal({
 								{
 									onSuccess: () => {
 										toast({ title: "Template applied successfully" });
+										void utils.view.list.invalidate();
+										void utils.view.get.invalidate();
 										void featuredQuery.refetch();
 										void workspaceQuery.refetch();
 										void globalQuery.refetch();
 										void builtinQuery.refetch();
 										void countsQuery.refetch();
 										setView("templates");
+										onOpenChange?.(false);
 									},
 									onError: (error) => {
 										toast({
@@ -1415,24 +1419,24 @@ export function TemplateCenterModal({
 				) : (
 					// ── Audit Log view ──────────────────────────────────────────
 					<div className="flex flex-col w-full h-full bg-background relative">
-						<div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-20 shrink-0">
+						<div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100 bg-white sticky top-0 z-20 shrink-0">
 							<button
 								onClick={() => setView("templates")}
-								className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-slate-600 hover:text-slate-900 bg-slate-100/70 hover:bg-slate-200/70 rounded-md transition-colors cursor-pointer"
+								className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 bg-zinc-100/70 hover:bg-zinc-200/70 rounded-md transition-colors cursor-pointer"
 							>
 								<ArrowLeft className="size-3.5" />
 								Back
 							</button>
-							<div className="text-[15px] font-semibold text-slate-800">Audit Log</div>
+							<div className="text-[15px] font-semibold text-zinc-800">Audit Log</div>
 							<button
 								onClick={() => onOpenChange?.(false)}
-								className="size-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+								className="size-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
 							>
 								<X className="size-4" />
 							</button>
 						</div>
 
-						<div className="flex-1 overflow-y-auto w-full p-6 bg-slate-50/30">
+						<div className="flex-1 overflow-y-auto w-full p-6 bg-zinc-50/30">
 							<div className="max-w-[1000px] mx-auto space-y-6">
 								<div className="flex justify-end items-center gap-2">
 									<div className="relative w-[280px]">
@@ -1440,13 +1444,13 @@ export function TemplateCenterModal({
 											placeholder="Search by template name…"
 											value={auditSearch}
 											onChange={(e) => setAuditSearch(e.target.value)}
-											className="h-9 w-full bg-white border-slate-200 focus-visible:ring-1 focus-visible:ring-indigo-500 rounded-md text-[13.5px] shadow-sm text-slate-600 placeholder:text-slate-400"
+											className="h-9 w-full bg-white border-zinc-200 focus-visible:ring-1 focus-visible:ring-indigo-500 rounded-md text-[13.5px] shadow-sm text-zinc-600 placeholder:text-zinc-400"
 										/>
 									</div>
 								</div>
 
-								<div className="w-full bg-white rounded-lg border border-slate-100 shadow-sm overflow-hidden">
-									<div className="grid grid-cols-6 gap-4 px-6 py-3 border-b border-slate-100 text-[13px] font-medium text-slate-400 bg-slate-50/50">
+								<div className="w-full bg-white rounded-lg border border-zinc-100 shadow-sm overflow-hidden">
+									<div className="grid grid-cols-6 gap-4 px-6 py-3 border-b border-zinc-100 text-[13px] font-medium text-zinc-400 bg-zinc-50/50">
 										<div>Template</div>
 										<div>Event</div>
 										<div>Triggered by</div>
@@ -1456,39 +1460,39 @@ export function TemplateCenterModal({
 									</div>
 
 									{auditQuery.isLoading ? (
-										<div className="divide-y divide-slate-100">
+										<div className="divide-y divide-zinc-100">
 											{Array.from({ length: 8 }).map((_, idx) => (
 												<div key={`audit-skeleton-${idx}`} className="grid grid-cols-6 gap-4 px-6 py-3.5 items-center">
 													<div className="flex items-center gap-2.5">
-														<div className="size-4 rounded bg-slate-100 animate-pulse" />
-														<div className="h-3.5 w-28 rounded bg-slate-100 animate-pulse" />
+														<div className="size-4 rounded bg-zinc-100 animate-pulse" />
+														<div className="h-3.5 w-28 rounded bg-zinc-100 animate-pulse" />
 													</div>
-													<div className="h-3.5 w-16 rounded bg-slate-100 animate-pulse" />
+													<div className="h-3.5 w-16 rounded bg-zinc-100 animate-pulse" />
 													<div className="flex items-center gap-2">
-														<div className="size-6 rounded-full bg-slate-100 animate-pulse" />
-														<div className="h-3.5 w-20 rounded bg-slate-100 animate-pulse" />
+														<div className="size-6 rounded-full bg-zinc-100 animate-pulse" />
+														<div className="h-3.5 w-20 rounded bg-zinc-100 animate-pulse" />
 													</div>
-													<div className="h-3.5 w-24 rounded bg-slate-100 animate-pulse" />
-													<div className="h-3.5 w-14 rounded bg-slate-100 animate-pulse" />
-													<div className="h-6 w-20 rounded-md bg-slate-100 animate-pulse" />
+													<div className="h-3.5 w-24 rounded bg-zinc-100 animate-pulse" />
+													<div className="h-3.5 w-14 rounded bg-zinc-100 animate-pulse" />
+													<div className="h-6 w-20 rounded-md bg-zinc-100 animate-pulse" />
 												</div>
 											))}
 										</div>
 									) : auditQuery.data?.items.length === 0 ? (
-										<div className="py-10 text-center text-slate-400 text-sm">No audit events yet.</div>
+										<div className="py-10 text-center text-zinc-400 text-sm">No audit events yet.</div>
 									) : (
-										<div className="divide-y divide-slate-100">
+										<div className="divide-y divide-zinc-100">
 											{(auditQuery.data?.items ?? []).map((log) => (
-												<div key={log.id} className="grid grid-cols-6 gap-4 px-6 py-3.5 items-center text-[13.5px] hover:bg-slate-50/50 transition-colors">
+												<div key={log.id} className="grid grid-cols-6 gap-4 px-6 py-3.5 items-center text-[13.5px] hover:bg-zinc-50/50 transition-colors">
 													<div className="flex items-center gap-2.5">
 														{log.template && <EntityIcon type={log.template.entityType} />}
-														<span className="text-slate-700 font-medium truncate">{log.template?.name ?? "–"}</span>
+														<span className="text-zinc-700 font-medium truncate">{log.template?.name ?? "–"}</span>
 													</div>
-													<div className="text-slate-600">{EVENT_LABELS[log.event] ?? log.event}</div>
+													<div className="text-zinc-600">{EVENT_LABELS[log.event] ?? log.event}</div>
 													<div className="min-w-0">
 														{log.actor?.id ? (
 															<UserProfileHoverCard userId={log.actor.id}>
-																<button className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-slate-100/80 transition-colors cursor-pointer">
+																<button className="flex items-center gap-2 rounded-md px-1 py-0.5 hover:bg-zinc-100 transition-colors cursor-pointer">
 																	{log.actor.image ? (
 																		<img
 																			src={log.actor.image}
@@ -1496,27 +1500,27 @@ export function TemplateCenterModal({
 																			className="size-6 rounded-full object-cover"
 																		/>
 																	) : (
-																		<div className="size-6 rounded-full bg-slate-600 text-white text-[10px] font-semibold flex items-center justify-center">
+																		<div className="size-6 rounded-full bg-zinc-600 text-white text-[10px] font-semibold flex items-center justify-center">
 																			{(log.actor.name ?? "U").slice(0, 2).toUpperCase()}
 																		</div>
 																	)}
-																	<span className="truncate text-slate-700">{log.actor.name ?? "Unknown user"}</span>
+																	<span className="truncate text-zinc-700">{log.actor.name ?? "Unknown user"}</span>
 																</button>
 															</UserProfileHoverCard>
 														) : (
-															<span className="text-slate-400">–</span>
+															<span className="text-zinc-400">–</span>
 														)}
 													</div>
-													<div className="flex items-center gap-1.5 text-slate-600 truncate">
+													<div className="flex items-center gap-1.5 text-zinc-600 truncate">
 														{log.targetEntityType && <EntityIcon type={log.targetEntityType} />}
 														<span className="truncate">{getAuditLocationLabel(log)}</span>
 													</div>
-													<div className="text-slate-500 text-[13px]">
+													<div className="text-zinc-500 text-[13px]">
 														<HoverCard openDelay={120} closeDelay={80}>
 															<HoverCardTrigger asChild>
 																<span className="cursor-default">{format(new Date(log.createdAt), "h:mm a").toLowerCase()}</span>
 															</HoverCardTrigger>
-															<HoverCardContent className="w-auto px-3 py-2 text-xs bg-slate-900 text-white border-slate-900 rounded-md">
+															<HoverCardContent className="w-auto px-3 py-2 text-xs bg-zinc-900 text-white border-zinc-900 rounded-md">
 																{`${format(new Date(log.createdAt), "MMM d yyyy 'at' h:mm a")} \u2192 ${format(new Date(log.createdAt), "MMM d yyyy 'at' h:mm a")}`}
 															</HoverCardContent>
 														</HoverCard>

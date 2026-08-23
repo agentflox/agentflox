@@ -72,7 +72,7 @@ export class BillingEmailTemplates {
                 <table style="background: #ffffff; max-width: 600px; width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
                   <tr>
                     <td style="padding: 40px;">
-                      <img src="https://ozuowglcgqoxtxnncluc.supabase.co/storage/v1/object/public/app_images/Doc2Product-logo.png" style="width: 200px; margin-bottom: 20px;"/>
+                      <img src="https://ozuowglcgqoxtxnncluc.supabase.co/storage/v1/object/public/app_images/Agentflox-logo.png" style="width: 200px; margin-bottom: 20px;"/>
                       ${content.html}
                       <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; color: ${theme.textColor}; font-size: 14px;">
                         <p>Need help? Contact our support team at support@doc2product.com</p>
@@ -461,7 +461,7 @@ export class BillingEmailTemplates {
         <div style="background: #fff4f4; padding: 20px; border-radius: 4px; margin: 20px 0; border: 1px solid #ffe0e0;">
           <h3 style="color: #d32f2f; margin-top: 0;">Important Notice</h3>
           <p style="color: ${theme.textColor}; margin: 8px 0;">
-            You have reached your subscription usage limits for ${((data as any).usageDetails?.service ?? 'your').toString()} service. Doc2Product will now use your active credit packages (if any) to ensure uninterrupted service.
+            You have reached your subscription usage limits for ${((data as any).usageDetails?.service ?? 'your').toString()} service. Agentflox will now use your active credit packages (if any) to ensure uninterrupted service.
           </p>
         </div>
         <div style="margin: 16px 0;">

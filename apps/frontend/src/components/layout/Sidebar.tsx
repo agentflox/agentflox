@@ -41,10 +41,16 @@ import {
 } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+import { trpc } from '@/lib/trpc';
+
 export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inline" | "overlay"; onClose?: () => void }) {
   const { data: session } = useSession();
   const { t } = useInterfaceSettings();
   const dispatch = useAppDispatch();
+  const currentPlan = trpc.billing.currentPlan.useQuery(undefined, {
+    enabled: !!session?.user?.id,
+    staleTime: 60 * 1000,
+  });
 
   const mainNav: SidebarItem[] = [
     { label: t("sidebar.home"), href: "/", icon: Home },
@@ -101,7 +107,8 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
   const hiddenSecondary = secondaryNav.slice(5);
 
   const realName = session?.user?.name || session?.user?.email || "Agentflox User";
-  const userPlan = session?.user?.userType ? `${session.user.userType.charAt(0).toUpperCase()}${session.user.userType.slice(1)} Plan` : "Standard Plan";
+  const rawPlanName = currentPlan.data?.plan?.displayName || currentPlan.data?.plan?.name || "Free";
+  const userPlan = rawPlanName.toLowerCase().includes("plan") ? rawPlanName : `${rawPlanName} Plan`;
 
   const customHeader = (collapsed: boolean) => (
     <div className={cn("flex items-center gap-3 overflow-hidden transition-all", collapsed ? "w-0 opacity-0" : "w-auto opacity-100", "my-1")}>

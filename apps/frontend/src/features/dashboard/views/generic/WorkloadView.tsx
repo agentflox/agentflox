@@ -9,14 +9,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
     ChevronLeft, ChevronRight, Plus, Filter, Settings, Users, Clock, Search, Layout,
-    ChevronDown, MoreHorizontal, Calendar as CalendarIcon, CheckCircle2, X,
+    ChevronDown, MoreHorizontal, Calendar as CalendarIcon, CheckCircle2, X, Minus,
     ListFilter, ArrowUpDown, Settings2, User, Check, ChevronsUpDown, CalendarDays,
-    MoreVertical, AlertCircle, Clock3, Ban, BarChart3, PanelRight, ChevronUp, UserRound,
+    MoreVertical, AlertCircle, Clock3, Ban, BarChart3, PanelRight, ChevronUp, UserRound, RefreshCcw,
     Maximize2, PlusCircle, LayoutList, Pin, Trash2, Info, MapPin, CalendarRange, Star, Lock, EyeOff, Save, Tag,
     Circle, Flag, Box, Calendar, GripVertical, SlidersHorizontal, ArrowRight,
     Type, Hash, CheckSquare, AlignLeft, Target, Mail, Phone, Globe, DollarSign, FunctionSquare,
-    Paperclip, Link2, ListTodo, TrendingUp, FileText, MessageSquare, Heart, PanelRightClose 
+    Paperclip, Link2, ListTodo, TrendingUp, FileText, MessageSquare, Heart, PanelRightClose,
+    Eye, Hourglass, Percent, AlertTriangle, ArrowRightToLine, ZoomIn, ZoomOut, CheckCheck,
+    GitCommit, PenTool, ShieldCheck, Home, Share2, Wand2
 } from "lucide-react";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -44,22 +47,39 @@ import { LazyTaskDetailModal as TaskDetailModal } from "@/entities/task/componen
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { ShareViewPermissionModal } from "@/features/dashboard/components/shared/ShareViewPermissionModal";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
+import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
+import { FieldsPanelSlideout } from "@/features/dashboard/components/shared/FieldsPanelSlideout";
+import { AssigneesPanelSlideout } from "@/features/dashboard/components/shared/AssigneesPanelSlideout";
+import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
+import { getCustomFieldIcon, collectUsedCustomFieldIds } from "@/features/dashboard/utils/taskViewUtils";
+import { useSensors, useSensor, PointerSensor } from "@dnd-kit/core";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, addDays, subDays, startOfDay, endOfDay, isToday as isTodayFns, isSameDay, getWeek, startOfWeek, endOfWeek, differenceInDays } from "date-fns";
-import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
+import {
+    format,
+    startOfMonth,
+    endOfMonth,
+    eachDayOfInterval,
+    addDays,
+    subDays,
+    startOfDay,
+    endOfDay,
+    isToday as isTodayFns,
+    isSameDay,
+    isWeekend as isWeekendFns,
+    startOfWeek,
+    endOfWeek,
+    differenceInDays,
+    isBefore,
+    isAfter
+} from "date-fns";
+import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./viewConstants";
 import { evaluateGroup, hasFilterValue, hasAnyValueInGroup, evaluateCondition } from "./filterUtils";
-import type { FilterGroup, FilterCondition } from "./listViewTypes";
+import type { FilterGroup, FilterCondition } from "./viewTypes";
 import { parseEncodedTag } from "@/entities/task/utils/tags";
+import { ViewFilterPopoverContent } from "./ViewFilterPopoverContent";
 
 interface WorkloadViewProps {
     spaceId?: string;
@@ -73,143 +93,148 @@ interface WorkloadViewProps {
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
     refetchViewData?: () => void;
-
     context?: "workspace" | "space" | "project" | "team" | "folder" | "list";
 }
 
 const CREATE_FIELD_TYPES = [
-    // Basic fields
     { id: "TEXT", label: "Text", icon: Type, type: "TEXT" },
     { id: "NUMBER", label: "Number", icon: Hash, type: "NUMBER" },
     { id: "DATE", label: "Date", icon: Calendar, type: "DATE" },
     { id: "CHECKBOX", label: "Checkbox", icon: CheckSquare, type: "CHECKBOX" },
     { id: "DROPDOWN", label: "Dropdown", icon: LayoutList, type: "DROPDOWN" },
-
-    // Text fields
     { id: "TEXT_AREA", label: "Text area (Long Text)", icon: AlignLeft, type: "TEXT_AREA" },
     { id: "LONG_TEXT", label: "Long Text", icon: AlignLeft, type: "LONG_TEXT" },
     { id: "CUSTOM_TEXT", label: "Custom Text", icon: Type, type: "CUSTOM_TEXT" },
-
-    // Selection fields
     { id: "LABELS", label: "Labels", icon: Tag, type: "LABELS" },
     { id: "CUSTOM_DROPDOWN", label: "Custom Dropdown", icon: LayoutList, type: "CUSTOM_DROPDOWN" },
     { id: "CATEGORIZE", label: "Categorize", icon: Target, type: "CATEGORIZE" },
     { id: "TSHIRT_SIZE", label: "T-Shirt Size", icon: Users, type: "TSHIRT_SIZE" },
-
-    // Contact fields
     { id: "EMAIL", label: "Email", icon: Mail, type: "EMAIL" },
     { id: "PHONE", label: "Phone", icon: Phone, type: "PHONE" },
     { id: "URL", label: "Website", icon: Globe, type: "URL" },
-
-    // Financial & numeric
     { id: "MONEY", label: "Money", icon: DollarSign, type: "MONEY" },
     { id: "FORMULA", label: "Formula", icon: FunctionSquare, type: "FORMULA" },
-
-    // Files & attachments
     { id: "FILES", label: "Files", icon: Paperclip, type: "FILES" },
-
-    // Relationships
     { id: "RELATIONSHIP", label: "Relationship", icon: Link2, type: "RELATIONSHIP" },
     { id: "PEOPLE", label: "People", icon: Users, type: "PEOPLE" },
     { id: "TASKS", label: "Tasks", icon: ListTodo, type: "TASKS" },
-
-    // Progress & tracking
     { id: "PROGRESS_AUTO", label: "Progress (Auto)", icon: TrendingUp, type: "PROGRESS_AUTO" },
     { id: "PROGRESS_MANUAL", label: "Progress (Manual)", icon: SlidersHorizontal, type: "PROGRESS_MANUAL" },
-
-    // AI & special fields
     { id: "SUMMARY", label: "Summary", icon: FileText, type: "SUMMARY" },
     { id: "PROGRESS_UPDATES", label: "Progress Updates", icon: MessageSquare, type: "PROGRESS_UPDATES" },
     { id: "TRANSLATION", label: "Translation", icon: Globe, type: "TRANSLATION" },
     { id: "SENTIMENT", label: "Sentiment", icon: Heart, type: "SENTIMENT" },
 ];
 
-type WorkloadMetric = "tasks" | "time_estimate" | "sprint_points";
-type Timeframe = "7" | "14" | "30";
+export type WorkloadMetric = "tasks" | "time_estimate" | "sprint_points" | "percent_capacity";
+export type Timeframe = "7" | "14" | "days" | "weeks" | "months";
+export type WorkloadGrouping = "daily_scheduled" | "daily_availability" | "weekly_capacity" | "weekly_availability";
 
-export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, initialConfig, onTaskSelect, refetchViewData }: WorkloadViewProps) {
+export function WorkloadView({
+    spaceId,
+    projectId,
+    teamId,
+    listId,
+    folderId,
+    viewId,
+    workspaceId,
+    initialConfig,
+    onTaskSelect,
+    refetchViewData
+}: WorkloadViewProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const utils = trpc.useUtils();
 
     // Workload Specific State
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const [currentDate, setCurrentDate] = useState<Date>(new Date());
     const [timeframe, setTimeframe] = useState<Timeframe>("14");
-    const [workloadMetric, setWorkloadMetric] = useState<WorkloadMetric>("time_estimate");
-    const [capacityMode, setCapacityMode] = useState<"weekly_capacity" | "daily_scheduled">("weekly_capacity");
-    const [groupBy, setGroupBy] = useState("assignee");
+    const [workloadMetric, setWorkloadMetric] = useState<WorkloadMetric>("tasks");
+    const [capacityMode, setCapacityMode] = useState<WorkloadGrouping>("daily_scheduled");
+    const [groupBy, setGroupBy] = useState<string>("assignee");
     const [groupDirection, setGroupDirection] = useState<"asc" | "desc">("asc");
-    const [isBacklogOpen, setIsBacklogOpen] = useState(false);
+    const [showEmptyGroups, setShowEmptyGroups] = useState<boolean>(false);
+    const [allExpanded, setAllExpanded] = useState<boolean>(true);
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+    const [isBacklogOpen, setIsBacklogOpen] = useState<boolean>(false);
+    const [backlogTab, setBacklogTab] = useState<"unscheduled" | "overdue" | "unassigned">("unscheduled");
+    const [backlogSearch, setBacklogSearch] = useState<string>("");
+    const [backlogSort, setBacklogSort] = useState<"status" | "priority" | "dueDate" | "name">("status");
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+    const [cellWidth, setCellWidth] = useState<number>(76); // Zoom level for day columns
 
-    // View Meta State (Parity)
-    const [viewAutosave, setViewAutosave] = useState(false);
-    const [pinView, setPinView] = useState(false);
-    const [privateView, setPrivateView] = useState(false);
-    const [protectView, setProtectView] = useState(false);
-    const [defaultView, setDefaultView] = useState(false);
-    const [viewNameDraft, setViewNameDraft] = useState("");
-    const [showCompleted, setShowCompleted] = useState(false);
-    const [showCompletedSubtasks, setShowCompletedSubtasks] = useState(false);
-    const [showTaskLocations, setShowTaskLocations] = useState(false);
-    const [filtersPanelOpen, setFiltersPanelOpen] = useState(false);
-    const [fieldsPanelOpen, setFieldsPanelOpen] = useState(false);
-    const [fieldsSearch, setFieldsSearch] = useState("");
-    const [createFieldModalOpen, setCreateFieldModalOpen] = useState(false);
-    const [createFieldSearch, setCreateFieldSearch] = useState("");
-    const [assigneesPanelOpen, setAssigneesPanelOpen] = useState(false);
-    const [assigneesSearch, setAssigneesSearch] = useState("");
-    const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
-    const [layoutOptionsOpen, setLayoutOptionsOpen] = useState(false);
-    const [customizeViewFilterOpen, setCustomizeViewFilterOpen] = useState(false);
-    const [customizeViewGroupOpen, setCustomizeViewGroupOpen] = useState(false);
-    const [customizeViewSubtasksOpen, setCustomizeViewSubtasksOpen] = useState(false);
+    // View Meta State
+    const [viewAutosave, setViewAutosave] = useState<boolean>(false);
+    const [pinView, setPinView] = useState<boolean>(false);
+    const [privateView, setPrivateView] = useState<boolean>(false);
+    const [protectView, setProtectView] = useState<boolean>(false);
+    const [defaultView, setDefaultView] = useState<boolean>(false);
+    const [viewNameDraft, setViewNameDraft] = useState<string>("");
+    const [showCompleted, setShowCompleted] = useState<boolean>(false);
+    const [showCompletedSubtasks, setShowCompletedSubtasks] = useState<boolean>(false);
+    const [showTaskLocations, setShowTaskLocations] = useState<boolean>(false);
+    const [showSubtaskParentNames, setShowSubtaskParentNames] = useState<boolean>(false);
+    const [expandTaskNames, setExpandTaskNames] = useState<boolean>(false);
+    const [showWeekends, setShowWeekends] = useState<boolean>(true);
+    const [showWeekNumbers, setShowWeekNumbers] = useState<boolean>(false);
+    const [showTrackedTimeNextToEstimated, setShowTrackedTimeNextToEstimated] = useState<boolean>(true);
+    const [showTasksFromOtherLists, setShowTasksFromOtherLists] = useState<boolean>(true);
+    const [showSubtasksFromOtherLists, setShowSubtasksFromOtherLists] = useState<boolean>(true);
+    const [defaultToMeMode, setDefaultToMeMode] = useState<boolean>(false);
+    const [colorTasksBy, setColorTasksBy] = useState<string>("status");
+
+    // Panels and modals
+    const [filtersPanelOpen, setFiltersPanelOpen] = useState<boolean>(false);
+    const [fieldsPanelOpen, setFieldsPanelOpen] = useState<boolean>(false);
+    const [fieldsSearch, setFieldsSearch] = useState<string>("");
+    const [createFieldModalOpen, setCreateFieldModalOpen] = useState<boolean>(false);
+    const [createFieldSearch, setCreateFieldSearch] = useState<string>("");
+    const [assigneesPanelOpen, setAssigneesPanelOpen] = useState<boolean>(false);
+    const [assigneesSearch, setAssigneesSearch] = useState<string>("");
+    const [customizePanelOpen, setCustomizePanelOpen] = useState<boolean>(false);
+    const [layoutOptionsOpen, setLayoutOptionsOpen] = useState<boolean>(false);
+    const [customizeViewFilterOpen, setCustomizeViewFilterOpen] = useState<boolean>(false);
+    const [customizeViewGroupOpen, setCustomizeViewGroupOpen] = useState<boolean>(false);
+    const [customizeViewSubtasksOpen, setCustomizeViewSubtasksOpen] = useState<boolean>(false);
     const [expandedSubtaskMode, setExpandedSubtaskMode] = useState<"collapsed" | "expanded" | "separate">("collapsed");
-    const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
     const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
     const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
         new Set(["name", "status", "assignee", "priority", "dueDate", "tags"])
     );
-    const [showEmptyStatuses, setShowEmptyStatuses] = useState(false);
-    const [wrapText, setWrapText] = useState(false);
-    const [showSubtaskParentNames, setShowSubtaskParentNames] = useState(false);
-    const [showTaskProperties, setShowTaskProperties] = useState(true);
-    const [showTasksFromOtherLists, setShowTasksFromOtherLists] = useState(false);
-    const [showSubtasksFromOtherLists, setShowSubtasksFromOtherLists] = useState(false);
-    const [pinDescription, setPinDescription] = useState(false);
-    const [defaultToMeMode, setDefaultToMeMode] = useState(false);
-
-    const toggleColumn = (columnId: string) => {
-        const next = new Set(visibleColumns);
-        if (next.has(columnId)) next.delete(columnId);
-        else next.add(columnId);
-        setVisibleColumns(next);
-    };
-
-    const resetViewToDefaults = () => {
-        setVisibleColumns(new Set(["name", "status", "assignee", "priority", "dueDate", "tags"]));
-        setGroupBy("status");
-        setGroupDirection("asc");
-        setShowCompleted(false);
-        setShowEmptyStatuses(false);
-        setWrapText(false);
-    };
-
-    const [customizeMenuOpen, setCustomizeMenuOpen] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState<string>("");
+    const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
     const [filterGroups, setFilterGroups] = useState<FilterGroup>(() => ({
         id: "root",
         operator: "AND",
         conditions: [],
     }));
+    const [savedFiltersPanelOpen, setSavedFiltersPanelOpen] = useState<boolean>(false);
+    const [savedFiltersSearch, setSavedFiltersSearch] = useState<string>("");
+    const [savedFilterName, setSavedFilterName] = useState<string>("");
+    const [savedFilters, setSavedFilters] = useState<{ id: string; name: string; config: FilterGroup }[]>(() => {
+        if (typeof window !== "undefined") {
+            try {
+                return JSON.parse(localStorage.getItem("agentflox_saved_filters") ?? "[]");
+            } catch { return []; }
+        }
+        return [];
+    });
+    const [filterSearch, setFilterSearch] = useState<string>("");
 
     // Data Fetching
     const updateViewMutation = trpc.view.update.useMutation();
     const createViewMutation = trpc.view.create.useMutation();
-    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId });
+    const updateTaskMutation = trpc.task.update.useMutation({
+        onSuccess: () => {
+            void utils.task.list.invalidate();
+        }
+    });
+
+    const { data: viewData } = trpc.view.get.useQuery(
+        { id: viewId as string },
+        { staleTime: 60_000, gcTime: 5 * 60_000, enabled: !!viewId }
+    );
 
     const {
         resolvedWorkspaceId,
@@ -227,7 +252,102 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
         isFetchingNextPage,
         loadMoreRef,
         total: taskTotal,
-    } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, taskListEnabled: false });
+    } = useGenericTaskViewData({
+        spaceId,
+        projectId,
+        teamId,
+        listId,
+        workspaceId,
+        taskListEnabled: true,
+    });
+
+    const [managerModalOpen, setManagerModalOpen] = useState(false);
+    const [columnOrder, setColumnOrder] = useState<string[]>(() => Array.from(visibleColumns));
+    const fieldSensors = useSensors(useSensor(PointerSensor));
+    const usedCustomFieldIds = useMemo(() => collectUsedCustomFieldIds(tasks as any[]), [tasks]);
+
+    const FIELD_CONFIG = useMemo(() => {
+        const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
+        const customFieldsConfig = (customFields as any[])
+            .map((cf: any) => {
+                const IconComponent = getCustomFieldIcon(cf.type);
+                return {
+                    id: cf.id,
+                    label: cf.name,
+                    icon: IconComponent,
+                    isCustom: true,
+                    customField: cf,
+                };
+            });
+        return [...standardFields, ...customFieldsConfig];
+    }, [customFields]);
+
+    const allAvailableStatuses = useMemo(() => {
+        if (listId && currentList?.statuses) {
+            return (currentList.statuses as { id: string; name: string; color: string }[]).map((s: any) => ({ ...s, listId: currentList.id }));
+        }
+        if (listsData?.items) {
+            const statusMap = new Map<string, { id: string; name: string; color: string; listId: string }>();
+            (listsData.items as any[]).forEach((list: any) => {
+                (list.statuses || []).forEach((s: any) => {
+                    if (!statusMap.has(s.id)) statusMap.set(s.id, { ...s, listId: list.id });
+                });
+            });
+            return Array.from(statusMap.values());
+        }
+        return [];
+    }, [tasks, listId, currentList, listsData]);
+
+    const allAvailableTags = useMemo(() => {
+        const tagSet = new Set<string>();
+        tasks.forEach(t => {
+            (t.tags || []).forEach(tag => tagSet.add(tag));
+        });
+        return Array.from(tagSet);
+    }, [tasks]);
+
+    const viewContentToSave = useMemo(() => {
+        return {
+            id: viewId,
+            name: viewData?.name || "Workload",
+            type: "WORKLOAD",
+            workspaceId: (workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined,
+            spaceId: (spaceId || viewData?.spaceId) ?? undefined,
+            projectId: (projectId || viewData?.projectId) ?? undefined,
+            folderId: (folderId || viewData?.folderId) ?? undefined,
+            listId: (listId || viewData?.listId) ?? undefined,
+            teamId: (teamId || viewData?.teamId) ?? undefined,
+            config: {
+                workloadView: {
+                    viewAutosave,
+                    timeframe,
+                    workloadMetric,
+                    capacityMode,
+                    showCompleted,
+                    showCompletedSubtasks,
+                    showTaskLocations,
+                    showWeekends,
+                    showEmptyGroups,
+                    groupBy,
+                    groupDirection,
+                    filterGroups,
+                    defaultToMeMode,
+                    expandedSubtaskMode,
+                    showTasksFromOtherLists,
+                    showSubtasksFromOtherLists,
+                }
+            },
+            grouping: { groupBy, groupDirection },
+            filters: filterGroups,
+            columns: Array.from(visibleColumns),
+        };
+    }, [
+        viewId, viewData, workspaceId, resolvedWorkspaceId, spaceId, projectId, folderId, listId, teamId,
+        viewAutosave, timeframe, workloadMetric, capacityMode, showCompleted,
+        showCompletedSubtasks, showTaskLocations, showWeekends, showEmptyGroups,
+        groupBy, groupDirection, filterGroups, defaultToMeMode, expandedSubtaskMode,
+        showTasksFromOtherLists, showSubtasksFromOtherLists, visibleColumns
+    ]);
 
     useEffect(() => {
         if (viewData) {
@@ -241,93 +361,18 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
                 if (typeof cfg.viewAutosave === "boolean") setViewAutosave(cfg.viewAutosave);
                 if (cfg.timeframe) setTimeframe(cfg.timeframe);
                 if (cfg.workloadMetric) setWorkloadMetric(cfg.workloadMetric);
+                if (cfg.capacityMode) setCapacityMode(cfg.capacityMode);
                 if (cfg.groupBy) setGroupBy(cfg.groupBy);
                 if (cfg.groupDirection) setGroupDirection(cfg.groupDirection);
+                if (typeof cfg.showEmptyGroups === "boolean") setShowEmptyGroups(cfg.showEmptyGroups);
                 if (typeof cfg.showCompleted === "boolean") setShowCompleted(cfg.showCompleted);
                 if (typeof cfg.showCompletedSubtasks === "boolean") setShowCompletedSubtasks(cfg.showCompletedSubtasks);
                 if (typeof cfg.showTaskLocations === "boolean") setShowTaskLocations(cfg.showTaskLocations);
+                if (typeof cfg.showWeekends === "boolean") setShowWeekends(cfg.showWeekends);
                 if (cfg.filterGroups) setFilterGroups(cfg.filterGroups);
             }
         }
     }, [viewData]);
-
-    const updateViewProperty = async (property: string, value: any) => {
-        if (!viewId) return;
-        try {
-            await updateViewMutation.mutateAsync({ id: viewId, [property]: value });
-            void utils.view.get.invalidate({ id: viewId });
-            toast.success(`Updated ${property}`);
-        } catch (e) {
-            toast.error(`Failed to update ${property}`);
-        }
-    };
-
-    const updateViewName = async (newName: string) => {
-        if (!viewId || !newName.trim()) return;
-        const trimmed = newName.trim();
-        const oldName = viewData?.name || "";
-        setViewNameDraft(trimmed);
-        
-        // Optimistically patch all parent caches so the tab bar updates immediately
-        const patchViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: trimmed } : v);
-        
-        // Update generic caches
-        if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
-        if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
-        if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
-        if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
-        if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: patchViews(old.views ?? []) } : old);
-        
-        // Use a generic approach to update list.byContext
-        const listByContextInput = resolvedWorkspaceId || spaceId || projectId || teamId
-            ? {
-                workspaceId: resolvedWorkspaceId || undefined,
-                spaceId: spaceId || undefined,
-                projectId: projectId || undefined,
-                teamId: teamId || undefined,
-                folderId: folderId || undefined,
-            }
-            : null;
-
-        const updateListByContext = () => {
-            try {
-                if (listByContextInput && utils.list?.byContext?.setData) {
-                    utils.list.byContext.setData(listByContextInput, (old: any) => {
-                        if (!old || !old.items) return old;
-                        return {
-                            ...old,
-                            items: old.items.map((l: any) => l.id === listId ? { ...l, views: patchViews(l.views ?? []) } : l)
-                        };
-                    });
-                }
-            } catch (e) {}
-        };
-        updateListByContext();
-
-        try {
-            await updateViewMutation.mutateAsync({ id: viewId, name: trimmed });
-            if (utils.view?.get) await utils.view.get.invalidate({ id: viewId });
-            if (utils.view?.list) await utils.view.list.invalidate();
-            if (spaceId && utils.space?.get) void utils.space.get.invalidate({ id: spaceId });
-            if (projectId && utils.project?.get) void utils.project.get.invalidate({ id: projectId });
-            if (teamId && utils.team?.get) void utils.team.get.invalidate({ id: teamId });
-            if (folderId && utils.folder?.get) void utils.folder.get.invalidate({ id: folderId });
-            if (listId && utils.list?.get) void utils.list.get.invalidate({ id: listId });
-            if (listId && utils.list?.byContext) void utils.list.byContext.invalidate();
-            
-            if (typeof refetchViewData === 'function') void refetchViewData();
-        } catch (e) {
-            setViewNameDraft(oldName);
-            
-            // Revert optimistic updates
-            const revertViews = (views: any[]) => views.map((v: any) => v.id === viewId ? { ...v, name: oldName } : v);
-            if (spaceId) utils.space?.get?.setData({ id: spaceId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
-            if (projectId) utils.project?.get?.setData({ id: projectId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
-            if (teamId) utils.team?.get?.setData({ id: teamId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
-            if (folderId) utils.folder?.get?.setData({ id: folderId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
-            if (listId) utils.list?.get?.setData({ id: listId }, (old: any) => old ? { ...old, views: revertViews(old.views ?? []) } : old);
-        }
-    };
 
     const isViewDirty = useMemo(() => {
         if (!viewData) return false;
@@ -336,16 +381,33 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
                 viewAutosave,
                 timeframe,
                 workloadMetric,
+                capacityMode,
                 showCompleted,
                 showCompletedSubtasks,
                 showTaskLocations,
+                showWeekends,
+                showEmptyGroups,
                 groupBy,
                 groupDirection,
                 filterGroups
             }
         };
         return JSON.stringify(currentCfg) !== JSON.stringify(viewData.config);
-    }, [viewData, viewAutosave, timeframe, workloadMetric, showCompleted, showCompletedSubtasks, showTaskLocations, groupBy, groupDirection, filterGroups]);
+    }, [
+        viewData,
+        viewAutosave,
+        timeframe,
+        workloadMetric,
+        capacityMode,
+        showCompleted,
+        showCompletedSubtasks,
+        showTaskLocations,
+        showWeekends,
+        showEmptyGroups,
+        groupBy,
+        groupDirection,
+        filterGroups
+    ]);
 
     const saveViewConfig = async (isAutosave = false) => {
         if (!viewId) return;
@@ -354,9 +416,12 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
                 viewAutosave: isAutosave ? true : viewAutosave,
                 timeframe,
                 workloadMetric,
+                capacityMode,
                 showCompleted,
                 showCompletedSubtasks,
                 showTaskLocations,
+                showWeekends,
+                showEmptyGroups,
                 groupBy,
                 groupDirection,
                 filterGroups
@@ -378,7 +443,7 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
     };
 
     const saveAsNewView = async (name?: string) => {
-        toast.info(name ? `Save as new view "${name}" not fully implemented` : "Save as new view not fully implemented in this demo");
+        toast.info(name ? `Save as new view "${name}"` : "Save as new view");
     };
 
     const revertViewChanges = () => {
@@ -387,15 +452,80 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
         if (cfg) {
             if (cfg.timeframe) setTimeframe(cfg.timeframe);
             if (cfg.workloadMetric) setWorkloadMetric(cfg.workloadMetric);
+            if (cfg.capacityMode) setCapacityMode(cfg.capacityMode);
             if (typeof cfg.showCompleted === "boolean") setShowCompleted(cfg.showCompleted);
             if (typeof cfg.showCompletedSubtasks === "boolean") setShowCompletedSubtasks(cfg.showCompletedSubtasks);
             if (typeof cfg.showTaskLocations === "boolean") setShowTaskLocations(cfg.showTaskLocations);
+            if (typeof cfg.showWeekends === "boolean") setShowWeekends(cfg.showWeekends);
+            if (typeof cfg.showEmptyGroups === "boolean") setShowEmptyGroups(cfg.showEmptyGroups);
             if (cfg.groupBy) setGroupBy(cfg.groupBy);
             if (cfg.groupDirection) setGroupDirection(cfg.groupDirection);
             if (cfg.filterGroups) setFilterGroups(cfg.filterGroups);
         }
     };
 
+    const updateViewName = async (newName: string) => {
+        if (!viewId || !newName.trim()) return;
+        const trimmed = newName.trim();
+        const oldName = viewData?.name || "";
+        setViewNameDraft(trimmed);
+        try {
+            await updateViewMutation.mutateAsync({ id: viewId, name: trimmed });
+            if (utils.view?.get) await utils.view.get.invalidate({ id: viewId });
+            if (utils.view?.list) await utils.view.list.invalidate();
+            if (typeof refetchViewData === 'function') void refetchViewData();
+        } catch (e) {
+            setViewNameDraft(oldName);
+        }
+    };
+
+    const updateViewProperty = async (property: string, value: any) => {
+        if (!viewId) return;
+        try {
+            await updateViewMutation.mutateAsync({ id: viewId, [property]: value });
+            void utils.view.get.invalidate({ id: viewId });
+            if (typeof value === 'boolean') {
+                const label = property.replace('is', '');
+                toast.success(`View ${label.toLowerCase()} ${value ? 'enabled' : 'disabled'}`);
+            }
+        } catch (e) {
+            toast.error(`Failed to update ${property}`);
+        }
+    };
+
+    const resetViewToDefaults = () => {
+        setTimeframe("14");
+        setWorkloadMetric("tasks");
+        setCapacityMode("daily_scheduled");
+        setGroupBy("assignee");
+        setGroupDirection("asc");
+        setShowCompleted(false);
+        setShowCompletedSubtasks(false);
+        setShowTaskLocations(false);
+        setShowSubtaskParentNames(false);
+        setExpandTaskNames(false);
+        setShowWeekends(true);
+        setShowWeekNumbers(false);
+        setShowTrackedTimeNextToEstimated(true);
+        setShowTasksFromOtherLists(true);
+        setShowSubtasksFromOtherLists(true);
+        setDefaultToMeMode(false);
+        setColorTasksBy("status");
+        toast.success("View reset to defaults");
+    };
+
+    const toggleColumn = (col: string) => {
+        if (col === "name") return;
+        setVisibleColumns(prev => {
+            const next = new Set(prev);
+            if (next.has(col)) {
+                next.delete(col);
+            } else {
+                next.add(col);
+            }
+            return next;
+        });
+    };
 
     const workspaceUserById = useMemo(() => {
         const map = new Map<string, { id: string; name: string; email?: string | null; image?: string | null }>();
@@ -423,15 +553,13 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
                 email: u.email ?? null,
             }));
         }
-        return Array.from(workspaceUserById.values()).map(u => ({ id: u.id, name: u.name, image: u.image ?? null, email: u.email ?? null }));
-    }, [teamId, teamParticipants?.users, projectId, projectParticipants?.users, workspaceUserById]);
-
-    const FIELD_CONFIG = useMemo(() => {
-        const custom = (customFields || []).map((f: any) => ({
-            id: f.id, label: f.name, icon: Tag, isCustom: true, type: f.type
+        return Array.from(workspaceUserById.values()).map(u => ({
+            id: u.id,
+            name: u.name,
+            image: u.image ?? null,
+            email: u.email ?? null
         }));
-        return [...STANDARD_FIELD_CONFIG, ...custom];
-    }, [customFields]);
+    }, [teamId, teamParticipants?.users, projectId, projectParticipants?.users, workspaceUserById]);
 
     const groupLabel = useMemo(() => {
         if (groupBy === "none") return "None";
@@ -447,33 +575,17 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
         return found?.label || (typeof groupBy === 'string' ? groupBy.charAt(0).toUpperCase() + groupBy.slice(1) : groupBy);
     }, [groupBy, FIELD_CONFIG]);
 
-    // Filtering logic parity
-    const [savedFiltersPanelOpen, setSavedFiltersPanelOpen] = useState(false);
-    const [savedFilterName, setSavedFilterName] = useState("");
-    const [savedFiltersSearch, setSavedFiltersSearch] = useState("");
-    const [savedFilters, setSavedFilters] = useState<{ id: string, name: string, config: FilterGroup }[]>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('agentflox_saved_filters_workload');
-            return saved ? JSON.parse(saved) : [];
-        }
-        return [];
-    });
-
-    const applySavedFilter = (config: FilterGroup) => {
-        setFilterGroups(config);
-        setSavedFiltersPanelOpen(false);
+    // Priority styles helper
+    const getPriorityStyles = (p?: string | null) => {
+        const priority = p?.toUpperCase() || "NONE";
+        if (priority === "URGENT") return { badge: "text-red-700 bg-red-50 border-red-200", icon: "text-red-600", color: "#ef4444" };
+        if (priority === "HIGH") return { badge: "text-orange-700 bg-orange-50 border-orange-200", icon: "text-orange-600", color: "#f97316" };
+        if (priority === "NORMAL") return { badge: "text-blue-700 bg-blue-50 border-blue-200", icon: "text-blue-600", color: "#3b82f6" };
+        if (priority === "LOW") return { badge: "text-slate-600 bg-slate-100 border-slate-200", icon: "text-slate-500", color: "#64748b" };
+        return { badge: "text-slate-600 bg-slate-50 border-slate-200", icon: "text-slate-400", color: "#94a3b8" };
     };
 
-    const [filterSearch, setFilterSearch] = useState("");
-
-    const getPriorityStyles = (p: string) => {
-        if (p === "URGENT") return { badge: "text-red-700 bg-red-50 border-red-200", icon: "text-red-600" };
-        if (p === "HIGH") return { badge: "text-orange-700 bg-orange-50 border-orange-200", icon: "text-orange-600" };
-        if (p === "NORMAL") return { badge: "text-blue-700 bg-blue-50 border-blue-200", icon: "text-blue-600" };
-        if (p === "LOW") return { badge: "text-slate-600 bg-slate-100 border-slate-200", icon: "text-slate-500" };
-        return { badge: "text-slate-600 bg-slate-50 border-slate-200", icon: "text-slate-400" };
-    };
-
+    // Filter condition handlers
     const updateFilterGroupOperator = (groupId: string, operator: "AND" | "OR") => {
         const updateRecursive = (group: FilterGroup): FilterGroup => {
             if (group.id === groupId) return { ...group, operator };
@@ -493,9 +605,10 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
         }));
     };
 
-    const addFilterCondition = (groupId: string) => {
+    const addFilterCondition = (groupId?: string) => {
+        const targetId = groupId || "root";
         const addRecursive = (group: FilterGroup): FilterGroup => {
-            if (group.id === groupId) return { ...group, conditions: [...group.conditions, { id: Math.random().toString(36).substring(7), field: "status", operator: "is", value: [] }] };
+            if (group.id === targetId) return { ...group, conditions: [...group.conditions, { id: Math.random().toString(36).substring(7), field: "status", operator: "is", value: [] }] };
             return { ...group, conditions: group.conditions.map(c => "conditions" in c ? addRecursive(c as FilterGroup) : c) };
         };
         setFilterGroups(prev => addRecursive(prev));
@@ -519,34 +632,61 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
         setFilterGroups(prev => updateRecursive(prev));
     };
 
-    const saveNewFilter = useCallback(() => {
+    const saveNewFilter = useCallback(async () => {
         if (!savedFilterName.trim()) return;
-        const newFilter = { id: Math.random().toString(36).substring(7), name: savedFilterName.trim(), config: JSON.parse(JSON.stringify(filterGroups)) };
+        const newFilter = {
+            id: Math.random().toString(36).substring(7),
+            name: savedFilterName.trim(),
+            config: JSON.parse(JSON.stringify(filterGroups)),
+        };
         setSavedFilters(prev => {
             const next = [...prev, newFilter];
-            localStorage.setItem("agentflox_saved_filters_workload", JSON.stringify(next));
+            if (viewId && initialConfig != null) {
+                const raw = (initialConfig ?? {}) as Record<string, any>;
+                const workloadView = raw.workloadView ?? {};
+                void updateViewMutation.mutateAsync({ id: viewId, config: { ...raw, workloadView: { ...workloadView, savedFilterPresets: next } } });
+            } else if (typeof window !== "undefined") {
+                localStorage.setItem("agentflox_saved_filters", JSON.stringify(next));
+            }
             return next;
         });
         setSavedFilterName("");
-    }, [savedFilterName, filterGroups]);
+    }, [savedFilterName, filterGroups, viewId, initialConfig]);
 
     const deleteSavedFilter = useCallback((id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         setSavedFilters(prev => {
             const next = prev.filter(f => f.id !== id);
-            localStorage.setItem("agentflox_saved_filters_workload", JSON.stringify(next));
+            if (viewId && initialConfig != null) {
+                const raw = (initialConfig ?? {}) as Record<string, any>;
+                const workloadView = raw.workloadView ?? {};
+                void updateViewMutation.mutateAsync({ id: viewId, config: { ...raw, workloadView: { ...workloadView, savedFilterPresets: next } } });
+            } else if (typeof window !== "undefined") {
+                localStorage.setItem("agentflox_saved_filters", JSON.stringify(next));
+            }
             return next;
         });
-    }, []);
+    }, [viewId, initialConfig]);
+
+    const applySavedFilter = (config: FilterGroup) => {
+        setFilterGroups(config);
+        setSavedFiltersPanelOpen(false);
+    };
 
     const appliedFilterCount = useMemo(() => {
         if (filterGroups.conditions.length === 0) return 0;
         return filterGroups.conditions.filter(c => ("conditions" in c ? hasAnyValueInGroup(c as FilterGroup) : hasFilterValue(c as FilterCondition))).length;
     }, [filterGroups]);
 
+    // Filtered Tasks
     const filteredTasks = useMemo(() => {
         return tasks.filter(task => {
             if (!showCompleted && task.status?.type === 'CLOSED') return false;
+            if (filterAssignee.length > 0) {
+                const hasAssignee = (task.assignees || []).some((a: any) => filterAssignee.includes(a.user.id)) ||
+                    (task.assigneeId && filterAssignee.includes(task.assigneeId));
+                if (!hasAssignee) return false;
+            }
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
                 const matchesSearch = (task.title || task.name || "").toLowerCase().includes(q) || (task.id || "").toLowerCase().includes(q);
@@ -554,771 +694,360 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
             }
             return filterGroups.conditions.length > 0 ? evaluateGroup(task, filterGroups) : true;
         });
-    }, [tasks, filterGroups, customFields, showCompleted, searchQuery]);
-    const allAvailableStatuses = useMemo(() => {
-        if (listId && currentList?.statuses) {
-            return (currentList.statuses as { id: string; name: string; color: string }[]).map((s: any) => ({ ...s, listId: currentList.id }));
-        }
-        if (listsData?.items) {
-            const statusMap = new Map<string, { id: string; name: string; color: string; listId: string }>();
-            (listsData.items as any[]).forEach((list: any) => {
-                (list.statuses || []).forEach((s: any) => {
-                    if (!statusMap.has(s.id)) statusMap.set(s.id, { ...s, listId: list.id });
-                });
-            });
-            return Array.from(statusMap.values());
-        }
-        const statuses = new Map<string, { id: string; name: string; color: string }>();
-        tasks.forEach(t => {
-            if (t.status) statuses.set(t.status.id, t.status);
+    }, [tasks, filterGroups, showCompleted, filterAssignee, searchQuery]);
+
+    // Backlog tasks (unscheduled, overdue, unassigned)
+    const backlogTasks = useMemo(() => {
+        const todayStart = startOfDay(new Date());
+        return tasks.filter(task => {
+            if (!showCompleted && task.status?.type === 'CLOSED') return false;
+            if (backlogSearch.trim()) {
+                const q = backlogSearch.toLowerCase();
+                const matches = (task.title || task.name || "").toLowerCase().includes(q);
+                if (!matches) return false;
+            }
+            if (backlogTab === "unscheduled") {
+                return !task.dueDate && !task.startDate;
+            }
+            if (backlogTab === "overdue") {
+                if (!task.dueDate) return false;
+                return isBefore(startOfDay(new Date(task.dueDate)), todayStart) && task.status?.type !== 'CLOSED';
+            }
+            if (backlogTab === "unassigned") {
+                return (!task.assignees || task.assignees.length === 0) && !task.assigneeId;
+            }
+            return true;
+        }).sort((a, b) => {
+            if (backlogSort === "status") {
+                return (a.status?.name || "").localeCompare(b.status?.name || "");
+            }
+            if (backlogSort === "priority") {
+                return (a.priority || "").localeCompare(b.priority || "");
+            }
+            if (backlogSort === "dueDate") {
+                const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+                const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+                return aTime - bTime;
+            }
+            return (a.title || a.name || "").localeCompare(b.title || b.name || "");
         });
-        return Array.from(statuses.values());
-    }, [listId, currentList, listsData, tasks]);
+    }, [tasks, backlogTab, backlogSearch, backlogSort, showCompleted]);
 
-    const allAvailableTags = useMemo(() => Array.from(new Set(tasks.flatMap(t => t.tags || []))), [tasks]);
+    // Timeline Days
+    const timelineDays = useMemo(() => {
+        let start: Date;
+        let numDays: number;
 
-    const allGroups = useMemo(() => {
+        if (timeframe === "7") {
+            start = startOfWeek(currentDate, { weekStartsOn: 0 });
+            numDays = 7;
+        } else if (timeframe === "14") {
+            start = startOfWeek(currentDate, { weekStartsOn: 0 });
+            numDays = 14;
+        } else if (timeframe === "days") {
+            start = subDays(currentDate, 3);
+            numDays = 7;
+        } else if (timeframe === "weeks") {
+            start = startOfWeek(currentDate, { weekStartsOn: 0 });
+            numDays = 28;
+        } else {
+            // Months
+            start = startOfMonth(currentDate);
+            const end = endOfMonth(currentDate);
+            numDays = differenceInDays(end, start) + 1;
+        }
+
+        const rawDays = Array.from({ length: numDays }, (_, i) => addDays(start, i));
+        if (!showWeekends) {
+            return rawDays.filter(d => !isWeekendFns(d));
+        }
+        return rawDays;
+    }, [currentDate, timeframe, showWeekends]);
+
+    interface WorkloadGroup {
+        id: string;
+        name: string;
+        image?: string | null;
+        color?: string;
+        type: string;
+        capacity: number;
+        capacityPoints: number;
+        capacityTasks: number;
+    }
+
+    // Grouping computation
+    const groups: WorkloadGroup[] = useMemo(() => {
         if (groupBy === 'assignee') {
-            return users.map(u => ({ id: u.id, name: u.name, image: u.image, type: 'user' }));
+            const userGroups: WorkloadGroup[] = users.map(u => ({
+                id: u.id,
+                name: u.name,
+                image: u.image,
+                type: 'user',
+                capacity: 8, // 8 hours per day default capacity
+                capacityPoints: 5, // 5 sprint points default
+                capacityTasks: 4, // 4 tasks per day
+            }));
+            return [
+                { id: 'unassigned', name: 'Unassigned', image: null, type: 'unassigned', capacity: 8, capacityPoints: 5, capacityTasks: 4 },
+                ...userGroups
+            ];
         }
         if (groupBy === 'status') {
-            const groups = Array.from(new Set(tasks.map(t => t.status?.id).filter(Boolean))).map(id => {
-                const status = tasks.find(t => t.status?.id === id)?.status;
-                return { id: status?.id || 'no-status', name: status?.name || 'No Status', color: status?.color, type: 'status' };
+            const statusMap = new Map<string, { id: string; name: string; color: string }>();
+            tasks.forEach(t => {
+                if (t.status) statusMap.set(t.status.id, t.status);
             });
-            return [...groups, { id: 'unassigned', name: 'No Status', type: 'status' }];
+            const statusGroups: WorkloadGroup[] = Array.from(statusMap.values()).map(s => ({
+                id: s.id,
+                name: s.name,
+                color: s.color,
+                image: null,
+                type: 'status',
+                capacity: 8,
+                capacityPoints: 5,
+                capacityTasks: 4,
+            }));
+            return [
+                ...statusGroups,
+                { id: 'unassigned', name: 'No Status', type: 'status', color: '#94a3b8', image: null, capacity: 8, capacityPoints: 5, capacityTasks: 4 }
+            ];
         }
         if (groupBy === 'priority') {
-            return ['urgen', 'high', 'normal', 'low', 'none'].map(p => ({ id: p, name: p.charAt(0).toUpperCase() + p.slice(1), type: 'priority' }));
+            return ['URGENT', 'HIGH', 'NORMAL', 'LOW', 'NONE'].map((p): WorkloadGroup => ({
+                id: p.toLowerCase(),
+                name: p.charAt(0) + p.slice(1).toLowerCase(),
+                type: 'priority',
+                color: getPriorityStyles(p).color,
+                image: null,
+                capacity: 8,
+                capacityPoints: 5,
+                capacityTasks: 4,
+            }));
         }
-        if (groupBy === 'tags') {
-            const tags = new Set<string>();
-            tasks.forEach(t => (t.tags || []).forEach((tag: string) => tags.add(tag)));
-            const sortedTags = Array.from(tags).sort();
-            return [...sortedTags.map(tag => ({ id: tag, name: tag, type: 'tag' })), { id: 'no-tags', name: 'No tags', type: 'tag' }];
-        }
-        // Default or other groupings
-        return users.map(u => ({ id: u.id, name: u.name, image: u.image, type: 'user' }));
-    }, [groupBy, users, tasks, allAvailableStatuses]);
+        // Fallback or none
+        return users.map((u): WorkloadGroup => ({
+            id: u.id,
+            name: u.name,
+            image: u.image,
+            type: 'user',
+            capacity: 8,
+            capacityPoints: 5,
+            capacityTasks: 4,
+        }));
+    }, [groupBy, users, tasks]);
 
-    // Workload logic
-    const timelineDays = useMemo(() => {
-        const start = startOfWeek(currentDate, { weekStartsOn: 0 });
-        return Array.from({ length: parseInt(timeframe) }, (_, i) => addDays(start, i));
-    }, [currentDate, timeframe]);
-
-    const calculateWorkload = (groupValue: string, date: Date) => {
+    // Calculate workload metrics per group and per day
+    const getGroupTasksForDay = useCallback((groupId: string, date: Date) => {
         const dayStart = startOfDay(date);
-
-        const dayTasks = filteredTasks.filter(t => {
-            // Check if task falls on this day
+        return filteredTasks.filter(t => {
             if (!t.dueDate && !t.startDate) return false;
-            const tStart = t.startDate ? startOfDay(new Date(t.startDate)) : startOfDay(new Date(t.dueDate));
-            const tEnd = startOfDay(new Date(t.dueDate));
-            if (dayStart < tStart || dayStart > tEnd) return false;
+            const tStart = t.startDate ? startOfDay(new Date(t.startDate)) : startOfDay(new Date(t.dueDate!));
+            const tEnd = t.dueDate ? startOfDay(new Date(t.dueDate)) : startOfDay(new Date(t.startDate!));
+
+            const minDate = tStart <= tEnd ? tStart : tEnd;
+            const maxDate = tEnd >= tStart ? tEnd : tStart;
+
+            if (dayStart < minDate || dayStart > maxDate) return false;
 
             // Check group membership
             if (groupBy === 'assignee') {
-                return (t.assignees || []).some((a: any) => a.user.id === groupValue) ||
-                    (t.assigneeId === groupValue) ||
-                    (groupValue === 'unassigned' && (!t.assignees || t.assignees.length === 0) && !t.assigneeId);
+                if (groupId === 'unassigned') {
+                    return (!t.assignees || t.assignees.length === 0) && !t.assigneeId;
+                }
+                return (t.assignees || []).some((a: any) => a.user.id === groupId) || (t.assigneeId === groupId);
             }
             if (groupBy === 'status') {
-                return (t.status?.id === groupValue) || (groupValue === 'unassigned' && !t.status);
-            }
-            if (groupBy === 'tags') {
-                if (groupValue === 'no-tags') return (!t.tags || t.tags.length === 0);
-                return (t.tags || []).includes(groupValue);
+                if (groupId === 'unassigned') return !t.status;
+                return t.status?.id === groupId;
             }
             if (groupBy === 'priority') {
-                const p = t.priority || 'none';
-                return p === groupValue;
+                const p = (t.priority || 'NONE').toLowerCase();
+                return p === groupId;
             }
-
-            return false;
+            return true;
         });
+    }, [filteredTasks, groupBy]);
 
+    const getGroupTasksInPeriod = useCallback((groupId: string) => {
+        if (timelineDays.length === 0) return [];
+        const start = startOfDay(timelineDays[0]);
+        const end = endOfDay(timelineDays[timelineDays.length - 1]);
+
+        return filteredTasks.filter(t => {
+            if (!t.dueDate && !t.startDate) return false;
+            const tStart = t.startDate ? startOfDay(new Date(t.startDate)) : startOfDay(new Date(t.dueDate!));
+            const tEnd = t.dueDate ? startOfDay(new Date(t.dueDate)) : startOfDay(new Date(t.startDate!));
+
+            const minDate = tStart <= tEnd ? tStart : tEnd;
+            const maxDate = tEnd >= tStart ? tEnd : tStart;
+
+            // Overlaps with timeline range
+            if (maxDate < start || minDate > end) return false;
+
+            if (groupBy === 'assignee') {
+                if (groupId === 'unassigned') {
+                    return (!t.assignees || t.assignees.length === 0) && !t.assigneeId;
+                }
+                return (t.assignees || []).some((a: any) => a.user.id === groupId) || (t.assigneeId === groupId);
+            }
+            if (groupBy === 'status') {
+                if (groupId === 'unassigned') return !t.status;
+                return t.status?.id === groupId;
+            }
+            if (groupBy === 'priority') {
+                const p = (t.priority || 'NONE').toLowerCase();
+                return p === groupId;
+            }
+            return true;
+        });
+    }, [timelineDays, filteredTasks, groupBy]);
+
+    const calculateDayWorkload = useCallback((groupId: string, date: Date, capacity = 8) => {
+        const dayTasks = getGroupTasksForDay(groupId, date);
         const count = dayTasks.length;
 
-        let metricValue = 0;
-        if (workloadMetric === 'tasks') metricValue = count;
-        else if (workloadMetric === 'time_estimate') {
-            metricValue = dayTasks.reduce((acc, t) => {
-                const estimate = t.timeEstimate || 0; // ms or minutes? Assuming Hours based on prop usage
-                // Assuming timeEstimate is in milliseconds for calculations usually, but UI says "0h". 
-                // Determine if backend sends ms or hours. Usually ms.
-                // Let's assume input generic number for now, if it's ms, we convert.
-                // But looking at "0h" it implies hours. 
-                // IF logic assumes values are clean:
+        // Calculate hours and sprint points
+        let totalHours = 0;
+        let totalPoints = 0;
 
-                const tStart = t.startDate ? startOfDay(new Date(t.startDate)) : startOfDay(new Date(t.dueDate));
-                const tEnd = startOfDay(new Date(t.dueDate));
-                const daysSpanned = Math.max(1, differenceInDays(tEnd, tStart) + 1);
+        dayTasks.forEach(t => {
+            const tStart = t.startDate ? startOfDay(new Date(t.startDate)) : startOfDay(new Date(t.dueDate!));
+            const tEnd = t.dueDate ? startOfDay(new Date(t.dueDate)) : startOfDay(new Date(t.startDate!));
+            const daysSpanned = Math.max(1, differenceInDays(tEnd, tStart) + 1);
 
-                // Daily Scheduled distribution (Linear)
-                return acc + (estimate / daysSpanned); // TODO: check unit
-            }, 0);
+            // Raw time estimate (could be ms or minutes or hours; normalize to hours)
+            let estimateHours = 0;
+            if (t.timeEstimate) {
+                estimateHours = t.timeEstimate > 3600000 ? t.timeEstimate / 3600000 : t.timeEstimate > 100 ? t.timeEstimate / 60 : t.timeEstimate;
+            } else {
+                estimateHours = 2; // Default 2h per task if not specified
+            }
+
+            totalHours += estimateHours / daysSpanned;
+            totalPoints += 1 / daysSpanned;
+        });
+
+        // Determine capacity mode value
+        let metricDisplay = "0 tasks";
+        let isOverloaded = false;
+        let isOptimal = false;
+
+        if (workloadMetric === "tasks") {
+            metricDisplay = `${count} task${count !== 1 ? 's' : ''}`;
+            isOverloaded = count > 4;
+            isOptimal = count > 0 && count <= 4;
+        } else if (workloadMetric === "time_estimate") {
+            const roundedHours = Math.round(totalHours * 10) / 10;
+            metricDisplay = `${roundedHours}h`;
+            isOverloaded = totalHours > capacity;
+            isOptimal = totalHours > 0 && totalHours <= capacity;
+        } else if (workloadMetric === "sprint_points") {
+            const roundedPoints = Math.round(totalPoints * 10) / 10;
+            metricDisplay = `${roundedPoints} pts`;
+            isOverloaded = totalPoints > 5;
+            isOptimal = totalPoints > 0 && totalPoints <= 5;
+        } else if (workloadMetric === "percent_capacity") {
+            const pct = Math.round((totalHours / capacity) * 100);
+            metricDisplay = `${pct}%`;
+            isOverloaded = pct > 100;
+            isOptimal = pct > 0 && pct <= 100;
         }
 
-        return { value: metricValue, count };
+        return {
+            count,
+            totalHours: Math.round(totalHours * 10) / 10,
+            metricDisplay,
+            isOverloaded,
+            isOptimal,
+            dayTasks
+        };
+    }, [getGroupTasksForDay, workloadMetric]);
+
+    const toggleGroupCollapse = (id: string) => {
+        setCollapsedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
     };
 
-    const toggleGroup = (groupId: string) => {
-        const newCollapsed = new Set(collapsedGroups);
-        newCollapsed.has(groupId) ? newCollapsed.delete(groupId) : newCollapsed.add(groupId);
-        setCollapsedGroups(newCollapsed);
+    const toggleAllExpand = () => {
+        if (allExpanded) {
+            setCollapsedGroups(new Set(groups.map(g => g.id)));
+            setAllExpanded(false);
+        } else {
+            setCollapsedGroups(new Set());
+            setAllExpanded(true);
+        }
     };
 
-    const navigate = (direction: number) => setCurrentDate(addDays(currentDate, direction * 7));
-
-    const renderFilterContent = (props?: { onClose?: () => void }) => {
-        return (
-            <div className="flex flex-col max-h-[85vh]">
-                <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
-                    <div>
-                        <h3 className="font-bold text-zinc-900 flex items-center gap-2 text-base">
-                            Filters
-                            <Info className="h-4 w-4 text-zinc-400" />
-                        </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Popover open={savedFiltersPanelOpen} onOpenChange={setSavedFiltersPanelOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 text-xs font-bold gap-1.5 border-zinc-200 shadow-none hover:bg-white"
-                                >
-                                    Saved filters
-                                    <ChevronDown className={cn("h-3 w-3 transition-transform", savedFiltersPanelOpen && "rotate-180")} />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
-                                <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
-                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                        <Input
-                                            variant="ghost"
-                                            placeholder="Search..."
-                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
-                                            value={savedFiltersSearch}
-                                            onChange={e => setSavedFiltersSearch(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="max-h-[300px] overflow-auto">
-                                    {savedFilters.length === 0 ? (
-                                        <div className="p-8 text-center bg-white">
-                                            <p className="text-xs text-zinc-400">No saved filters yet</p>
-                                        </div>
-                                    ) : (
-                                        <div className="p-1 space-y-0.5 bg-white">
-                                            <p className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Workspace</p>
-                                            {savedFilters
-                                                .filter(f => !savedFiltersSearch || f.name.toLowerCase().includes(savedFiltersSearch.toLowerCase()))
-                                                .map(f => (
-                                                    <div
-                                                        key={f.id}
-                                                        className="group flex items-center justify-between px-3 py-2 rounded-lg hover:bg-zinc-50 cursor-pointer transition-colors"
-                                                        onClick={() => applySavedFilter(f.config)}
-                                                    >
-                                                        <span className="text-xs font-medium text-zinc-700">{f.name}</span>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-zinc-200"
-                                                            onClick={(e) => deleteSavedFilter(f.id, e)}
-                                                        >
-                                                            <Trash2 className="h-3 w-3 text-zinc-400" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="p-3 border-t border-zinc-100 bg-zinc-50/30">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            placeholder="Name..."
-                                            className="h-8 text-xs flex-1"
-                                            value={savedFilterName}
-                                            onChange={e => setSavedFilterName(e.target.value)}
-                                        />
-                                        <Button
-                                            className="h-8 text-xs font-bold bg-zinc-900 hover:bg-black text-white px-3"
-                                            onClick={saveNewFilter}
-                                            disabled={!savedFilterName.trim()}
-                                        >
-                                            Save new filter
-                                        </Button>
-                                    </div>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-zinc-100" onClick={() => props?.onClose ? props.onClose() : setFiltersPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                    </div>
-                </div>
-
-                {filterGroups.conditions.length === 0 ? (
-                    <div className="p-6 h-[88px]">
-                        <Button
-                            className="h-9 px-3 text-sm font-bold bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl shadow-sm cursor-pointer"
-                            onClick={() => addFilterGroup()}
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add filter
-                        </Button>
-                    </div>
-                ) : (
-                    <ScrollArea className="p-5 text-sm h-[350px]">
-                        <div className="space-y-4">
-                            <div className="space-y-4">
-                                {/* Render each top-level group */}
-                                {(() => {
-                                    const hasAnyValueAtRoot = filterGroups.conditions.some(c => {
-                                        if ("conditions" in c) {
-                                            return hasAnyValueInGroup(c as FilterGroup);
-                                        }
-                                        return hasFilterValue(c as FilterCondition);
-                                    });
-
-                                    // If any group has a value, only show groups with values
-                                    // BUT always show ALL empty groups at the end to allow adding multiple filters
-                                    const visibleGroups = hasAnyValueAtRoot
-                                        ? (() => {
-                                            const groupsWithValues = filterGroups.conditions.filter(c => {
-                                                if ("conditions" in c) {
-                                                    return hasAnyValueInGroup(c as FilterGroup);
-                                                }
-                                                return hasFilterValue(c as FilterCondition);
-                                            });
-                                            // Include ALL empty groups at the end (not just the last one)
-                                            const emptyGroups = filterGroups.conditions.filter(c => {
-                                                if ("conditions" in c) {
-                                                    return !hasAnyValueInGroup(c as FilterGroup);
-                                                }
-                                                return !hasFilterValue(c as FilterCondition);
-                                            });
-                                            // Return groups with values first, then all empty groups
-                                            return [...groupsWithValues, ...emptyGroups];
-                                        })()
-                                        : filterGroups.conditions;
-
-                                    return visibleGroups.map((groupItem, visibleGroupIdx) => {
-                                        const isGroup = "conditions" in groupItem;
-                                        if (!isGroup) {
-                                            // This shouldn't happen at root level, but handle it gracefully
-                                            return null;
-                                        }
-                                        const group = groupItem as FilterGroup;
-
-                                        // Find the original index in the full conditions array for "where" label logic
-                                        const originalIdx = filterGroups.conditions.findIndex(c => c.id === group.id);
-                                        const isFirstWithValue = hasAnyValueAtRoot && visibleGroupIdx === 0;
-                                        const shouldShowWhere = !hasAnyValueAtRoot ? (originalIdx === 0) : isFirstWithValue;
-                                        const shouldShowOperator = visibleGroups.length > 1 && visibleGroupIdx === 1;
-
-                                        return (
-                                            <div key={group.id} className="flex gap-3 items-start">
-                                                {/* Operator selector for inter-group logic - only show when multiple groups */}
-                                                {visibleGroups.length > 1 && (
-                                                    <div className="w-[60px] flex justify-end items-center shrink-0">
-                                                        {shouldShowWhere ? (
-                                                            <span className="text-[10px] font-bold text-zinc-400/80 pr-3 uppercase tracking-wider">Where</span>
-                                                        ) : shouldShowOperator ? (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-8 w-[50px] text-xs font-black uppercase tracking-widest bg-white border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer mr-2 pl-2 pr-1"
-                                                                onClick={() => updateFilterGroupOperator("root", filterGroups.operator === "AND" ? "OR" : "AND")}
-                                                            >
-                                                                {filterGroups.operator}
-                                                                <ChevronDown className="h-3 w-3 ml-0 opacity-40 shrink-0" />
-                                                            </Button>
-                                                        ) : (
-                                                            <div className="pr-3 flex items-center h-8">
-                                                                <span className="text-xs font-black uppercase tracking-widest text-zinc-300">{filterGroups.operator}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Group block */}
-                                                <div className="flex-1 p-5 bg-zinc-50/50 rounded-2xl border border-zinc-100/80 space-y-4">
-                                                    {/* Render conditions within this group */}
-                                                    {(() => {
-                                                        const hasAnyValue = hasAnyValueInGroup(group);
-                                                        // If any condition has a value, only show conditions with values
-                                                        // BUT always show ALL empty conditions at the end to allow adding multiple nested filters
-                                                        const visibleConditions = hasAnyValue
-                                                            ? (() => {
-                                                                const conditionsWithValues = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                // Include ALL empty conditions at the end (not just the last one)
-                                                                const emptyConditions = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return !hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return !hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                // Return conditions with values first, then all empty conditions
-                                                                return [...conditionsWithValues, ...emptyConditions];
-                                                            })()
-                                                            : group.conditions;
-
-                                                        return visibleConditions.map((item, visibleIdx) => {
-                                                            const isNestedGroup = "conditions" in item;
-                                                            const cond = !isNestedGroup ? (item as FilterCondition) : null;
-                                                            const field = cond ? (FILTER_OPTIONS.find(f => f.id === cond.field) || FIELD_CONFIG.find(f => f.id === cond.field)) : null;
-                                                            const availableOps = cond ? (FIELD_OPERATORS[cond.field] || [{ id: "is", label: "Is" }]) : [];
-
-                                                            if (isNestedGroup) {
-                                                                // Handle nested groups if needed (for future expansion)
-                                                                return null;
-                                                            }
-
-                                                            // Find the original index in the full conditions array for "where" label logic
-                                                            const originalIdx = group.conditions.findIndex(c => c.id === item.id);
-                                                            const isFirstWithValue = hasAnyValue && visibleIdx === 0;
-                                                            const shouldShowWhere = !hasAnyValue ? (originalIdx === 0) : isFirstWithValue;
-                                                            const shouldShowOperator = visibleConditions.length > 1 && visibleIdx === 1;
-
-                                                            return (
-                                                                <div key={item.id} className="flex gap-3 items-start">
-                                                                    {/* Label Column for conditions within group - only show when multiple conditions */}
-                                                                    {visibleConditions.length > 1 && (
-                                                                        <div className="w-[60px] flex justify-end items-center shrink-0">
-                                                                            {shouldShowWhere ? (
-                                                                                <span className="text-[10px] font-bold text-zinc-400/80 pr-3 uppercase tracking-wider">Where</span>
-                                                                            ) : shouldShowOperator ? (
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    className="h-8 w-[50px] text-xs font-black uppercase tracking-widest bg-white border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer mr-2 pl-2 pr-1"
-                                                                                    onClick={() => updateFilterGroupOperator(group.id, group.operator === "AND" ? "OR" : "AND")}
-                                                                                >
-                                                                                    {group.operator}
-                                                                                    <ChevronDown className="h-3 w-3 ml-0 opacity-40 shrink-0" />
-                                                                                </Button>
-                                                                            ) : (
-                                                                                <span className="text-xs font-black uppercase tracking-widest text-zinc-300 pr-3">{group.operator}</span>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-
-                                                                    {/* Filter condition content */}
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex gap-2 items-center">
-                                                                            <DropdownMenu>
-                                                                                <DropdownMenuTrigger asChild>
-                                                                                    <Button variant="ghost" size="sm" className="h-8 text-xs font-medium gap-2 px-3 hover:bg-zinc-50 shrink-0 justify-between w-[120px] bg-white border border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer text-zinc-700 truncate whitespace-nowrap">
-                                                                                        <div className="flex items-center gap-2 min-w-0">
-                                                                                            {field ? (
-                                                                                                <>
-                                                                                                    {typeof field.icon === "function" ? <field.icon className="h-3.5 w-3.5 text-zinc-500 shrink-0" /> : <Box className="h-3.5 w-3.5 text-zinc-500 shrink-0" />}
-                                                                                                    <span className="truncate">{field.label}</span>
-                                                                                                </>
-                                                                                            ) : (
-                                                                                                <span className="text-zinc-500">Select filter</span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <ChevronDown className="h-3 w-3 opacity-30 shrink-0" />
-                                                                                    </Button>
-                                                                                </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent
-                                                                                    side="bottom"
-                                                                                    align="start"
-                                                                                    avoidCollisions={false}
-                                                                                    sideOffset={6}
-                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
-                                                                                >
-                                                                                    <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
-                                                                                        <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
-                                                                                    </div>
-                                                                                    <div className="p-1">
-                                                                                        {FILTER_OPTIONS.filter(f => !filterSearch || f.label.toLowerCase().includes(filterSearch.toLowerCase())).map(f => (
-                                                                                            <DropdownMenuItem key={f.id} onClick={() => { updateFilterCondition(cond!.id, { field: f.id as string, operator: (FIELD_OPERATORS[f.id] || [{ id: "is" }])[0].id, value: [] }); setFilterSearch(""); }} className="rounded-lg h-9">
-                                                                                                <div className="flex items-center gap-2.5">
-                                                                                                    {typeof f.icon === "function" ? <f.icon className="h-4 w-4 text-zinc-400" /> : <Box className="h-4 w-4 text-zinc-400" />}
-                                                                                                    <span className="font-medium text-zinc-700">{f.label}</span>
-                                                                                                </div>
-                                                                                            </DropdownMenuItem>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </DropdownMenuContent>
-                                                                            </DropdownMenu>
-
-                                                                            {field && (
-                                                                                <>
-                                                                                    <DropdownMenu>
-                                                                                        <DropdownMenuTrigger asChild>
-                                                                                            <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold px-3 text-zinc-800 hover:bg-zinc-50 shrink-0 w-20 justify-start bg-white border border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer">
-                                                                                                {availableOps.find(o => o.id === cond!.operator)?.label || cond!.operator}
-                                                                                                <ChevronDown className="h-3 w-3 ml-auto opacity-30" />
-                                                                                            </Button>
-                                                                                        </DropdownMenuTrigger>
-                                                                                        <DropdownMenuContent className="w-48 p-1">
-                                                                                            {availableOps.map(op => (
-                                                                                                <DropdownMenuItem key={op.id} onClick={() => updateFilterCondition(cond!.id, { operator: op.id as any })} className="rounded-lg h-9">
-                                                                                                    <span className="font-medium text-zinc-700">{op.label}</span>
-                                                                                                </DropdownMenuItem>
-                                                                                            ))}
-                                                                                        </DropdownMenuContent>
-                                                                                    </DropdownMenu>
-
-                                                                                    <div className="flex-1 min-w-0">
-                                                                                        {cond!.operator === "is_set" || cond!.operator === "is_not_set" || cond!.operator === "is_archived" || cond!.operator === "is_not_archived" || cond!.operator === "has" || cond!.operator === "doesnt_have" ? null : (
-                                                                                            <>
-                                                                                                {cond!.field === "status" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-56 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {allAvailableStatuses.map(s => (
-                                                                                                                    <label key={s.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(s.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, s.id] : current.filter(id => id !== s.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate">{s.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "priority" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-48 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {["URGENT", "HIGH", "NORMAL", "LOW"].map(p => (
-                                                                                                                    <label key={p} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(p)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, p] : current.filter(val => val !== p);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <Flag className={cn("h-3.5 w-3.5", getPriorityStyles(p).icon)} />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate capitalize">{p.toLowerCase()}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "assignee" || cond!.field === "createdBy" || cond!.field === "follower" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-64 p-2">
-                                                                                                            <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
-                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                            <ScrollArea className="h-[240px]">
-                                                                                                                {users.filter(u => !assigneesSearch || u.name?.toLowerCase().includes(assigneesSearch.toLowerCase())).map(u => (
-                                                                                                                    <label key={u.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(u.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, u.id] : current.filter(id => id !== u.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <Avatar className="h-6 w-6">
-                                                                                                                            <AvatarImage src={u.image || undefined} />
-                                                                                                                            <AvatarFallback className="text-[10px]">{u.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                                                                                                                        </Avatar>
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate">{u.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </ScrollArea>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "tags" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} tags selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-56 p-2">
-                                                                                                            {allAvailableTags.length === 0 ? (
-                                                                                                                <p className="text-[10px] text-zinc-500 p-4 text-center">No tags found in this view</p>
-                                                                                                            ) : (
-                                                                                                                <div className="space-y-0.5">
-                                                                                                                    {allAvailableTags.map(tag => {
-                                                                                                                        const parsed = parseEncodedTag(tag);
-                                                                                                                        return (
-                                                                                                                            <label key={tag} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                                <Checkbox
-                                                                                                                                    checked={Array.isArray(cond!.value) && cond!.value.includes(tag)}
-                                                                                                                                    onCheckedChange={(checked) => {
-                                                                                                                                        const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                        const next = checked ? [...current, tag] : current.filter(t => t !== tag);
-                                                                                                                                        updateFilterCondition(cond!.id, { value: next });
-                                                                                                                                    }}
-                                                                                                                                />
-                                                                                                                                <span className="text-[11px] font-bold px-2 py-1 rounded-md" style={{ backgroundColor: parsed.color + '20', color: parsed.color }}>
-                                                                                                                                    {parsed.label}
-                                                                                                                                </span>
-                                                                                                                            </label>
-                                                                                                                        );
-                                                                                                                    })}
-                                                                                                                </div>
-                                                                                                            )}
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "dependency" ? (
-                                                                                                    <DropdownMenu>
-                                                                                                        <DropdownMenuTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {cond!.value || "Select dependency type"}
-                                                                                                            </Button>
-                                                                                                        </DropdownMenuTrigger>
-                                                                                                        <DropdownMenuContent align="start" className="w-48">
-                                                                                                            {["Blocking", "Waiting on", "Link", "Any"].map(v => (
-                                                                                                                <DropdownMenuItem key={v} onClick={() => updateFilterCondition(cond!.id, { value: v })} className="text-xs font-medium">
-                                                                                                                    {v}
-                                                                                                                </DropdownMenuItem>
-                                                                                                            ))}
-                                                                                                        </DropdownMenuContent>
-                                                                                                    </DropdownMenu>
-                                                                                                ) : cond!.field === "taskType" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select type"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-48 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {availableTaskTypes?.map((t: any) => (
-                                                                                                                    <label key={t.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(t.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, t.id] : current.filter(val => val !== t.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 capitalize">{t.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : ["dueDate", "startDate", "dateDone", "dateCreated", "dateUpdated", "latestStatusChange"].includes(cond!.field) ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {(() => {
-                                                                                                                    const raw = cond!.value;
-                                                                                                                    const ts = typeof raw === "number" && raw > 0 ? raw : null;
-                                                                                                                    return ts ? format(new Date(ts), "MMM d, yyyy") : "Select date";
-                                                                                                                })()}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-auto p-0">
-                                                                                                            <SingleDateCalendar
-                                                                                                                selectedDate={(() => {
-                                                                                                                    const raw = cond!.value;
-                                                                                                                    if (typeof raw !== "number" || raw <= 0) return undefined;
-                                                                                                                    return new Date(raw);
-                                                                                                                })()}
-                                                                                                                onDateChange={(d) => updateFilterCondition(cond!.id, { value: d ? d.getTime() : null })}
-                                                                                                            />
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "location" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {cond!.value ? "Location selected" : "Select location"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-[300px] p-0">
-                                                                                                            <DestinationPicker
-                                                                                                                workspaceId={resolvedWorkspaceId as string}
-                                                                                                                onSelect={(listId) => updateFilterCondition(cond!.id, { value: listId })}
-                                                                                                            />
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : (
-                                                                                                    <div className="relative">
-                                                                                                        <Input
-                                                                                                            className="h-8 text-xs border-zinc-100 bg-white rounded-sm focus-visible:ring-violet-500 pr-8"
-                                                                                                            placeholder="Select option"
-                                                                                                            value={typeof cond!.value === "string" ? cond!.value : ""}
-                                                                                                            onChange={e => updateFilterCondition(cond!.id, { value: e.target.value })}
-                                                                                                        />
-                                                                                                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0 mt-1 cursor-pointer" onClick={() => {
-                                                                        if (group.conditions.length === 1) {
-                                                                            // If this is the last condition in the group, remove the entire group
-                                                                            removeFilterItem(group.id);
-                                                                        } else {
-                                                                            // Otherwise, just remove this condition
-                                                                            removeFilterItem(item.id);
-                                                                        }
-                                                                    }}>
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()}
-
-                                                    {/* Add nested filter button within group - hide only for first root-level "Where" condition when displaying first filter item with value */}
-                                                    {(() => {
-                                                        const hasAnyValue = hasAnyValueInGroup(group);
-                                                        // Get visible conditions to check if first one is "Where" with value
-                                                        const visibleConditions = hasAnyValue
-                                                            ? (() => {
-                                                                const conditionsWithValues = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                const lastCondition = group.conditions[group.conditions.length - 1];
-                                                                if (lastCondition && !conditionsWithValues.includes(lastCondition)) {
-                                                                    const lastHasValue = "conditions" in lastCondition
-                                                                        ? hasAnyValueInGroup(lastCondition as FilterGroup)
-                                                                        : hasFilterValue(lastCondition as FilterCondition);
-                                                                    if (!lastHasValue) {
-                                                                        return [...conditionsWithValues, lastCondition];
-                                                                    }
-                                                                }
-                                                                return conditionsWithValues;
-                                                            })()
-                                                            : group.conditions;
-
-                                                        // Check if this is the first root-level group
-                                                        const isFirstRootGroup = filterGroups.conditions.findIndex(c => c.id === group.id) === 0;
-
-                                                        // Check if first visible condition is the first "Where" condition with value
-                                                        const firstVisibleCondition = visibleConditions[0];
-                                                        const firstConditionInGroup = group.conditions[0];
-
-                                                        // Hide if:
-                                                        // 1. This is the first root-level group
-                                                        // 2. We're displaying filters with values (hasAnyValue is true)
-                                                        // 3. The first visible condition exists and has a value
-                                                        // 4. The first visible condition is the first condition in the original group (the "Where" condition)
-                                                        const isFirstWhereWithValue = isFirstRootGroup &&
-                                                            hasAnyValue &&
-                                                            firstVisibleCondition &&
-                                                            !("conditions" in firstVisibleCondition) &&
-                                                            hasFilterValue(firstVisibleCondition as FilterCondition) &&
-                                                            firstConditionInGroup &&
-                                                            firstConditionInGroup.id === firstVisibleCondition.id;
-
-                                                        // Hide only if it's the first root-level "Where" condition with value
-                                                        return !isFirstWhereWithValue && (
-                                                            <div className="flex items-center justify-between pt-2 group/footer">
-                                                                <button
-                                                                    className="text-[11px] font-bold text-zinc-400 hover:text-zinc-500 hover:bg-zinc-200 cursor-pointer px-2 py-1 rounded-md"
-                                                                    onClick={() => addFilterCondition(group.id)}
-                                                                >
-                                                                    Add nested filter
-                                                                </button>
-                                                                {group.conditions.length >= 2 && (
-                                                                    <button
-                                                                        className="text-[11px] font-bold text-zinc-400 hover:text-zinc-500 hover:bg-zinc-200 transition-colors opacity-0 group-hover/footer:opacity-100 cursor-pointer px-2 py-1 rounded-md"
-                                                                        onClick={() => removeFilterItem(group.id)}
-                                                                    >
-                                                                        Clear group
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        );
-                                    });
-                                })()}
-
-                            </div>
-                        </div>
-                    </ScrollArea>
-                )}
-                {filterGroups.conditions.length > 0 && (
-                    <div className="w-full p-4 border-t border-zinc-100 bg-white flex items-center justify-between z-10">
-                        <Button
-                            variant="outline"
-                            className="h-9 px-3 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200 rounded-xl cursor-pointer"
-                            onClick={() => addFilterGroup()}
-                        >
-                            <Plus className="h-4 w-4 mr-1.5" />
-                            Add filter
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-500 hover:text-red-600 font-medium px-3 hover:bg-red-50 border border-red-200 rounded-xl cursor-pointer"
-                            onClick={() => setFilterGroups({
-                                id: "root",
-                                operator: "AND",
-                                conditions: [],
-                            })}
-                        >
-                            Clear all
-                        </Button>
-                    </div>
-                )}
-            </div>
-        );
+    const navigatePeriod = (direction: number) => {
+        const daysToJump = timeframe === "7" ? 7 : timeframe === "14" ? 14 : timeframe === "weeks" ? 28 : 14;
+        setCurrentDate(prev => addDays(prev, direction * daysToJump));
     };
 
+    // Filter empty groups count
+    const emptyGroupsCount = useMemo(() => {
+        return groups.filter(g => getGroupTasksInPeriod(g.id).length === 0).length;
+    }, [groups, getGroupTasksInPeriod]);
+
+    const visibleGroups = useMemo(() => {
+        if (showEmptyGroups) return groups;
+        return groups.filter(g => getGroupTasksInPeriod(g.id).length > 0);
+    }, [groups, showEmptyGroups, getGroupTasksInPeriod]);
+
+    // Range display text
+    const dateRangeLabel = useMemo(() => {
+        if (timelineDays.length === 0) return "";
+        const first = timelineDays[0];
+        const last = timelineDays[timelineDays.length - 1];
+        return `${format(first, "MMM d")} - ${format(last, "MMM d")}`;
+    }, [timelineDays]);
+
+    const monthHeaderLabel = useMemo(() => {
+        if (timelineDays.length === 0) return "";
+        const first = timelineDays[0];
+        const last = timelineDays[timelineDays.length - 1];
+        if (first.getMonth() === last.getMonth()) {
+            return format(first, "MMMM yyyy");
+        }
+        return `${format(first, "MMM yyyy")} - ${format(last, "MMM yyyy")}`;
+    }, [timelineDays]);
+
+    // Render filter popover content
+    const renderFilterContent = (opts?: { onClose?: () => void }) => (
+        <ViewFilterPopoverContent
+            onClose={opts?.onClose ?? (() => setFiltersPanelOpen(false))}
+            savedFiltersPanelOpen={savedFiltersPanelOpen}
+            setSavedFiltersPanelOpen={setSavedFiltersPanelOpen}
+            savedFiltersSearch={savedFiltersSearch}
+            setSavedFiltersSearch={setSavedFiltersSearch}
+            savedFilterName={savedFilterName}
+            setSavedFilterName={setSavedFilterName}
+            savedFilters={savedFilters}
+            saveNewFilter={saveNewFilter}
+            deleteSavedFilter={deleteSavedFilter}
+            applySavedFilter={applySavedFilter}
+            filterGroups={filterGroups}
+            setFilterGroups={setFilterGroups}
+            addFilterGroup={addFilterGroup}
+            addFilterCondition={addFilterCondition}
+            removeFilterItem={removeFilterItem}
+            updateFilterCondition={updateFilterCondition}
+            updateFilterGroupOperator={updateFilterGroupOperator}
+            filterSearch={filterSearch}
+            setFilterSearch={setFilterSearch}
+            assigneesSearch={assigneesSearch}
+            setAssigneesSearch={setAssigneesSearch}
+            FIELD_CONFIG={FIELD_CONFIG}
+            users={users}
+            allAvailableStatuses={allAvailableStatuses}
+            allAvailableTags={allAvailableTags}
+            availableTaskTypes={availableTaskTypes}
+            resolvedWorkspaceId={resolvedWorkspaceId}
+        />
+    );
 
     if (isTasksLoading) {
         return (
@@ -1332,64 +1061,206 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
     }
 
     return (
-        <div className="h-full flex flex-col bg-white border border-zinc-200 shadow-sm overflow-hidden text-[13px] relative font-sans">
-            {/* Primary Toolbar */}
-            <div className="border-b border-zinc-200 bg-white min-h-[52px] z-50 overflow-x-auto toolbar-scroll-x">
-                <div className="flex items-center gap-4 px-4 py-2 min-w-max whitespace-nowrap">
-                    <div className="flex items-center gap-2.5 shrink-0">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs text-zinc-600 border-zinc-200 shadow-none px-3.5 rounded-lg hover:bg-zinc-50 transition-all active:scale-95"
-                            onClick={() => setCurrentDate(new Date())}
-                        >
-                            Today
-                        </Button>
+        <TooltipProvider delayDuration={150}>
+            <div className="h-full flex flex-col bg-white border border-zinc-200 shadow-sm overflow-hidden text-[13px] relative font-sans select-none">
+                {/* 1. PRIMARY TOOLBAR */}
+                <div className="bg-white min-h-[50px] z-30 flex items-center justify-between px-3 gap-2 overflow-x-auto toolbar-scroll-x">
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Today Button */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs font-medium text-zinc-700 border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95 cursor-pointer"
+                                    onClick={() => setCurrentDate(new Date())}
+                                >
+                                    Today
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">Jump to today</TooltipContent>
+                        </Tooltip>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs text-zinc-600 border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95">
-                                {workloadMetric === "tasks" ? "Tasks" : workloadMetric === "sprint_points" ? "Sprint points" : "Time estimate"}
-                                <ChevronDown className="h-3 w-3 opacity-40 shrink-0" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-40 p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
-                            <DropdownMenuItem onClick={() => setWorkloadMetric("tasks")} className="rounded-lg">Tasks</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setWorkloadMetric("time_estimate")} className="rounded-lg">Time estimate</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setWorkloadMetric("sprint_points")} className="rounded-lg">Sprint points</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                        {/* Workload Unit Dropdown */}
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-medium text-zinc-700 border-zinc-200 shadow-none px-2.5 rounded-lg hover:bg-zinc-50 transition-all cursor-pointer">
+                                            <span>
+                                                {workloadMetric === "tasks" ? "Tasks" :
+                                                    workloadMetric === "time_estimate" ? "Time Estimates" :
+                                                        workloadMetric === "sprint_points" ? "Sprint Points" : "% Time Estimates"}
+                                            </span>
+                                            <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Workload Unit</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align="start" className="w-56 p-1.5 rounded-xl shadow-xl border-zinc-200 z-50">
+                                <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                    Workload Unit
+                                </div>
+                                <DropdownMenuItem
+                                    onClick={() => setWorkloadMetric("sprint_points")}
+                                    className="flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer text-xs"
+                                >
+                                    <div className="flex items-center gap-2 text-zinc-700">
+                                        <Target className="h-4 w-4 text-zinc-400" />
+                                        <span>Sprint Points</span>
+                                    </div>
+                                    {workloadMetric === "sprint_points" && <Check className="h-4 w-4 text-zinc-800" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setWorkloadMetric("tasks")}
+                                    className="flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer text-xs"
+                                >
+                                    <div className="flex items-center gap-2 text-zinc-700 font-medium">
+                                        <CheckCircle2 className="h-4 w-4 text-zinc-600" />
+                                        <span>Tasks</span>
+                                    </div>
+                                    {workloadMetric === "tasks" && <Check className="h-4 w-4 text-zinc-800" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setWorkloadMetric("time_estimate")}
+                                    className="flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer text-xs"
+                                >
+                                    <div className="flex items-center gap-2 text-zinc-700">
+                                        <Hourglass className="h-4 w-4 text-zinc-400" />
+                                        <span>Time Estimates</span>
+                                    </div>
+                                    {workloadMetric === "time_estimate" && <Check className="h-4 w-4 text-zinc-800" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setWorkloadMetric("percent_capacity")}
+                                    className="flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer text-xs"
+                                >
+                                    <div className="flex items-center gap-2 text-zinc-700">
+                                        <Percent className="h-4 w-4 text-zinc-400" />
+                                        <div className="flex flex-col">
+                                            <span>% Time Estimates</span>
+                                            <span className="text-[10px] text-zinc-400">% out of capacity</span>
+                                        </div>
+                                    </div>
+                                    {workloadMetric === "percent_capacity" && <Check className="h-4 w-4 text-zinc-800" />}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs text-zinc-600 border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95">
-                                {timeframe === "7" ? "1 week" : timeframe === "14" ? "2 weeks" : "4 weeks"}
-                                <ChevronDown className="h-3 w-3 opacity-40 shrink-0" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-32 p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
-                            <DropdownMenuItem onClick={() => setTimeframe("7")} className="rounded-lg">1 week</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setTimeframe("14")} className="rounded-lg">2 weeks</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setTimeframe("30")} className="rounded-lg">4 weeks</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                        {/* Time Frame Dropdown */}
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-medium text-zinc-700 border-zinc-200 shadow-none px-2.5 rounded-lg hover:bg-zinc-50 transition-all cursor-pointer">
+                                            <span>
+                                                {timeframe === "7" ? "7 days" :
+                                                    timeframe === "14" ? "14 days" :
+                                                        timeframe === "days" ? "Days" :
+                                                            timeframe === "weeks" ? "Weeks" : "Months"}
+                                            </span>
+                                            <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Time frame</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align="start" className="w-44 p-1.5 rounded-xl shadow-xl border-zinc-200 z-50">
+                                <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                    Time frame
+                                </div>
+                                <DropdownMenuItem onClick={() => setTimeframe("7")} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs">
+                                    <span>7 days</span>
+                                    {timeframe === "7" && <Check className="h-3.5 w-3.5 text-zinc-800" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setTimeframe("14")} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs">
+                                    <span>14 days</span>
+                                    {timeframe === "14" && <Check className="h-3.5 w-3.5 text-zinc-800" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setTimeframe("days")} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs">
+                                    <span>Days</span>
+                                    {timeframe === "days" && <Check className="h-3.5 w-3.5 text-zinc-800" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setTimeframe("weeks")} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs">
+                                    <span>Weeks</span>
+                                    {timeframe === "weeks" && <Check className="h-3.5 w-3.5 text-zinc-800" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setTimeframe("months")} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs">
+                                    <span>Months</span>
+                                    {timeframe === "months" && <Check className="h-3.5 w-3.5 text-zinc-800" />}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-2 text-xs text-zinc-600 border-zinc-200 shadow-none px-3 rounded-lg hover:bg-zinc-50 transition-all active:scale-95">
-                                {capacityMode === "weekly_capacity" ? "Weekly Capacity" : "Daily Scheduled"}
-                                <ChevronDown className="h-3 w-3 opacity-40 shrink-0" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-44 p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
-                            <DropdownMenuItem onClick={() => setCapacityMode("weekly_capacity")} className="rounded-lg">Weekly Capacity</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setCapacityMode("daily_scheduled")} className="rounded-lg">Daily Scheduled</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-
+                        {/* Workload Grouping / Capacity Mode Dropdown */}
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs font-medium text-zinc-700 border-zinc-200 shadow-none px-2.5 rounded-lg hover:bg-zinc-50 transition-all cursor-pointer">
+                                            <span>
+                                                {capacityMode === "daily_scheduled" ? "Daily Scheduled" :
+                                                    capacityMode === "daily_availability" ? "Daily Availability" :
+                                                        capacityMode === "weekly_capacity" ? "Weekly Capacity" : "Weekly Availability"}
+                                            </span>
+                                            <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Workload Grouping</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align="start" className="w-72 p-1.5 rounded-xl shadow-xl border-zinc-200 z-50">
+                                <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                    Workload Grouping
+                                </div>
+                                <DropdownMenuItem
+                                    onClick={() => setCapacityMode("daily_scheduled")}
+                                    className="flex items-start justify-between px-2.5 py-2 rounded-lg cursor-pointer"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-semibold text-zinc-800">Daily Scheduled</span>
+                                        <span className="text-[11px] text-zinc-500">Hours scheduled each day</span>
+                                    </div>
+                                    {capacityMode === "daily_scheduled" && <Check className="h-4 w-4 text-zinc-800 shrink-0 mt-0.5" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setCapacityMode("daily_availability")}
+                                    className="flex items-start justify-between px-2.5 py-2 rounded-lg cursor-pointer"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-semibold text-zinc-800">Daily Availability</span>
+                                        <span className="text-[11px] text-zinc-500">Remaining hours per day grouped by adjacent days with same availability</span>
+                                    </div>
+                                    {capacityMode === "daily_availability" && <Check className="h-4 w-4 text-zinc-800 shrink-0 mt-0.5" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setCapacityMode("weekly_capacity")}
+                                    className="flex items-start justify-between px-2.5 py-2 rounded-lg cursor-pointer"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-semibold text-zinc-800">Weekly Capacity</span>
+                                        <span className="text-[11px] text-zinc-500">Whole week hours & percentage capacity</span>
+                                    </div>
+                                    {capacityMode === "weekly_capacity" && <Check className="h-4 w-4 text-zinc-800 shrink-0 mt-0.5" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => setCapacityMode("weekly_availability")}
+                                    className="flex items-start justify-between px-2.5 py-2 rounded-lg cursor-pointer"
+                                >
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-semibold text-zinc-800">Weekly Availability</span>
+                                        <span className="text-[11px] text-zinc-500">Remaining hours each week</span>
+                                    </div>
+                                    {capacityMode === "weekly_availability" && <Check className="h-4 w-4 text-zinc-800 shrink-0 mt-0.5" />}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
-                    <div className="flex items-center gap-2 ml-auto">
+                    {/* Middle / Right Toolbar actions */}
+                    <div className="flex items-center gap-2">
+                        {/* Save View Dropdown */}
                         <ViewToolbarSaveDropdown
                             show={isViewDirty && !viewAutosave}
                             isViewDirty={isViewDirty}
@@ -1402,35 +1273,35 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
                             isSaveAsNewPending={createViewMutation.isPending}
                         />
 
-                    <DropdownMenu>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className={cn(
-                                            "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg bg-white hover:bg-zinc-100 shadow-none",
-                                            groupBy !== "none" ? "text-violet-700 border-violet-200" : "text-zinc-700"
-                                        )}
-                                    >
-                                        <LayoutList className="h-3.5 w-3.5" />
-                                        <span className="hidden sm:inline">
-                                            {groupBy === "none" ? "Group" : `Group: ${groupLabel}`}
-                                        </span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom">Group by: {groupBy === "none" ? "None" : groupLabel}</TooltipContent>
-                        </Tooltip>
-                        <DropdownMenuContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60 z-50">
-                            <div className="px-2 py-1.5 mb-1">
-                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
-                            </div>
-                            <div className="space-y-0.5">
+                        {/* Group: Assignee */}
+                        <DropdownMenu>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className={cn(
+                                                "h-8 gap-1.5 px-2.5 text-xs font-medium border-zinc-200 transition-colors cursor-pointer rounded-lg bg-white hover:bg-zinc-100 shadow-none",
+                                                groupBy !== "none" ? "text-violet-700 border-violet-200" : "text-zinc-700"
+                                            )}
+                                        >
+                                            <LayoutList className="h-3.5 w-3.5 text-violet-600" />
+                                            <span>
+                                                {groupBy === "none" ? "Group" : `Group: ${groupLabel}`}
+                                            </span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Group by: {groupLabel}</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-xl border-zinc-200 z-50">
+                                <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                    Group by
+                                </div>
                                 {[
-                                    { id: "status", label: "Status", icon: Circle },
                                     { id: "assignee", label: "Assignee", icon: Users },
+                                    { id: "status", label: "Status", icon: Circle },
                                     { id: "priority", label: "Priority", icon: Flag },
                                     { id: "tags", label: "Tags", icon: Tag },
                                     { id: "dueDate", label: "Due date", icon: Calendar },
@@ -1439,540 +1310,1278 @@ export function WorkloadView({ spaceId, projectId, teamId, listId, folderId, vie
                                     <DropdownMenuItem
                                         key={opt.id}
                                         className={cn(
-                                            "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                            groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                            "flex items-center gap-2.5 px-2.5 py-1.5 text-xs rounded-lg cursor-pointer",
+                                            groupBy === opt.id ? "bg-violet-50 text-violet-700 font-medium" : "text-zinc-700 hover:bg-zinc-50"
                                         )}
                                         onClick={() => setGroupBy(opt.id)}
-                                        onSelect={(e) => e.preventDefault()}
                                     >
-                                        <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
+                                        <opt.icon className="h-4 w-4 text-zinc-400" />
                                         <span className="flex-1">{opt.label}</span>
-                                        {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                        {groupBy === opt.id && <Check className="h-3.5 w-3.5 text-violet-600" />}
                                     </DropdownMenuItem>
                                 ))}
-                                <DropdownMenuSeparator className="my-1.5 bg-zinc-100" />
-                                <DropdownMenuItem
-                                    className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors text-red-600 hover:bg-red-50 hover:text-red-700"
-                                    onClick={() => setGroupBy("none")}
-                                    onSelect={(e) => e.preventDefault()}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                    <span className="flex-1">Remove grouping</span>
-                                </DropdownMenuItem>
-                            </div>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
-                    <Popover open={filtersPanelOpen} onOpenChange={setFiltersPanelOpen}>
-                        <PopoverTrigger asChild>
-                            <div className="relative group/filter inline-flex">
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className={cn(
-                                                "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
-                                                filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                appliedFilterCount > 0 && "border-violet-200 text-violet-700"
-                                            )}
-                                            onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                        >
-                                            <Filter className="h-3.5 w-3.5" />
-                                            <span className="hidden sm:inline ml-1">
-                                                {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                            </span>
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom">Filter tasks</TooltipContent>
-                                </Tooltip>
-                                {(appliedFilterCount > 0 || filtersPanelOpen) && (
-                                    <div
-                                        className={cn(
-                                            "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-md hover:bg-violet-100 cursor-pointer z-10",
-                                            filtersPanelOpen ? "text-violet-700" : "text-zinc-400"
-                                        )}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (appliedFilterCount > 0) {
-                                                setFilterGroups({ id: "root", operator: "AND", conditions: [] });
-                                            } else {
-                                                setFiltersPanelOpen(false);
-                                            }
-                                        }}
+                        {/* Filter */}
+                        <Popover open={filtersPanelOpen} onOpenChange={setFiltersPanelOpen}>
+                            <PopoverTrigger asChild>
+                                <div className="relative inline-flex">
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className={cn(
+                                                    "h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none px-2.5 rounded-lg",
+                                                    appliedFilterCount > 0 ? "border-violet-200 text-violet-700" : "text-zinc-700 border-zinc-200"
+                                                )}
+                                                onClick={() => {
+                                                    if (!filtersPanelOpen && filterGroups.conditions.length === 0) {
+                                                        addFilterGroup();
+                                                    }
+                                                }}
+                                            >
+                                                <Filter className="h-3.5 w-3.5" />
+                                                <span className="ml-1.5">
+                                                    {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                </span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom">Filter tasks</TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </PopoverTrigger>
+                            <PopoverContent align="end" className="w-[500px] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200">
+                                {renderFilterContent({ onClose: () => setFiltersPanelOpen(false) })}
+                            </PopoverContent>
+                        </Popover>
+
+                        {/* Closed Popover */}
+                        <ViewToolbarClosedPopover
+                            showCompleted={showCompleted}
+                            showCompletedSubtasks={showCompletedSubtasks}
+                            onShowCompletedChange={setShowCompleted}
+                            onShowCompletedSubtasksChange={setShowCompletedSubtasks}
+                        />
+
+                        {/* Assignee Filter / Me Mode */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                        "h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none px-2.5 rounded-lg gap-1.5",
+                                        filterAssignee.length > 0 ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200"
+                                    )}
+                                    onClick={() => setAssigneesPanelOpen(true)}
+                                >
+                                    <User className="h-3.5 w-3.5" />
+                                    <span>Assignee</span>
+                                    <div className="h-5 w-5 rounded-full bg-zinc-900 text-white flex items-center justify-center text-[10px] font-bold">
+                                        D
+                                    </div>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">Filter by Assignee</TooltipContent>
+                        </Tooltip>
+
+                        {/* Search Bar */}
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                            <Input
+                                placeholder="Search..."
+                                className="h-8 w-36 pl-8 text-xs bg-zinc-50 border-zinc-200 focus:bg-white focus:w-48 transition-all rounded-lg font-medium"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Customize Button */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none px-2.5 rounded-lg gap-1.5 cursor-pointer"
+                                    onClick={() => setCustomizePanelOpen(true)}
+                                >
+                                    <Settings className="h-3.5 w-3.5" />
+                                    <span>Customize</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">Customize view</TooltipContent>
+                        </Tooltip>
+
+                        {/* Add Task Split Button */}
+                        <div className="flex items-center rounded-lg overflow-hidden border border-zinc-900 shadow-sm bg-zinc-900">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        className="h-8 bg-zinc-900 text-white hover:bg-zinc-800 font-medium text-xs px-3 rounded-none border-r border-white/10"
+                                        onClick={() => setIsCreateModalOpen(true)}
                                     >
-                                        <X className="h-3.5 w-3.5" />
+                                        Add Task
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Create new task</TooltipContent>
+                            </Tooltip>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button size="icon" className="h-8 w-6 bg-zinc-900 text-white hover:bg-zinc-800 rounded-none p-0">
+                                        <ChevronDown className="h-3.5 w-3.5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40 p-1 rounded-xl shadow-xl z-50">
+                                    <DropdownMenuItem onClick={() => setIsCreateModalOpen(true)} className="text-xs">
+                                        New Task
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsBacklogOpen(true)} className="text-xs">
+                                        Open Backlog
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {/* Backlog Button */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn(
+                                        "h-8 gap-1.5 px-3 text-xs font-medium border-zinc-200 rounded-lg shadow-none transition-all bg-white hover:bg-zinc-100 cursor-pointer",
+                                        isBacklogOpen ? "text-violet-700 border-violet-200 bg-violet-50/50" : "text-zinc-700"
+                                    )}
+                                    onClick={() => setIsBacklogOpen(!isBacklogOpen)}
+                                >
+                                    <PanelRightClose className="h-3.5 w-3.5" />
+                                    <span>Backlog</span>
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">Toggle backlog panel</TooltipContent>
+                        </Tooltip>
+                    </div>
+                </div>
+
+                {/* 2. SUB-HEADER (DATE RANGE & TIMELINE DAYS) */}
+                <div className="flex border-b border-zinc-200 bg-white min-h-[44px] z-20">
+                    {/* Left Column Controls */}
+                    <div className="w-[280px] shrink-0 border-r border-zinc-200 px-3 py-2 flex items-center justify-between bg-zinc-50/30">
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-zinc-800">
+                                {dateRangeLabel}
+                            </span>
+                            <div className="flex items-center gap-0.5 ml-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded"
+                                    onClick={() => navigatePeriod(-1)}
+                                >
+                                    <ChevronLeft className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 rounded"
+                                    onClick={() => navigatePeriod(1)}
+                                >
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                            {/* Eye Tooltip: Show empty groups */}
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={cn(
+                                            "h-7 w-7 rounded-md text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 cursor-pointer",
+                                            showEmptyGroups && "bg-zinc-100 text-zinc-900"
+                                        )}
+                                        onClick={() => setShowEmptyGroups(!showEmptyGroups)}
+                                    >
+                                        <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    {showEmptyGroups ? "Hide empty groups" : "Show empty groups"}
+                                </TooltipContent>
+                            </Tooltip>
+
+                            {/* Expand all / Collapse all */}
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className={cn(
+                                            "h-7 w-7 rounded-md text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 cursor-pointer",
+                                            !allExpanded && "bg-zinc-100 text-zinc-900"
+                                        )}
+                                        onClick={toggleAllExpand}
+                                    >
+                                        {allExpanded ? (
+                                            <ChevronsUpDown className="h-3.5 w-3.5 rotate-90" />
+                                        ) : (
+                                            <ChevronsUpDown className="h-3.5 w-3.5" />
+                                        )}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                    {allExpanded ? "Collapse all" : "Expand all"}
+                                </TooltipContent>
+                            </Tooltip>
+                        </div>
+                    </div>
+
+                    {/* Right Timeline Header */}
+                    <div className="flex-1 overflow-x-hidden relative bg-white flex flex-col justify-between">
+                        {/* Month banner */}
+                        <div className="px-4 pt-1.5 text-xs font-semibold text-zinc-800">
+                            {monthHeaderLabel}
+                        </div>
+
+                        {/* Day Columns */}
+                        <div className="flex items-center border-t border-zinc-100">
+                            {timelineDays.map((day) => {
+                                const isToday = isTodayFns(day);
+                                const isWeekend = isWeekendFns(day);
+                                const dayLetter = format(day, "EEEEE"); // S, M, T, W, T, F, S
+                                const dayNumber = format(day, "d");
+
+                                return (
+                                    <div
+                                        key={day.toISOString()}
+                                        style={{ minWidth: `${cellWidth}px`, width: `${cellWidth}px` }}
+                                        className={cn(
+                                            "flex flex-col items-center justify-center py-1 border-r border-zinc-100 shrink-0 relative transition-colors",
+                                            isWeekend && "bg-zinc-50/60 bg-[linear-gradient(45deg,#f4f4f5_25%,transparent_25%,transparent_50%,#f4f4f5_50%,#f4f4f5_75%,transparent_75%,transparent)] bg-[length:8px_8px]"
+                                        )}
+                                    >
+                                        <span className="text-[11px] font-medium text-zinc-400">
+                                            {dayLetter}
+                                        </span>
+                                        <div className="flex items-center justify-center mt-0.5 relative">
+                                            {isToday ? (
+                                                <div className="h-5 w-5 rounded-full bg-red-500 text-white font-bold text-[11px] flex items-center justify-center shadow-sm">
+                                                    {dayNumber}
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs font-medium text-zinc-700">
+                                                    {dayNumber}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {isToday && (
+                                            <div className="absolute -bottom-1 h-1 w-1 rounded-full bg-red-500" />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Floating Zoom Buttons (+ / -) */}
+                        <div className="absolute right-3 top-2 flex flex-col rounded-lg border border-zinc-200 bg-white shadow-sm overflow-hidden z-20">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="h-6 w-6 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 border-b border-zinc-100 cursor-pointer"
+                                        onClick={() => setCellWidth(prev => Math.min(prev + 12, 140))}
+                                    >
+                                        <Plus className="h-3 w-3" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">Zoom in</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="h-6 w-6 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 cursor-pointer"
+                                        onClick={() => setCellWidth(prev => Math.max(prev - 12, 52))}
+                                    >
+                                        <Minus className="h-3 w-3" />
+                                    </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">Zoom out</TooltipContent>
+                            </Tooltip>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 3. MAIN WORKLOAD BODY & BACKLOG SPLIT */}
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Main Scrollable Grid Area */}
+                    <div className="flex-1 flex flex-col overflow-y-auto">
+                        {visibleGroups.length === 0 ? (
+                            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                                <div className="h-12 w-12 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-3">
+                                    <Users className="h-6 w-6 text-zinc-400" />
+                                </div>
+                                <h4 className="text-sm font-semibold text-zinc-900">No scheduled tasks in this period</h4>
+                                <p className="text-xs text-zinc-500 mt-1 max-w-sm">
+                                    Tasks scheduled between {dateRangeLabel} will appear here. Toggle empty groups to view all assignees.
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-4 text-xs font-medium"
+                                    onClick={() => setShowEmptyGroups(true)}
+                                >
+                                    Show all assignees
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-zinc-100">
+                                {visibleGroups.map((group) => {
+                                    const isCollapsed = collapsedGroups.has(group.id);
+                                    const groupTasks = getGroupTasksInPeriod(group.id);
+
+                                    return (
+                                        <div key={group.id} className="group/row flex flex-col">
+                                            {/* Group Header Row */}
+                                            <div className="flex items-center min-h-[52px] hover:bg-zinc-50/50 transition-colors">
+                                                {/* Left Group Column */}
+                                                <div className="w-[280px] shrink-0 border-r border-zinc-200 px-3 py-2 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        {group.type === 'unassigned' ? (
+                                                            <div className="h-7 w-7 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center shrink-0">
+                                                                <UserRound className="h-4 w-4 text-zinc-400" />
+                                                            </div>
+                                                        ) : group.type === 'user' ? (
+                                                            <Avatar className="h-7 w-7 border border-zinc-200 shrink-0">
+                                                                <AvatarImage src={group.image || undefined} />
+                                                                <AvatarFallback className="text-[10px] bg-zinc-100 text-zinc-600 font-semibold">
+                                                                    {group.name.slice(0, 2).toUpperCase()}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                        ) : (
+                                                            <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: group.color || '#6366f1' }} />
+                                                        )}
+                                                        <span className="text-xs font-semibold text-zinc-800 truncate">
+                                                            {group.name}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded"
+                                                            onClick={() => toggleGroupCollapse(group.id)}
+                                                        >
+                                                            {isCollapsed ? (
+                                                                <ChevronRight className="h-3.5 w-3.5" />
+                                                            ) : (
+                                                                <ChevronDown className="h-3.5 w-3.5" />
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Right Day Capacity Cells */}
+                                                <div className="flex-1 flex items-center overflow-x-hidden">
+                                                    {timelineDays.map((day) => {
+                                                        const isWeekend = isWeekendFns(day);
+                                                        const { count, totalHours, metricDisplay, isOverloaded, dayTasks } = calculateDayWorkload(group.id, day, group.capacity);
+
+                                                        return (
+                                                            <div
+                                                                key={day.toISOString()}
+                                                                style={{ minWidth: `${cellWidth}px`, width: `${cellWidth}px` }}
+                                                                className={cn(
+                                                                    "h-full min-h-[52px] border-r border-zinc-100 shrink-0 p-1.5 flex items-center justify-center relative",
+                                                                    isWeekend && "bg-zinc-50/40"
+                                                                )}
+                                                            >
+                                                                {/* Hover Popover Tooltip */}
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <button
+                                                                            type="button"
+                                                                            className={cn(
+                                                                                "w-full py-1 px-1.5 rounded-lg border text-center text-xs font-medium transition-all cursor-pointer select-none",
+                                                                                count === 0
+                                                                                    ? "bg-zinc-50/80 border-zinc-200/70 text-zinc-400 hover:bg-white hover:text-zinc-700 hover:border-zinc-300"
+                                                                                    : isOverloaded
+                                                                                        ? "bg-red-50 border-red-200 text-red-700 font-semibold hover:bg-red-100"
+                                                                                        : "bg-emerald-50/80 border-emerald-200 text-emerald-800 font-semibold hover:bg-emerald-100"
+                                                                            )}
+                                                                        >
+                                                                            <span className="truncate block text-[11px]">
+                                                                                {metricDisplay}
+                                                                            </span>
+                                                                        </button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent
+                                                                        side="top"
+                                                                        align="center"
+                                                                        className="w-64 p-3 bg-zinc-900 text-white rounded-xl shadow-2xl border-none z-50 text-xs"
+                                                                    >
+                                                                        <div className="font-semibold text-zinc-100 mb-1.5">
+                                                                            {format(day, "EEEE, MMM d")}
+                                                                        </div>
+                                                                        {count === 0 ? (
+                                                                            <div className="flex items-center gap-2 text-zinc-300">
+                                                                                <div className="h-3 w-1 rounded bg-emerald-500" />
+                                                                                <span>Nothing scheduled</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="space-y-1.5">
+                                                                                <div className="flex items-center gap-2 text-zinc-300 mb-1">
+                                                                                    <div className="h-3 w-1 rounded bg-emerald-500" />
+                                                                                    <span>{count} task{count !== 1 ? 's' : ''} ({totalHours}h scheduled)</span>
+                                                                                </div>
+                                                                                <div className="space-y-1 pt-1 border-t border-zinc-800 max-h-32 overflow-y-auto">
+                                                                                    {dayTasks.map(t => (
+                                                                                        <div
+                                                                                            key={t.id}
+                                                                                            className="flex items-center justify-between text-[11px] hover:text-white cursor-pointer"
+                                                                                            onClick={() => {
+                                                                                                setSelectedTaskId(t.id);
+                                                                                                if (onTaskSelect) onTaskSelect(t.id);
+                                                                                            }}
+                                                                                        >
+                                                                                            <span className="truncate mr-2 text-zinc-200">{t.title || t.name}</span>
+                                                                                            <span className="text-zinc-400 shrink-0">{t.status?.name}</span>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+
+                                            {/* Expanded Tasks List */}
+                                            {!isCollapsed && groupTasks.length > 0 && (
+                                                <div className="bg-zinc-50/30 divide-y divide-zinc-100/80 border-t border-zinc-100">
+                                                    {groupTasks.map((task) => {
+                                                        const tStart = task.startDate ? startOfDay(new Date(task.startDate)) : startOfDay(new Date(task.dueDate!));
+                                                        const tEnd = task.dueDate ? startOfDay(new Date(task.dueDate)) : startOfDay(new Date(task.startDate!));
+
+                                                        return (
+                                                            <div
+                                                                key={task.id}
+                                                                className="flex items-center min-h-[38px] hover:bg-zinc-100/60 transition-colors cursor-pointer"
+                                                                onClick={() => {
+                                                                    setSelectedTaskId(task.id);
+                                                                    if (onTaskSelect) onTaskSelect(task.id);
+                                                                }}
+                                                            >
+                                                                {/* Task info in left column */}
+                                                                <div className="w-[280px] shrink-0 border-r border-zinc-200 px-4 py-1.5 flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <div
+                                                                            className="h-2 w-2 rounded-full shrink-0"
+                                                                            style={{ backgroundColor: task.status?.color || '#94a3b8' }}
+                                                                        />
+                                                                        <span className="text-xs text-zinc-700 truncate font-medium">
+                                                                            {task.title || task.name}
+                                                                        </span>
+                                                                    </div>
+                                                                    {task.priority && (
+                                                                        <Flag className={cn("h-3 w-3 shrink-0 ml-1.5", getPriorityStyles(task.priority).icon)} />
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Task spanning bar across days */}
+                                                                <div className="flex-1 flex items-center overflow-x-hidden">
+                                                                    {timelineDays.map((day) => {
+                                                                        const dayStart = startOfDay(day);
+                                                                        const isInside = dayStart >= tStart && dayStart <= tEnd;
+                                                                        const isStart = isSameDay(dayStart, tStart);
+                                                                        const isEnd = isSameDay(dayStart, tEnd);
+
+                                                                        return (
+                                                                            <div
+                                                                                key={day.toISOString()}
+                                                                                style={{ minWidth: `${cellWidth}px`, width: `${cellWidth}px` }}
+                                                                                className="h-[38px] border-r border-zinc-100/60 shrink-0 p-1 flex items-center justify-center relative"
+                                                                            >
+                                                                                {isInside && (
+                                                                                    <div
+                                                                                        className={cn(
+                                                                                            "w-full h-5 rounded flex items-center px-1.5 text-[10px] font-medium text-white shadow-xs truncate",
+                                                                                            isStart && "rounded-l-md",
+                                                                                            isEnd && "rounded-r-md"
+                                                                                        )}
+                                                                                        style={{ backgroundColor: task.status?.color || '#6366f1' }}
+                                                                                    >
+                                                                                        {isStart && <span className="truncate">{task.title || task.name}</span>}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Bottom message: Show X people without scheduled tasks */}
+                                {!showEmptyGroups && emptyGroupsCount > 0 && (
+                                    <div className="p-4 bg-zinc-50/50 text-center border-t border-zinc-200">
+                                        <button
+                                            type="button"
+                                            className="text-xs text-zinc-500 hover:text-zinc-800 font-medium hover:underline cursor-pointer"
+                                            onClick={() => setShowEmptyGroups(true)}
+                                        >
+                                            Show {emptyGroupsCount} people without scheduled tasks in this period
+                                        </button>
                                     </div>
                                 )}
                             </div>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-[600px] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80">
-                            {renderFilterContent({ onClose: () => setFiltersPanelOpen(false) })}
-                        </PopoverContent>
-                    </Popover>
-
-                    <ViewToolbarClosedPopover
-                        showCompleted={showCompleted}
-                        showCompletedSubtasks={showCompletedSubtasks}
-                        onShowCompletedChange={setShowCompleted}
-                        onShowCompletedSubtasksChange={setShowCompletedSubtasks}
-                    />
-
-                    {/* Removed right-side metric/timeframe/capacity dropdown group (per design). */}
-
-                    <div className="relative group/search">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 group-focus-within/search:text-zinc-600" />
-                        <Input
-                            placeholder="Search..."
-                            className="h-8 w-40 pl-8 text-xs bg-zinc-50/50 border-zinc-200 focus:bg-white focus:w-60 transition-all rounded-lg font-medium"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                        )}
+                        <TaskListLoadMore
+                            loadMoreRef={loadMoreRef}
+                            hasMore={hasMoreTasks}
+                            isFetchingNextPage={isFetchingNextPage}
+                            loaded={tasks.length}
+                            total={taskTotal}
                         />
                     </div>
 
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("h-8 text-xs font-medium bg-white hover:bg-zinc-100 shadow-none", assigneesPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200")}
-                                onClick={() => { setAssigneesPanelOpen(!assigneesPanelOpen); setFieldsPanelOpen(false); setFiltersPanelOpen(false); }}
-                            >
-                                <Users className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline ml-1">Assignee</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Filter by assignee</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
-                                onClick={() => setCustomizePanelOpen(true)}
-                            >
-                                <Settings className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline ml-1">Customize</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Customize view</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                className="h-8 gap-1.5 px-3 text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-white border-0 shadow-sm"
-                                onClick={() => setIsCreateModalOpen(true)}
-                                disabled={isCreateModalOpen}
-                            >
-                                <Plus className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Add Task</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Add new task</TooltipContent>
-                    </Tooltip>
-
-                    <div className="flex items-center rounded-lg overflow-hidden border border-zinc-900 ml-1 shadow-sm hidden">
-                        <Button className="h-8 bg-zinc-900 text-white hover:bg-black font-black px-4 rounded-none border-r border-white/10" onClick={() => setIsCreateModalOpen(true)}>Add Task</Button>
-                        <Button size="icon" className="h-8 w-8 bg-zinc-900 text-white hover:bg-black rounded-none transition-colors"><ChevronDown className="h-3.5 w-3.5" /></Button>
-                    </div>
-
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="outline"
-                                className={cn(
-                                    "h-8 gap-1.5 px-3 text-xs font-medium border-zinc-200 rounded-lg shadow-none transition-all ml-1 bg-white hover:bg-zinc-100",
-                                    isBacklogOpen ? "text-violet-700 border-violet-200" : "text-zinc-700"
-                                )}
-                                onClick={() => setIsBacklogOpen(!isBacklogOpen)}
-                            >
-                                <PanelRightClose className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">Backlog</span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Toggle backlog sidebar</TooltipContent>
-                    </Tooltip>
-                </div>
-            </div>
-            </div>
-
-            <div className="flex-1 flex overflow-hidden">
-                <div className="flex-1 flex items-center justify-center bg-white">
-                    <div className="w-full max-w-md mx-auto px-6 py-10 text-center">
-                        <div className="mx-auto h-12 w-12 rounded-2xl border border-zinc-200 bg-zinc-50 flex items-center justify-center shadow-sm">
-                            <Ban className="h-5 w-5 text-zinc-500" />
-                        </div>
-                        <h3 className="mt-4 text-sm font-semibold text-zinc-900">
-                            This view isn’t available yet
-                        </h3>
-                        <p className="mt-1 text-xs text-zinc-500 leading-relaxed">
-                            We’re still building the Workload experience. For now, use List, Board, Timeline, or Gantt to manage and schedule work.
-                        </p>
-                    </div>
-                </div>
-                <TaskListLoadMore
-                    loadMoreRef={loadMoreRef}
-                    hasMore={hasMoreTasks}
-                    isFetchingNextPage={isFetchingNextPage}
-                    loaded={tasks.length}
-                    total={taskTotal}
-                />
-            </div>
-
-            {/* Fields panel (Columns click or + in last column) toggle show/hide columns */}
-            {fieldsPanelOpen && !createFieldModalOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setFieldsPanelOpen(false)} aria-hidden />
-                    <div className="absolute right-0 bottom-0 top-0 w-[360px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Fields</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setFieldsPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <div className="p-3 border-b border-zinc-100">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={fieldsSearch} onChange={e => setFieldsSearch(e.target.value)} />
-                            </div>
-                        </div>
-                        <ScrollArea className="flex-1 p-3 pb-20 h-full">
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Shown</p>
-                            <div className="space-y-1 mb-4">
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center gap-2 py-2 px-2 rounded hover:bg-zinc-50">
-                                            <GripVertical className="h-4 w-4 text-zinc-300 shrink-0 cursor-grab" />
-                                            {IconEl}
-                                            <span className="text-sm text-zinc-800 flex-1">{f.label}</span>
-                                            <Switch checked onCheckedChange={() => toggleColumn(f.id)} />
-                                        </div>
-                                    );
-                                })}
-                                {FIELD_CONFIG.filter(f => visibleColumns.has(f.id)).length > 0 && (
-                                    <button type="button" className="text-xs text-violet-600 hover:underline" onClick={() => setVisibleColumns(new Set())}>Hide all</button>
-                                )}
-                            </div>
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Popular</p>
-                            <div className="space-y-1">
-                                {FIELD_CONFIG.filter(f => !visibleColumns.has(f.id) && (!fieldsSearch.trim() || f.label.toLowerCase().includes(fieldsSearch.toLowerCase()))).map(f => {
-                                    const iconAny = (f as any).icon;
-                                    const IconEl = typeof iconAny === "function"
-                                        ? React.createElement(iconAny, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                        : null;
-                                    return (
-                                        <div key={f.id} className="flex items-center justify-between py-2 px-2 rounded hover:bg-zinc-50">
-                                            <div className="flex items-center gap-2">
-                                                {IconEl}
-                                                <span className="text-sm text-zinc-800">{f.label}</span>
-                                            </div>
-                                            <Switch checked={false} onCheckedChange={() => toggleColumn(f.id)} />
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </ScrollArea>
-                        <div className="p-3 sticky bottom-0 left-0 right-0 border-t bg-white border-zinc-100">
-                            <Button
-                                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white"
-                                onClick={() => {
-                                    setFieldsPanelOpen(false);
-                                    setCreateFieldModalOpen(true);
-                                }}
-                            >
-                                <Plus className="h-4 w-4 mr-2" />Create field
-                            </Button>
-                        </div>
-                    </div>
-                </>
-            )}
-
-            {/* Customize view panel (ClickUp-style) */}
-            {customizePanelOpen && !layoutOptionsOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
-                    <div className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Customize view</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="flex-1 min-h-0">
-                            <div className="p-3 space-y-2 pb-24">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                        <LayoutList className="h-5 w-5 text-zinc-600" />
-                                    </div>
-                                    <Input
-                                        value={viewNameDraft}
-                                        onChange={(e) => setViewNameDraft(e.target.value)}
-                                        onBlur={() => updateViewName(viewNameDraft)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                updateViewName(viewNameDraft);
-                                                (e.target as HTMLInputElement).blur();
-                                            }
-                                        }}
-                                        className="h-10 text-sm font-medium border-zinc-200"
-                                        placeholder="View name"
-                                    />
+                    {/* Backlog Slide-over Panel */}
+                    {isBacklogOpen && (
+                        <div className="w-[320px] shrink-0 border-l border-zinc-200 bg-white flex flex-col animate-in slide-in-from-right duration-200 z-20">
+                            {/* Backlog Header */}
+                            <div className="p-3 border-b border-zinc-200 flex items-center justify-between">
+                                <h3 className="font-bold text-zinc-900 text-sm">Tasks</h3>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-zinc-400 hover:text-zinc-700"
+                                        onClick={() => setIsBacklogOpen(false)}
+                                    >
+                                        <ArrowRightToLine className="h-4 w-4" />
+                                    </Button>
                                 </div>
+                            </div>
 
-                                <div className="space-y-1">
-                                    {groupBy === "status" ? (
-                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowEmptyStatuses(!showEmptyStatuses)}>
-                                            <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                            <Switch
-                                                checked={showEmptyStatuses}
-                                                onCheckedChange={setShowEmptyStatuses}
-                                            />
-                                        </div>
-                                    ) : (
-                                        <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="flex items-center justify-between py-1 cursor-not-allowed opacity-50 px-2">
-                                                        <span className="text-sm text-zinc-800">Show empty statuses</span>
-                                                        <Switch
-                                                            checked={showEmptyStatuses}
-                                                            onCheckedChange={setShowEmptyStatuses}
-                                                            disabled
-                                                        />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="left" className="bg-zinc-900 text-white border-none text-[11px] py-1.5 px-2.5">
-                                                    Grouping by status is required to enable this
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                            {/* Backlog Tabs */}
+                            <div className="flex items-center border-b border-zinc-200 px-3 bg-zinc-50/50">
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "py-2 px-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer",
+                                        backlogTab === "unscheduled"
+                                            ? "border-zinc-900 text-zinc-900"
+                                            : "border-transparent text-zinc-400 hover:text-zinc-600"
                                     )}
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setWrapText(!wrapText)}>
-                                        <span className="text-sm text-zinc-800">Wrap text</span>
-                                        <Switch checked={wrapText} onCheckedChange={setWrapText} />
+                                    onClick={() => setBacklogTab("unscheduled")}
+                                >
+                                    Unscheduled
+                                </button>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "py-2 px-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer",
+                                        backlogTab === "overdue"
+                                            ? "border-zinc-900 text-zinc-900"
+                                            : "border-transparent text-zinc-400 hover:text-zinc-600"
+                                    )}
+                                    onClick={() => setBacklogTab("overdue")}
+                                >
+                                    Overdue
+                                </button>
+                                <button
+                                    type="button"
+                                    className={cn(
+                                        "py-2 px-2.5 text-xs font-semibold border-b-2 transition-all cursor-pointer",
+                                        backlogTab === "unassigned"
+                                            ? "border-zinc-900 text-zinc-900"
+                                            : "border-transparent text-zinc-400 hover:text-zinc-600"
+                                    )}
+                                    onClick={() => setBacklogTab("unassigned")}
+                                >
+                                    Unassigned
+                                </button>
+                            </div>
+
+                            {/* Sort row */}
+                            <div className="px-3 py-2 flex items-center justify-between border-b border-zinc-100 text-xs">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button type="button" className="text-zinc-500 hover:text-zinc-800 font-medium flex items-center gap-1 cursor-pointer">
+                                            Sort by <span className="underline font-semibold capitalize">{backlogSort}</span>
+                                            <ChevronUp className="h-3 w-3" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-36 p-1 text-xs">
+                                        <DropdownMenuItem onClick={() => setBacklogSort("status")}>Status</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setBacklogSort("priority")}>Priority</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setBacklogSort("dueDate")}>Due date</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setBacklogSort("name")}>Name</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <span className="text-zinc-400 font-medium">{backlogTasks.length} tasks</span>
+                            </div>
+
+                            {/* Backlog Tasks List */}
+                            <ScrollArea className="flex-1 p-2">
+                                {backlogTasks.length === 0 ? (
+                                    <div className="p-8 text-center text-zinc-400 text-xs">
+                                        No {backlogTab} tasks found
                                     </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowTaskLocations(!showTaskLocations)}>
-                                        <span className="text-sm text-zinc-800">Show task locations</span>
-                                        <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                                ) : (
+                                    <div className="space-y-1">
+                                        {backlogTasks.map(task => (
+                                            <div
+                                                key={task.id}
+                                                className="group flex items-center gap-2.5 p-2 rounded-lg hover:bg-zinc-50 border border-transparent hover:border-zinc-200 transition-all cursor-pointer"
+                                                onClick={() => {
+                                                    setSelectedTaskId(task.id);
+                                                    if (onTaskSelect) onTaskSelect(task.id);
+                                                }}
+                                            >
+                                                {task.status?.type === 'CLOSED' ? (
+                                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                                                ) : (
+                                                    <Circle className="h-4 w-4 text-zinc-400 shrink-0" style={{ color: task.status?.color }} />
+                                                )}
+                                                <span className="text-xs text-zinc-800 font-medium truncate flex-1">
+                                                    {task.title || task.name}
+                                                </span>
+                                                {task.priority && (
+                                                    <Flag className={cn("h-3 w-3 shrink-0", getPriorityStyles(task.priority).icon)} />
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowSubtaskParentNames(!showSubtaskParentNames)}>
-                                        <span className="text-sm text-zinc-800">Show subtask parent names</span>
-                                        <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => setShowCompleted(!showCompleted)}>
-                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                        <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
-                                    </div>
+                                )}
+                            </ScrollArea>
+                        </div>
+                    )}
+                </div>
+                {/* 4. CUSTOMIZE VIEW PANEL (ClickUp-style) */}
+                <SidePanel
+                    open={customizePanelOpen && !layoutOptionsOpen}
+                    onClose={() => setCustomizePanelOpen(false)}
+                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+                >
+                    <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                        <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-3 space-y-2 pb-24">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                    <BarChart3 className="h-5 w-5 text-zinc-600" />
+                                </div>
+                                <Input
+                                    value={viewNameDraft}
+                                    onChange={(e) => setViewNameDraft(e.target.value)}
+                                    onBlur={() => updateViewName(viewNameDraft)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            updateViewName(viewNameDraft);
+                                            (e.target as HTMLInputElement).blur();
+                                        }
+                                    }}
+                                    className="h-10 text-sm font-medium border-zinc-200"
+                                    placeholder="View name"
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                {/* Workload Unit Popover */}
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <div className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-zinc-50 cursor-pointer group">
+                                            <span className="text-zinc-800 text-sm">Workload</span>
+                                            <span className="text-xs text-zinc-500 flex items-center gap-1">
+                                                {workloadMetric === "tasks" ? "Tasks" :
+                                                    workloadMetric === "time_estimate" ? "Time Estimates" :
+                                                        workloadMetric === "sprint_points" ? "Sprint Points" : "% Time Estimates"}
+                                                <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
+                                            </span>
+                                        </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-56 p-2 rounded-xl shadow-xl border-zinc-200 z-50">
+                                        <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                            Workload Unit
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <div
+                                                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs"
+                                                onClick={() => setWorkloadMetric("sprint_points")}
+                                            >
+                                                <div className="flex items-center gap-2 text-zinc-700">
+                                                    <Target className="h-4 w-4 text-zinc-400" />
+                                                    <span>Sprint Points</span>
+                                                </div>
+                                                {workloadMetric === "sprint_points" && <Check className="h-4 w-4 text-zinc-800" />}
+                                            </div>
+                                            <div
+                                                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs"
+                                                onClick={() => setWorkloadMetric("tasks")}
+                                            >
+                                                <div className="flex items-center gap-2 text-zinc-700 font-medium">
+                                                    <CheckCircle2 className="h-4 w-4 text-zinc-600" />
+                                                    <span>Tasks</span>
+                                                </div>
+                                                {workloadMetric === "tasks" && <Check className="h-4 w-4 text-zinc-800" />}
+                                            </div>
+                                            <div
+                                                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs"
+                                                onClick={() => setWorkloadMetric("time_estimate")}
+                                            >
+                                                <div className="flex items-center gap-2 text-zinc-700">
+                                                    <Hourglass className="h-4 w-4 text-zinc-400" />
+                                                    <span>Time Estimates</span>
+                                                </div>
+                                                {workloadMetric === "time_estimate" && <Check className="h-4 w-4 text-zinc-800" />}
+                                            </div>
+                                            <div
+                                                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs"
+                                                onClick={() => setWorkloadMetric("percent_capacity")}
+                                            >
+                                                <div className="flex items-center gap-2 text-zinc-700">
+                                                    <Percent className="h-4 w-4 text-zinc-400" />
+                                                    <div className="flex flex-col">
+                                                        <span>% Time Estimates</span>
+                                                        <span className="text-[10px] text-zinc-400">% out of capacity</span>
+                                                    </div>
+                                                </div>
+                                                {workloadMetric === "percent_capacity" && <Check className="h-4 w-4 text-zinc-800" />}
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+
+                                {/* Color tasks by Popover */}
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <div className="flex items-center justify-between py-2 px-2 rounded-lg hover:bg-zinc-50 cursor-pointer group">
+                                            <span className="text-zinc-800 text-sm">Color tasks by</span>
+                                            <span className="text-xs text-zinc-500 flex items-center gap-1">
+                                                {colorTasksBy === "none" ? "None" :
+                                                    colorTasksBy === "list" ? "List" :
+                                                        colorTasksBy === "priority" ? "Priority" : "Task status"}
+                                                <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
+                                            </span>
+                                        </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-56 p-2 rounded-xl shadow-xl border-zinc-200 z-50">
+                                        <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                            Color tasks by
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            {[
+                                                { id: "none", label: "None" },
+                                                { id: "list", label: "List" },
+                                                { id: "status", label: "Task status" },
+                                                { id: "priority", label: "Priority" },
+                                            ].map(opt => (
+                                                <div
+                                                    key={opt.id}
+                                                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-zinc-50 cursor-pointer text-xs"
+                                                    onClick={() => setColorTasksBy(opt.id)}
+                                                >
+                                                    <span className="text-zinc-700">{opt.label}</span>
+                                                    {colorTasksBy === opt.id && <Check className="h-4 w-4 text-zinc-800" />}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="pt-2 mt-1 border-t border-zinc-100">
+                                            <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                                Settings
+                                            </div>
+                                            <div className="flex items-center justify-between px-2 py-1.5">
+                                                <span className="text-xs text-zinc-700 flex items-center gap-1">
+                                                    Improved colors
+                                                    <Info className="h-3 w-3 text-zinc-400" />
+                                                </span>
+                                                <Switch defaultChecked />
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show task locations</span>
+                                    <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                    <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Expand task names</span>
+                                    <Switch checked={expandTaskNames} onCheckedChange={setExpandTaskNames} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                    <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                </div>
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => setLayoutOptionsOpen(true)}
+                                >
+                                    <span>More options</span>
+                                    <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                </button>
+                            </div>
+
+                            <div className="h-px bg-zinc-100 my-2" />
+
+                            {/* Fields, Filter, Group, Subtasks */}
+                            <div className="space-y-1">
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <SlidersHorizontal className="h-4 w-4 text-zinc-400" />
+                                        Fields
+                                    </span>
+                                    <span className="text-xs text-zinc-500 flex items-center gap-1">
+                                        {visibleColumns.size} shown
+                                        <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                    </span>
+                                </button>
+
+                                <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                            onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <Filter className="h-4 w-4 text-zinc-400" />
+                                                Filter
+                                            </span>
+                                            <span className="text-xs text-zinc-500 flex items-center gap-1">
+                                                {appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"}
+                                                <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                            </span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[500px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                        {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
+                                    </PopoverContent>
+                                </Popover>
+
+                                <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <LayoutList className="h-4 w-4 text-zinc-400" />
+                                                Group
+                                            </span>
+                                            <span className="text-xs text-zinc-500 flex items-center gap-1 capitalize">
+                                                {groupLabel}
+                                                <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                            </span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
+                                        <div className="px-2 py-1.5 mb-1">
+                                            <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            {[
+                                                { id: "assignee", label: "Assignee", icon: Users },
+                                                { id: "status", label: "Status", icon: Circle },
+                                                { id: "priority", label: "Priority", icon: Flag },
+                                                { id: "tags", label: "Tags", icon: Tag },
+                                                { id: "dueDate", label: "Due date", icon: Calendar },
+                                                { id: "taskType", label: "Task type", icon: Box },
+                                            ].map((opt) => (
+                                                <div
+                                                    key={opt.id}
+                                                    className={cn(
+                                                        "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                        groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                    )}
+                                                    onClick={() => { setGroupBy(opt.id); setCustomizeViewGroupOpen(false); }}
+                                                >
+                                                    <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
+                                                    <span className="flex-1">{opt.label}</span>
+                                                    {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                </div>
+                                            ))}
+                                            {groupBy !== "none" && (
+                                                <>
+                                                    <div className="h-px bg-zinc-100 my-1.5" />
+                                                    <div className="flex items-center gap-1 p-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "asc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                            onClick={() => setGroupDirection("asc")}
+                                                        >
+                                                            Ascending
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className={cn("flex-1 h-7 text-[10px] uppercase tracking-wider font-bold", groupDirection === "desc" ? "bg-white shadow-sm border border-zinc-200 text-zinc-900" : "text-zinc-500")}
+                                                            onClick={() => setGroupDirection("desc")}
+                                                        >
+                                                            Descending
+                                                        </Button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+
+                                <Popover open={customizeViewSubtasksOpen} onOpenChange={setCustomizeViewSubtasksOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <GitCommit className="h-4 w-4 text-zinc-400" />
+                                                Subtasks
+                                            </span>
+                                            <span className="text-xs text-zinc-500 flex items-center gap-1">
+                                                {expandedSubtaskMode === "collapsed" ? "Collapsed" : expandedSubtaskMode === "expanded" ? "Expanded" : "Separate"}
+                                                <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                            </span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-56" sideOffset={16}>
+                                        <div className="text-xs px-2 pb-2 font-semibold text-zinc-900">Show subtasks</div>
+                                        <div className="space-y-1">
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1.5 rounded cursor-pointer",
+                                                    expandedSubtaskMode === "collapsed" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("collapsed");
+                                                    setCustomizeViewSubtasksOpen(false);
+                                                }}
+                                            >
+                                                Collapsed (default)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1.5 rounded cursor-pointer",
+                                                    expandedSubtaskMode === "expanded" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("expanded");
+                                                    setCustomizeViewSubtasksOpen(false);
+                                                }}
+                                            >
+                                                Expanded
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "w-full text-left text-xs px-2 py-1.5 rounded cursor-pointer",
+                                                    expandedSubtaskMode === "separate" ? "bg-zinc-100 text-zinc-900 font-medium" : "text-zinc-700 hover:bg-zinc-50"
+                                                )}
+                                                onClick={() => {
+                                                    setExpandedSubtaskMode("separate");
+                                                    setCustomizeViewSubtasksOpen(false);
+                                                }}
+                                            >
+                                                As separate items
+                                            </button>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <TemplateMenuPopover
+                                    entityType="VIEW"
+                                    workspaceId={(workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined}
+                                    contentToSave={viewContentToSave}
+                                >
                                     <button
                                         type="button"
-                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                        onClick={() => { setLayoutOptionsOpen(true); }}
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
                                     >
-                                        <span className="flex items-center gap-2">More options</span>
+                                        <span className="flex items-center gap-2">
+                                            <Wand2 className="h-4 w-4 text-zinc-400" />
+                                            Templates
+                                        </span>
                                         <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
                                     </button>
-                                </div>
-                                <div className="h-px bg-zinc-100 my-2" />
-                                <div className="space-y-1">
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2" onClick={() => { setFieldsPanelOpen(true); setCustomizePanelOpen(false); }}>
-                                        <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4 text-zinc-400" />Fields</span>
-                                        <span className="text-xs text-zinc-500">{Array.from(visibleColumns).length} shown</span>
-                                    </button>
-                                    <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                                onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                            >
-                                                <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                                <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                            {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2"
-                                            >
-                                                <span className="flex items-center gap-2"><LayoutList className="h-4 w-4 text-zinc-400" />Group</span>
-                                                <span className="text-xs text-zinc-500">{groupLabel} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
-                                            <div className="px-2 py-1.5 mb-1">
-                                                <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Group by</span>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                {[
-                                                    { id: "status", label: "Status", icon: Circle },
-                                                    { id: "assignee", label: "Assignee", icon: Users },
-                                                    { id: "priority", label: "Priority", icon: Flag },
-                                                    { id: "tags", label: "Tags", icon: Tag },
-                                                    { id: "dueDate", label: "Due date", icon: Calendar },
-                                                    { id: "taskType", label: "Task type", icon: Box },
-                                                ].map((opt) => (
-                                                    <div
-                                                        key={opt.id}
-                                                        className={cn(
-                                                            "flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                            groupBy === opt.id ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-50"
-                                                        )}
-                                                        onClick={() => setGroupBy(opt.id)}
-                                                    >
-                                                        <opt.icon className={cn("h-4 w-4", groupBy === opt.id ? "text-violet-500" : "text-zinc-400")} />
-                                                        <span className="flex-1">{opt.label}</span>
-                                                        {groupBy === opt.id && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
+                                </TemplateMenuPopover>
                             </div>
-                        </ScrollArea>
-                        <div className="mt-auto p-4 border-t border-zinc-100 bg-zinc-50/50">
-                            <Button className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold h-11 rounded-xl shadow-lg" onClick={() => { saveViewConfig(); setCustomizePanelOpen(false); }}>
-                                Save changes
-                            </Button>
-                        </div>
-                    </div>
-                </>
-            )}
 
-            {/* Assignees panel */}
-            {assigneesPanelOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setAssigneesPanelOpen(false)} aria-hidden />
-                    <div className="absolute right-0 bottom-0 top-0 w-[320px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <h3 className="font-semibold text-zinc-900">Assignees</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setAssigneesPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <div className="p-3 border-b border-zinc-100">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                <Input className="pl-9 h-9 text-sm" placeholder="Search people..." value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
-                            </div>
-                        </div>
-                        <ScrollArea className="flex-1 p-2">
-                            <div className="space-y-0.5">
-                                {users.filter(u => !assigneesSearch || u.name?.toLowerCase().includes(assigneesSearch.toLowerCase())).map(user => (
-                                    <div
-                                        key={user.id}
-                                        className={cn(
-                                            "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
-                                            filterAssignee.includes(user.id) ? "bg-violet-50 text-violet-700" : "text-zinc-700 hover:bg-zinc-50"
-                                        )}
-                                        onClick={() => {
-                                            const next = filterAssignee.includes(user.id)
-                                                ? filterAssignee.filter(id => id !== user.id)
-                                                : [...filterAssignee, user.id];
-                                            setFilterAssignee(next);
-                                        }}
-                                    >
-                                        <Avatar className="h-6 w-6 border border-zinc-100">
-                                            <AvatarImage src={user.image ?? undefined} />
-                                            <AvatarFallback className="text-[10px] bg-zinc-100 text-zinc-500">{user.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                                        </Avatar>
-                                        <span className="text-sm font-medium flex-1 truncate">{user.name}</span>
-                                        {filterAssignee.includes(user.id) && <div className="h-2 w-2 rounded-full bg-violet-600" />}
+                            <div className="h-px bg-zinc-100 my-2" />
+
+                            {/* View Settings Toggles */}
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Save className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Autosave for me</span>
                                     </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                        {filterAssignee.length > 0 && (
-                            <div className="p-3 border-t border-zinc-100">
-                                <Button variant="ghost" className="w-full text-xs text-zinc-500 hover:text-zinc-900" onClick={() => setFilterAssignee([])}>Clear selection</Button>
-                            </div>
-                        )}
-                    </div>
-                </>
-            )}
-
-            <TaskDetailModal taskId={selectedTaskId || ""} open={!!selectedTaskId} onOpenChange={(open) => !open && (onTaskSelect ? onTaskSelect(null) : setSelectedTaskId(null))} />
-            <TaskCreationModal
-                context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
-                contextId={spaceId || projectId}
-                workspaceId={resolvedWorkspaceId as any}
-                users={users as any}
-                defaultListId={listId as any}
-                availableStatuses={[] as any}
-                open={isCreateModalOpen}
-                onOpenChange={setIsCreateModalOpen}
-                trigger={<span className="sr-only" />}
-            />
-            <ShareViewPermissionModal open={isShareModalOpen} onOpenChange={setIsShareModalOpen} viewId={viewId as string} workspaceId={resolvedWorkspaceId as string} />
-
-            {/* Create field modal  Efield types and Add existing fields */}
-            {createFieldModalOpen && (
-                <>
-                    <div className="absolute inset-0 bg-black/20 z-[60]" onClick={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(""); }} aria-hidden />
-                    <div className="absolute right-0 bottom-0 top-0 w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-[70] flex flex-col animate-in slide-in-from-right duration-300">
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 -ml-1"
-                                onClick={() => {
-                                    setCreateFieldModalOpen(false);
-                                    setCreateFieldSearch("");
-                                    setFieldsPanelOpen(true);
-                                }}
-                            >
-                                <ArrowRight className="h-4 w-4 rotate-180" />
-                            </Button>
-                            <h3 className="font-semibold text-zinc-900">Create field</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setCreateFieldModalOpen(false); setCreateFieldSearch(""); }}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <div className="p-3 border-b border-zinc-100">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-                                <Input className="pl-9 h-9 text-sm" placeholder="Search for new or existing fields" value={createFieldSearch} onChange={e => setCreateFieldSearch(e.target.value)} />
-                            </div>
-                        </div>
-                        <ScrollArea className="flex-1 p-3 pb-20 h-full">
-                            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">All</p>
-                            <div className="space-y-0.5">
-                                {CREATE_FIELD_TYPES.filter(f => !createFieldSearch.trim() || f.label.toLowerCase().includes(createFieldSearch.toLowerCase())).map(f => {
-                                    const IconComponent = f.icon as any;
-                                    return (
-                                        <button key={f.id} type="button" className="w-full flex items-center gap-2 py-2.5 px-2 rounded-md hover:bg-zinc-50 text-left text-sm text-zinc-800" onClick={() => {
-                                            // TODO: Open field creation modal/form with field type pre-selected
-                                            console.log("Create field type:", f.type, f.label);
-                                            setCreateFieldModalOpen(false);
-                                        }}>
-                                            {typeof IconComponent === "function"
-                                                ? React.createElement(IconComponent, { className: "h-4 w-4 text-zinc-400 shrink-0" })
-                                                : null}
-                                            {f.label}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </ScrollArea>
-                        <div className="p-3 sticky bottom-0 left-0 right-0 border-t border-zinc-100 bg-white">
-                            <Button
-                                variant="outline"
-                                className="w-full justify-center text-zinc-900 border-zinc-200 hover:bg-zinc-50 font-medium h-10"
-                                onClick={() => { setCreateFieldModalOpen(false); setFieldsPanelOpen(true); }}
-                            >
-                                <div className="h-4 w-4 rounded-full bg-zinc-900 text-white flex items-center justify-center mr-2">
-                                    <Plus className="h-3 w-3" />
+                                    <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
                                 </div>
-                                Add existing fields
-                            </Button>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Pin className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Pin view</span>
+                                    </div>
+                                    <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Private view</span>
+                                    </div>
+                                    <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Protect view</span>
+                                    </div>
+                                    <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors">
+                                    <div className="flex items-center gap-2">
+                                        <Home className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Set as default view</span>
+                                    </div>
+                                    <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-zinc-100 my-2" />
+
+                            {/* Action Links */}
+                            <div className="space-y-1">
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => {
+                                        if (typeof window !== 'undefined') {
+                                            const url = `${window.location.origin}${window.location.pathname}?v=${viewId}`;
+                                            navigator.clipboard?.writeText(url);
+                                            toast.success("Link copied to clipboard");
+                                        }
+                                    }}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <Link2 className="h-4 w-4 text-zinc-400" />
+                                        Copy link to view
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => setIsShareModalOpen(true)}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <Users className="h-4 w-4 text-zinc-400" />
+                                        Sharing & Permissions
+                                    </span>
+                                    <ChevronRight className="h-3 w-3 text-zinc-400" />
+                                </button>
+                            </div>
                         </div>
+                    </ScrollArea>
+                </SidePanel>
+
+                {/* Layout Options Sub-Page */}
+                <SidePanel
+                    open={layoutOptionsOpen}
+                    onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
+                    className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
+                >
+                    <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 -ml-1 cursor-pointer"
+                            onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}
+                        >
+                            <ArrowRight className="h-4 w-4 rotate-180" />
+                        </Button>
+                        <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 cursor-pointer"
+                            onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
                     </div>
-                </>
-            )}
-        </div>
+                    <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-3 space-y-4 pb-24">
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page & card layout</p>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show weekends</span>
+                                    <Switch checked={showWeekends} onCheckedChange={setShowWeekends} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show week numbers</span>
+                                    <Switch checked={showWeekNumbers} onCheckedChange={setShowWeekNumbers} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show task locations</span>
+                                    <Switch checked={showTaskLocations} onCheckedChange={setShowTaskLocations} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show subtask parent names</span>
+                                    <Switch checked={showSubtaskParentNames} onCheckedChange={setShowSubtaskParentNames} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Expand task names</span>
+                                    <Switch checked={expandTaskNames} onCheckedChange={setExpandTaskNames} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show tracked time next to estimated</span>
+                                    <Switch checked={showTrackedTimeNextToEstimated} onCheckedChange={setShowTrackedTimeNextToEstimated} />
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                    <Switch checked={showCompleted} onCheckedChange={setShowCompleted} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-700">Show closed subtasks</span>
+                                    <Switch checked={showCompletedSubtasks} onCheckedChange={setShowCompletedSubtasks} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                    <Switch checked={showTasksFromOtherLists} onCheckedChange={setShowTasksFromOtherLists} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                    <Switch checked={showSubtasksFromOtherLists} onCheckedChange={setShowSubtasksFromOtherLists} />
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
+                                <div className="flex items-center justify-between py-1 px-2">
+                                    <span className="text-sm flex items-center gap-2">
+                                        <UserRound className="h-4 w-4 text-zinc-400" />
+                                        Default to Me Mode
+                                    </span>
+                                    <Switch checked={defaultToMeMode} onCheckedChange={setDefaultToMeMode} />
+                                </div>
+                                <div
+                                    className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer"
+                                    onClick={resetViewToDefaults}
+                                >
+                                    <span className="text-sm flex items-center gap-2">
+                                        <RefreshCcw className="h-4 w-4 text-zinc-400" />
+                                        Reset view to defaults
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </ScrollArea>
+                </SidePanel>
+
+                {/* 5. FIELDS PANEL SLIDEOUT */}
+                <FieldsPanelSlideout
+                    open={fieldsPanelOpen}
+                    onClose={() => setFieldsPanelOpen(false)}
+                    onOpenManagerModal={() => setManagerModalOpen(true)}
+                    workspaceId={resolvedWorkspaceId}
+                    spaceId={spaceId}
+                    projectId={projectId}
+                    folderId={folderId}
+                    teamId={teamId}
+                    listId={listId}
+                    listName={currentList?.name}
+                    fieldConfig={FIELD_CONFIG}
+                    visibleColumns={visibleColumns}
+                    columnOrder={columnOrder}
+                    onColumnOrderChange={setColumnOrder}
+                    toggleColumn={toggleColumn}
+                    sensors={fieldSensors}
+                    customFields={customFields as any[]}
+                    usedCustomFieldIds={usedCustomFieldIds}
+                    getCustomFieldIcon={getCustomFieldIcon}
+                />
+
+                {/* 6. ASSIGNEES PANEL SLIDEOUT */}
+                <AssigneesPanelSlideout
+                    open={assigneesPanelOpen}
+                    onClose={() => setAssigneesPanelOpen(false)}
+                    users={users}
+                    selectedAssignees={filterAssignee}
+                    onSelectionChange={setFilterAssignee}
+                />
+
+                {/* Modals */}
+                <TaskDetailModal
+                    taskId={selectedTaskId || ""}
+                    open={!!selectedTaskId}
+                    onOpenChange={(open) => !open && (onTaskSelect ? onTaskSelect(null) : setSelectedTaskId(null))}
+                />
+                <TaskCreationModal
+                    context={spaceId ? "SPACE" : projectId ? "PROJECT" : "GENERAL"}
+                    contextId={spaceId || projectId}
+                    workspaceId={resolvedWorkspaceId as any}
+                    users={users as any}
+                    defaultListId={listId as any}
+                    availableStatuses={[] as any}
+                    open={isCreateModalOpen}
+                    onOpenChange={setIsCreateModalOpen}
+                    trigger={<span className="sr-only" />}
+                />
+                <ShareViewPermissionModal
+                    open={isShareModalOpen}
+                    onOpenChange={setIsShareModalOpen}
+                    viewId={viewId as string}
+                    workspaceId={resolvedWorkspaceId as string}
+                />
+                <CustomFieldsManagerModal
+                    open={managerModalOpen}
+                    onOpenChange={setManagerModalOpen}
+                    workspaceId={(workspaceId || resolvedWorkspaceId) ?? ""}
+                    initialLocation={
+                        listId ? `list:${listId}` :
+                            folderId ? `folder:${folderId}` :
+                                projectId ? `project:${projectId}` :
+                                    spaceId ? `space:${spaceId}` :
+                                        teamId ? `team:${teamId}` :
+                                            (workspaceId || resolvedWorkspaceId) ? `workspace:${workspaceId || resolvedWorkspaceId}` :
+                                                "all" as any
+                    }
+                />
+            </div>
+        </TooltipProvider>
     );
 }

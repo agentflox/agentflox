@@ -28,6 +28,7 @@ import {
   type ExecutionArtifact,
 } from "@/features/artifacts";
 import { useDefaultModel } from "@/entities/models/hooks/useModels";
+import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
 
 type WorkforceRunTab = "chat" | "log";
 
@@ -188,6 +189,33 @@ export default function WorkforceRunView({
     return mapping;
   }, [workforceData]);
 
+  const handleTabChange = useCallback((tabId: WorkforceRunTab) => {
+    setActiveTab(tabId);
+    if (typeof window !== "undefined") {
+      const clean = buildCleanDashboardParams(window.location.search, {
+        tab: tabId,
+        entityKey: conversationId ? "cid" : undefined,
+        entityId: conversationId || undefined,
+      });
+      window.history.replaceState(null, "", `${window.location.pathname}?${clean.toString()}`);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get("tab");
+      if (urlTab === "chat" || urlTab === "log") {
+        setActiveTab(urlTab);
+      }
+      const urlCid = params.get("cid") || params.get("rid") || params.get("conversationId");
+      if (urlCid && urlCid !== conversationId) {
+        setConversationId(urlCid);
+        conversationIdRef.current = urlCid;
+      }
+    }
+  }, [conversationId]);
+
   // ── create / start new conversation ──────────────────────────────────────
   const startNewConversation = useCallback(async () => {
     try {
@@ -215,6 +243,10 @@ export default function WorkforceRunView({
       );
       setConversationId(conv.id);
       conversationIdRef.current = conv.id;
+      if (typeof window !== "undefined") {
+        const clean = buildCleanDashboardParams(window.location.search, { entityKey: "cid", entityId: conv.id });
+        window.history.replaceState(null, "", `${window.location.pathname}?${clean.toString()}`);
+      }
       setMessages([]);
       setError(null);
       onConversationReady?.(conv.id);
@@ -426,7 +458,7 @@ export default function WorkforceRunView({
             <button
               key={id}
               type="button"
-              onClick={() => setActiveTab(id)}
+              onClick={() => handleTabChange(id)}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer",
                 activeTab === id ? "bg-indigo-50 text-indigo-700" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"

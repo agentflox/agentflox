@@ -26,6 +26,7 @@ import { SwarmTimelineView } from "./components/SwarmTimelineView";
 import { ArtifactViewer, normalizeArtifact, type ExecutionArtifact } from "@/features/artifacts";
 import { useDefaultModel } from "@/entities/models/hooks/useModels";
 import { formatModelErrorMessage } from "@/entities/models/utils/formatModelError";
+import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
 import {
   MessageSquare, FileText, LayoutGrid, BarChart3, Timer,
   Play, Square, Loader2, Shield, Check, AlertTriangle, X, Sparkles, ArrowRight
@@ -288,6 +289,33 @@ export default function SwarmRunView({
     },
   });
 
+  const handleTabChange = useCallback((tabId: ViewType) => {
+    setActiveView(tabId);
+    if (typeof window !== "undefined") {
+      const clean = buildCleanDashboardParams(window.location.search, {
+        tab: tabId,
+        entityKey: conversationId ? "cid" : undefined,
+        entityId: conversationId || undefined,
+      });
+      window.history.replaceState(null, "", `${window.location.pathname}?${clean.toString()}`);
+    }
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get("tab");
+      if (urlTab && ["chat", "log", "task", "metrics", "timeline"].includes(urlTab)) {
+        setActiveView(urlTab as ViewType);
+      }
+      const urlCid = params.get("cid") || params.get("rid") || params.get("conversationId");
+      if (urlCid && urlCid !== conversationId) {
+        setConversationId(urlCid);
+        conversationIdRef.current = urlCid;
+      }
+    }
+  }, [conversationId]);
+
   // ── create conversation ───────────────────────────────────────────────────
   const startNewConversation = useCallback(async () => {
     const conv = await createConversation.mutateAsync({
@@ -300,6 +328,10 @@ export default function SwarmRunView({
       old ? [{ id: conv.id, title: conv.title, createdAt: new Date(), lastMessageAt: null, messageCount: 0 }, ...old] : []
     );
     setConversationId(conv.id); conversationIdRef.current = conv.id;
+    if (typeof window !== "undefined") {
+      const clean = buildCleanDashboardParams(window.location.search, { entityKey: "cid", entityId: conv.id });
+      window.history.replaceState(null, "", `${window.location.pathname}?${clean.toString()}`);
+    }
     setMessages([]); setError(null);
     onConversationReady?.(conv.id);
   }, [workforceId, workforceName, createConversation, utils, onConversationReady, selectedModelId]);
@@ -985,7 +1017,7 @@ export default function SwarmRunView({
         {/* tabs */}
         <div className="flex items-center gap-0.5">
           {TABS.map(({ id, label, Icon }) => (
-            <button key={id} onClick={() => setActiveView(id)}
+            <button key={id} onClick={() => handleTabChange(id)}
               className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer",
                 activeView === id ? "bg-indigo-50 text-indigo-700" : "text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50"
               )}>

@@ -169,6 +169,9 @@ export default function ToolsPage() {
     }
   };
 
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { EntityModeBadge, EntityStatusBadge } from "@/components/ui/status-badge";
+
   const columns: ColumnDef<any>[] = [
     {
       id: "select",
@@ -199,7 +202,7 @@ export default function ToolsPage() {
         return (
           <div className="flex flex-col">
             <span
-              className="font-medium text-foreground hover:underline cursor-pointer"
+              className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer"
               onClick={() => {
                 const route = tool.mode === "AI"
                   ? `/dashboard/tools/build/ai/${tool.id}`
@@ -209,23 +212,28 @@ export default function ToolsPage() {
             >
               {tool.name || "Untitled Tool"}
             </span>
-            {tool.description && (
-              <span className="text-xs text-muted-foreground truncate max-w-[250px]">
-                {tool.description}
-              </span>
-            )}
-            <div className="mt-1">
-              <span className={cn(
-                "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
-                tool.mode === "AI"
-                  ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-400"
-                  : "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-400"
-              )}>
-                {tool.mode === "AI" ? "AI Mode" : "Flow Mode"}
-              </span>
-            </div>
           </div>
         );
+      },
+    },
+    {
+      accessorKey: "description",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+      cell: ({ row }) => {
+        const desc = row.original.description;
+        return (
+          <span className="text-xs text-zinc-500 line-clamp-1 max-w-[240px]" title={desc}>
+            {desc || "-"}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "mode",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Mode" />,
+      cell: ({ row }) => {
+        const tool = row.original;
+        return <EntityModeBadge mode={tool.mode === "AI" ? "AI Mode" : "Flow Mode"} />;
       },
     },
     {
@@ -250,13 +258,33 @@ export default function ToolsPage() {
       },
     },
     {
+      id: "owner",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Owner" />,
+      cell: ({ row }) => {
+        const owner = row.original.user || row.original.owner || row.original.creator;
+        return <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{owner?.name || "You"}</span>;
+      },
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date Created" />,
+      cell: ({ row }) => {
+        const date = row.original.createdAt;
+        return (
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
+            {date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+          </span>
+        );
+      },
+    },
+    {
       id: "updatedAt",
       accessorKey: "updatedAt",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Last Modified" />,
       cell: ({ row }) => {
         if (!row.original.updatedAt) return null;
         return (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
             {formatDistanceToNow(new Date(row.original.updatedAt), { addSuffix: true })}
           </span>
         );
@@ -269,7 +297,7 @@ export default function ToolsPage() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" className="h-8 w-8 p-0 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 hover:font-medium transition-colors cursor-pointer">
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -297,6 +325,23 @@ export default function ToolsPage() {
       },
     },
   ];
+
+  const renderRowContextMenu = (tool: any) => (
+    <>
+      <ContextMenuItem onClick={() => {
+        const route = tool.mode === "AI"
+          ? `/dashboard/tools/build/ai/${tool.id}`
+          : `/dashboard/tools/build/flow/${tool.id}`;
+        router.push(route);
+      }} className="cursor-pointer">
+        <PenSquare className="mr-2 h-4 w-4" /> Edit Tool
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => handleDelete(tool.id)}>
+        <Trash className="mr-2 h-4 w-4" /> Delete Tool
+      </ContextMenuItem>
+    </>
+  );
 
   const filterChips = useMemo(() => {
     const chips: Array<{ id: string; label: string; onRemove: () => void }> = [];
@@ -617,7 +662,16 @@ export default function ToolsPage() {
                   )}
                 </>
               ) : (
-                <DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
+                <DataTable
+                  columns={columns}
+                  data={data.items}
+                  onDeleteSelected={handleBulkDelete}
+                  onTableReady={setTable}
+                  renderRowContextMenu={renderRowContextMenu}
+                  hideToolbar
+                  columnVisibility={columnVisibility}
+                  onColumnVisibilityChange={setColumnVisibility}
+                />
               )
             ) : (
               <div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">

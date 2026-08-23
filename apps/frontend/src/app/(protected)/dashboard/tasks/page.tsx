@@ -44,6 +44,14 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import {
+	LocationTypeFilterSubmenu,
+	NestedLocationFilterSubmenu,
+	DashboardSortPopover,
+	LocationSelection,
+} from "@/features/dashboard/components/shared/DashboardFilterSubmenus";
+import { Globe, User, Users, Circle, Lock } from "lucide-react";
+
 export default function TasksPage() {
 	const router = useRouter();
 	const { toast } = useToast();
@@ -64,6 +72,9 @@ export default function TasksPage() {
 		filters,
 		setFilters,
 	} = useTaskList("owned", { includeRelations: viewMode === "list" ? true : "card" });
+
+	const [locationTypeFilter, setLocationTypeFilter] = useState<string>("all");
+	const [locationFilter, setLocationFilter] = useState<LocationSelection>(null);
 
 	const { data: workspaces } = trpc.workspace.list.useQuery({ includeCounts: false }, { staleTime: 30000 });
 	const defaultWorkspaceId = workspaces?.items?.[0]?.id;
@@ -148,6 +159,9 @@ export default function TasksPage() {
 		}
 	};
 
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { EntityStatusBadge } from "@/components/ui/status-badge";
+
 	const columns: ColumnDef<any>[] = [
 		{
 			id: "select",
@@ -178,17 +192,24 @@ export default function TasksPage() {
 				return (
 					<div className="flex flex-col">
 						<span
-							className="font-medium text-foreground hover:underline cursor-pointer"
+							className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer"
 							onClick={() => router.push(`/dashboard/tasks/${task.id}`)}
 						>
 							{task.title || "Untitled Task"}
 						</span>
-						{task.description && (
-							<span className="text-xs text-muted-foreground truncate max-w-[250px]">
-								{task.description}
-							</span>
-						)}
 					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "description",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+			cell: ({ row }) => {
+				const desc = row.original.description;
+				return (
+					<span className="text-xs text-zinc-500 line-clamp-1 max-w-[240px]" title={desc}>
+						{desc || "-"}
+					</span>
 				);
 			},
 		},
@@ -201,11 +222,7 @@ export default function TasksPage() {
 					typeof rawStatus === "object" && rawStatus?.name
 						? rawStatus.name
 						: rawStatus || "OPEN";
-				return (
-					<Badge variant={status === "COMPLETED" ? "default" : status === "IN_PROGRESS" ? "secondary" : "outline"}>
-						{String(status).replace(/_/g, " ")}
-					</Badge>
-				);
+				return <EntityStatusBadge status={status} />;
 			},
 		},
 		{
@@ -218,13 +235,33 @@ export default function TasksPage() {
 			},
 		},
 		{
+			id: "owner",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Assignee / Owner" />,
+			cell: ({ row }) => {
+				const owner = row.original.assignee || row.original.user || row.original.creator;
+				return <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{owner?.name || "Unassigned"}</span>;
+			},
+		},
+		{
+			accessorKey: "createdAt",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Date Created" />,
+			cell: ({ row }) => {
+				const date = row.original.createdAt;
+				return (
+					<span className="text-xs text-zinc-500 whitespace-nowrap">
+						{date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+					</span>
+				);
+			},
+		},
+		{
 			id: "updatedAt",
 			accessorKey: "updatedAt",
-			header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Last Modified" />,
 			cell: ({ row }) => {
 				if (!row.original.updatedAt) return null;
 				return (
-					<span className="text-sm text-muted-foreground">
+					<span className="text-xs text-zinc-500 whitespace-nowrap">
 						{formatDistanceToNow(new Date(row.original.updatedAt), { addSuffix: true })}
 					</span>
 				);
@@ -237,7 +274,7 @@ export default function TasksPage() {
 				return (
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" className="h-8 w-8 p-0">
+							<Button variant="ghost" className="h-8 w-8 p-0 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 hover:font-medium transition-colors cursor-pointer">
 								<span className="sr-only">Open menu</span>
 								<MoreHorizontal className="h-4 w-4" />
 							</Button>
@@ -260,6 +297,18 @@ export default function TasksPage() {
 			},
 		},
 	];
+
+	const renderRowContextMenu = (task: any) => (
+		<>
+			<ContextMenuItem onClick={() => router.push(`/dashboard/tasks/${task.id}`)} className="cursor-pointer">
+				<PenSquare className="mr-2 h-4 w-4" /> Edit Task
+			</ContextMenuItem>
+			<ContextMenuSeparator />
+			<ContextMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => handleDelete(task.id, task.title)}>
+				<Trash className="mr-2 h-4 w-4" /> Delete Task
+			</ContextMenuItem>
+		</>
+	);
 
 	const filterChips = useMemo(() => {
 		const chips: Array<{ id: string; label: string; onRemove: () => void }> = [];
@@ -344,48 +393,80 @@ export default function TasksPage() {
 								<Button variant="ghost" className="h-9 px-3 gap-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all">
 									<Filter className="h-4 w-4" />
 									<span>Filter</span>
-									{(scope !== "all" || filters.statuses.length > 0 || filters.visibility) && (
+									{(scope !== "all" || filters.statuses.length > 0 || filters.visibility || locationTypeFilter !== "all" || locationFilter) && (
 										<span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-											{(scope !== "all" ? 1 : 0) + (filters.statuses.length > 0 ? 1 : 0) + (filters.visibility ? 1 : 0)}
+											{(scope !== "all" ? 1 : 0) + (filters.statuses.length > 0 ? 1 : 0) + (filters.visibility ? 1 : 0) + (locationTypeFilter !== "all" ? 1 : 0) + (locationFilter ? 1 : 0)}
 										</span>
 									)}
 								</Button>
 							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-[180px]">
+							<DropdownMenuContent align="end" className="w-[200px]">
 								<div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
 									Filter by
 								</div>
 								<DropdownMenuSeparator />
 
+								<LocationTypeFilterSubmenu
+									selectedType={locationTypeFilter}
+									onSelectType={setLocationTypeFilter}
+								/>
+
+								<NestedLocationFilterSubmenu
+									selectedLocation={locationFilter}
+									onSelectLocation={setLocationFilter}
+								/>
+
 								<DropdownMenuSub>
-									<DropdownMenuSubTrigger>Scope</DropdownMenuSubTrigger>
+									<DropdownMenuSubTrigger className="flex items-center gap-2">
+										<Globe className="h-4 w-4 text-zinc-500" />
+										<span>Scope</span>
+									</DropdownMenuSubTrigger>
 									<DropdownMenuPortal>
 										<DropdownMenuSubContent>
-											<DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")}>All Tasks</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={scope === "owned"} onCheckedChange={() => setScope("owned")}>Owned by me</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={scope === "assigned"} onCheckedChange={() => setScope("assigned")}>Assigned</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")} className="flex items-center gap-2">
+												<Globe className="h-4 w-4 text-zinc-400" />
+												<span>All Tasks</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "owned"} onCheckedChange={() => setScope("owned")} className="flex items-center gap-2">
+												<User className="h-4 w-4 text-blue-500" />
+												<span>Owned by me</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "assigned"} onCheckedChange={() => setScope("assigned")} className="flex items-center gap-2">
+												<Users className="h-4 w-4 text-emerald-500" />
+												<span>Assigned</span>
+											</DropdownMenuCheckboxItem>
 										</DropdownMenuSubContent>
 									</DropdownMenuPortal>
 								</DropdownMenuSub>
 
 								<DropdownMenuSub>
-									<DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+									<DropdownMenuSubTrigger className="flex items-center gap-2">
+										<Circle className="h-4 w-4 text-zinc-500" />
+										<span>Status</span>
+									</DropdownMenuSubTrigger>
 									<DropdownMenuPortal>
 										<DropdownMenuSubContent>
-											{["OPEN", "IN_PROGRESS", "COMPLETED", "ARCHIVED"].map((s) => (
+											{[
+												{ id: "OPEN", label: "Open", color: "text-zinc-400 fill-zinc-400" },
+												{ id: "IN_PROGRESS", label: "In Progress", color: "text-blue-500 fill-blue-500" },
+												{ id: "COMPLETED", label: "Completed", color: "text-emerald-500 fill-emerald-500" },
+												{ id: "ARCHIVED", label: "Archived", color: "text-red-500 fill-red-500" },
+											].map((s) => (
 												<DropdownMenuCheckboxItem
-													key={s}
-													checked={filters.statuses.includes(s)}
+													key={s.id}
+													checked={filters.statuses.includes(s.id)}
 													onCheckedChange={(checked) => {
 														setFilters((prev) => ({
 															...prev,
 															statuses: checked
-																? [...prev.statuses, s]
-																: prev.statuses.filter((t) => t !== s),
+																? [...prev.statuses, s.id]
+																: prev.statuses.filter((t) => t !== s.id),
 														}));
 													}}
+													className="flex items-center gap-2"
 												>
-													{s.replace(/_/g, " ")}
+													<Circle className={`h-3.5 w-3.5 ${s.color}`} />
+													<span>{s.label}</span>
 												</DropdownMenuCheckboxItem>
 											))}
 										</DropdownMenuSubContent>
@@ -393,12 +474,24 @@ export default function TasksPage() {
 								</DropdownMenuSub>
 
 								<DropdownMenuSub>
-									<DropdownMenuSubTrigger>Visibility</DropdownMenuSubTrigger>
+									<DropdownMenuSubTrigger className="flex items-center gap-2">
+										<Lock className="h-4 w-4 text-zinc-500" />
+										<span>Visibility</span>
+									</DropdownMenuSubTrigger>
 									<DropdownMenuPortal>
 										<DropdownMenuSubContent>
-											<DropdownMenuCheckboxItem checked={!filters.visibility} onCheckedChange={() => setFilters((prev) => ({ ...prev, visibility: undefined }))}>Any</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={filters.visibility === "PUBLIC"} onCheckedChange={() => setFilters((prev) => ({ ...prev, visibility: "PUBLIC" }))}>Public</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={filters.visibility === "PRIVATE"} onCheckedChange={() => setFilters((prev) => ({ ...prev, visibility: "PRIVATE" }))}>Private</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={!filters.visibility} onCheckedChange={() => setFilters((prev) => ({ ...prev, visibility: undefined }))} className="flex items-center gap-2">
+												<Globe className="h-4 w-4 text-zinc-400" />
+												<span>Any</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={filters.visibility === "PUBLIC"} onCheckedChange={() => setFilters((prev) => ({ ...prev, visibility: "PUBLIC" }))} className="flex items-center gap-2">
+												<Globe className="h-4 w-4 text-emerald-500" />
+												<span>Public</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={filters.visibility === "PRIVATE"} onCheckedChange={() => setFilters((prev) => ({ ...prev, visibility: "PRIVATE" }))} className="flex items-center gap-2">
+												<Lock className="h-4 w-4 text-amber-500" />
+												<span>Private</span>
+											</DropdownMenuCheckboxItem>
 										</DropdownMenuSubContent>
 									</DropdownMenuPortal>
 								</DropdownMenuSub>
@@ -410,7 +503,6 @@ export default function TasksPage() {
 							const hideableColumns = table.getAllColumns().filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide() && column.id !== "title");
 							const totalCount = hideableColumns.length + 1; // +1 for pinned title
 							const visibleCount = hideableColumns.filter(c => c.getIsVisible()).length + 1; // +1 for pinned title
-							const isModified = visibleCount < totalCount;
 
 							return (
 								<DropdownMenu>
@@ -449,89 +541,15 @@ export default function TasksPage() {
 						})()}
 
 						{/* Sort Popover */}
-						<Popover>
-							<PopoverTrigger asChild>
-								<Button
-									variant="ghost"
-									className="h-9 gap-1.5 px-3 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all cursor-pointer rounded-md outline-hidden focus:ring-0 focus-visible:ring-0"
-								>
-									<ArrowUpDown className="h-4 w-4" />
-									<span>Sort</span>
-									{sort.length > 0 && (
-										<span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-											{sort.length}
-										</span>
-									)}
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200" sideOffset={8}>
-								<div className="px-2 py-1.5 mb-1">
-									<span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Sort By</span>
-								</div>
-								<div className="space-y-0.5">
-									<div
-										className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-zinc-50 transition-colors text-zinc-600"
-										onClick={() => setSort([])}
-									>
-										<span className="flex-1">None (default)</span>
-										{sort.length === 0 && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-									</div>
-									{[
-										{ id: "status", label: "Status" },
-										{ id: "title", label: "Task Name" },
-										{ id: "visibility", label: "Visibility" },
-										{ id: "createdAt", label: "Date created" },
-										{ id: "updatedAt", label: "Date updated" },
-									].map((opt) => {
-										const currentSortIndex = sort.findIndex(s => s.id === opt.id);
-										const isSelected = currentSortIndex >= 0;
-										const currentSort = isSelected ? sort[currentSortIndex] : null;
-
-										return (
-											<div
-												key={opt.id}
-												className={cn(
-													"flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item",
-													isSelected ? "bg-zinc-50 text-zinc-900" : "text-zinc-600 hover:bg-zinc-100"
-												)}
-												onClick={() => {
-													if (isSelected) {
-														setSort(s => s.filter(i => i.id !== opt.id));
-													} else {
-														setSort(s => [...s, { id: opt.id, desc: false }]);
-													}
-												}}
-											>
-												<div
-													className="h-5 w-5 flex items-center justify-center rounded hover:bg-zinc-200 transition-colors"
-													onClick={(e) => {
-														e.stopPropagation();
-														if (isSelected) {
-															setSort(s => s.map(i => i.id === opt.id ? { ...i, desc: !i.desc } : i));
-														} else {
-															setSort(s => [...s, { id: opt.id, desc: false }]);
-														}
-													}}
-												>
-													{isSelected &&
-														<div className="flex flex-col items-center -space-y-1">
-															<ChevronUp
-																className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-800' : 'text-zinc-300'}`}
-															/>
-															<ChevronDown
-																className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-300' : 'text-zinc-800'}`}
-															/>
-														</div>
-													}
-												</div>
-												<span className="flex-1">{opt.label}</span>
-												{isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-											</div>
-										);
-									})}
-								</div>
-							</PopoverContent>
-						</Popover>
+						<DashboardSortPopover
+							sort={sort}
+							onSortChange={setSort}
+							options={[
+								{ id: "title", label: "Task Name" },
+								{ id: "status", label: "Status" },
+								{ id: "visibility", label: "Visibility" },
+							]}
+						/>
 					</SearchSection>
 
 					{filterChips.length > 0 && (
@@ -617,7 +635,16 @@ export default function TasksPage() {
 								)}
 							</>
 						) : (
-							<DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
+							<DataTable
+								columns={columns}
+								data={data.items}
+								onDeleteSelected={handleBulkDelete}
+								onTableReady={setTable}
+								renderRowContextMenu={renderRowContextMenu}
+								hideToolbar
+								columnVisibility={columnVisibility}
+								onColumnVisibilityChange={setColumnVisibility}
+							/>
 						)
 					) : (
 						<div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">

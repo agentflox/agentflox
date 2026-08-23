@@ -22,7 +22,7 @@ export const TEMPLATE_ENTITY_TYPES: TemplateEntityTypeMeta[] = [
   { value: "LIST",      label: "List",      iconColor: "text-amber-500",  iconBg: "bg-amber-50"   },
   { value: "TASK",      label: "Task",      iconColor: "text-purple-500", iconBg: "bg-purple-50"  },
   { value: "DOC",       label: "Doc",       iconColor: "text-teal-500",   iconBg: "bg-teal-50"    },
-  { value: "VIEW",      label: "View",      iconColor: "text-slate-500",  iconBg: "bg-slate-50"   },
+  { value: "VIEW",      label: "View",      iconColor: "text-zinc-500",   iconBg: "bg-zinc-100"   },
   { value: "AGENT",     label: "Agent",     iconColor: "text-indigo-500", iconBg: "bg-indigo-50"  },
   { value: "WORKFORCE", label: "Workforce", iconColor: "text-violet-500", iconBg: "bg-violet-50"  },
   { value: "PROPOSAL",  label: "Proposal",  iconColor: "text-orange-500", iconBg: "bg-orange-50"  },

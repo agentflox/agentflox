@@ -83,12 +83,20 @@ async function assertContextAccess(
         const space = await prisma.space.findFirst({
             where: {
                 id: spaceId,
-                workspace: {
-                    OR: [
-                        { ownerId: userId },
-                        { members: { some: { userId } } },
-                    ],
-                },
+                OR: [
+                    // Space-level: owner or direct member
+                    { ownerId: userId },
+                    { members: { some: { userId } } },
+                    // Workspace-level: workspace owner or workspace member
+                    {
+                        workspace: {
+                            OR: [
+                                { ownerId: userId },
+                                { members: { some: { userId } } },
+                            ],
+                        },
+                    },
+                ],
             },
             select: { id: true, workspaceId: true },
         });
@@ -219,6 +227,7 @@ export const folderRouter = router({
                 .extend({
                     archived: z.boolean().optional(),
                     includeViewDetails: z.boolean().optional().default(true),
+                    directOnly: z.boolean().optional().default(false),
                 })
                 .refine(
                     (data) =>
@@ -245,6 +254,23 @@ export const folderRouter = router({
             if (input.spaceId) where.spaceId = input.spaceId;
             if (input.projectId) where.projectId = input.projectId;
             if (input.teamId) where.teamId = input.teamId;
+
+            if (input.directOnly) {
+                // Workspace root folders only: exclude Space, Team, and Project folders
+                if (input.workspaceId && !input.spaceId && !input.projectId && !input.teamId) {
+                    where.spaceId = null;
+                    where.projectId = null;
+                    where.teamId = null;
+                }
+                // Space root folders only: exclude nested project folders
+                if (input.spaceId && !input.projectId) {
+                    where.projectId = null;
+                }
+                // Team root folders only: exclude nested project folders
+                if (input.teamId && !input.projectId) {
+                    where.projectId = null;
+                }
+            }
 
             // Filter by archived status (default to false if not specified)
             if (input.archived !== undefined) {

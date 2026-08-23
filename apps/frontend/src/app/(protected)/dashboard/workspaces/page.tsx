@@ -27,9 +27,14 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
 	DropdownMenu,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuPortal,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -37,9 +42,17 @@ import { formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Settings2, ArrowUpDown, Check, ChevronUp, ChevronDown, MoreVertical } from "lucide-react";
-import { DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+	LocationTypeFilterSubmenu,
+	NestedLocationFilterSubmenu,
+	DashboardSortPopover,
+	LocationSelection,
+} from "@/features/dashboard/components/shared/DashboardFilterSubmenus";
+import { Globe, User, Users, Circle } from "lucide-react";
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { EntityStatusBadge } from "@/components/ui/status-badge";
 import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 
 export default function WorkspacesPage() {
@@ -86,7 +99,7 @@ export default function WorkspacesPage() {
 
 	const utils = trpc.useUtils();
 	const queryClient = useQueryClient();
-	
+
 	const deleteMutation = trpc.workspace.delete.useMutation({
 		onMutate: async (variables) => {
 			// Optimistically remove from all workspace lists instantly
@@ -166,40 +179,60 @@ export default function WorkspacesPage() {
 				return (
 					<div className="flex flex-col">
 						<span
-							className="font-medium text-foreground hover:underline cursor-pointer"
+							className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer"
 							onClick={() => router.push(DASHBOARD_ROUTES.WORKSPACE(workspace.id))}
 						>
 							{workspace.name || "Untitled Workspace"}
 						</span>
-						{workspace.description && (
-							<span className="text-xs text-muted-foreground truncate max-w-[250px]">
-								{workspace.description}
-							</span>
-						)}
 					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "description",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+			cell: ({ row }) => {
+				const desc = row.original.description;
+				return (
+					<span className="text-xs text-zinc-500 line-clamp-1 max-w-[240px]" title={desc}>
+						{desc || "-"}
+					</span>
 				);
 			},
 		},
 		{
 			accessorKey: "status",
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+			cell: ({ row }) => <EntityStatusBadge status={row.original.status || "active"} />,
+		},
+		{
+			id: "owner",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Owner" />,
 			cell: ({ row }) => {
-				const status = row.original.status || "active";
+				const owner = row.original.owner || row.original.user || row.original.creator;
+				return <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{owner?.name || "You"}</span>;
+			},
+		},
+		{
+			accessorKey: "createdAt",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Date Created" />,
+			cell: ({ row }) => {
+				const date = row.original.createdAt;
 				return (
-					<Badge variant={status === "active" ? "default" : "secondary"}>
-						{status}
-					</Badge>
+					<span className="text-xs text-zinc-500 whitespace-nowrap">
+						{date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+					</span>
 				);
 			},
 		},
 		{
 			id: "updatedAt",
 			accessorKey: "updatedAt",
-			header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Last Modified" />,
 			cell: ({ row }) => {
 				if (!row.original.updatedAt) return null;
 				return (
-					<span className="text-sm text-muted-foreground">
+					<span className="text-xs text-zinc-500 whitespace-nowrap">
 						{formatDistanceToNow(new Date(row.original.updatedAt), { addSuffix: true })}
 					</span>
 				);
@@ -212,7 +245,7 @@ export default function WorkspacesPage() {
 				return (
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" className="h-8 w-8 p-0">
+							<Button variant="ghost" className="h-8 w-8 p-0 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 hover:font-medium transition-colors cursor-pointer">
 								<span className="sr-only">Open menu</span>
 								<MoreHorizontal className="h-4 w-4" />
 							</Button>
@@ -235,6 +268,18 @@ export default function WorkspacesPage() {
 			},
 		},
 	];
+
+	const renderRowContextMenu = (workspace: any) => (
+		<>
+			<ContextMenuItem onClick={() => router.push(DASHBOARD_ROUTES.WORKSPACE(workspace.id))} className="cursor-pointer">
+				<PenSquare className="mr-2 h-4 w-4" /> Edit Workspace
+			</ContextMenuItem>
+			<ContextMenuSeparator />
+			<ContextMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => handleDelete(workspace.id)}>
+				<Trash className="mr-2 h-4 w-4" /> Delete Workspace
+			</ContextMenuItem>
+		</>
+	);
 
 	const filterChips = useMemo(() => {
 		const chips: Array<{ id: string; label: string; onRemove: () => void }> = [];
@@ -304,30 +349,54 @@ export default function WorkspacesPage() {
 									)}
 								</Button>
 							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-[180px]">
+							<DropdownMenuContent align="end" className="w-[200px]">
 								<div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
 									Filter by
 								</div>
 								<DropdownMenuSeparator />
 
 								<DropdownMenuSub>
-									<DropdownMenuSubTrigger>Scope</DropdownMenuSubTrigger>
+									<DropdownMenuSubTrigger className="flex items-center gap-2">
+										<Globe className="h-4 w-4 text-zinc-500" />
+										<span>Scope</span>
+									</DropdownMenuSubTrigger>
 									<DropdownMenuPortal>
 										<DropdownMenuSubContent>
-											<DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")}>All Workspaces</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={scope === ("owned" as any)} onCheckedChange={() => setScope("owned" as any)}>Owned by me</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={scope === "member"} onCheckedChange={() => setScope("member")}>Shared with me</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")} className="flex items-center gap-2">
+												<Globe className="h-4 w-4 text-zinc-400" />
+												<span>All Workspaces</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === ("owned" as any)} onCheckedChange={() => setScope("owned" as any)} className="flex items-center gap-2">
+												<User className="h-4 w-4 text-blue-500" />
+												<span>Owned by me</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "member"} onCheckedChange={() => setScope("member")} className="flex items-center gap-2">
+												<Users className="h-4 w-4 text-emerald-500" />
+												<span>Shared with me</span>
+											</DropdownMenuCheckboxItem>
 										</DropdownMenuSubContent>
 									</DropdownMenuPortal>
 								</DropdownMenuSub>
 
 								<DropdownMenuSub>
-									<DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+									<DropdownMenuSubTrigger className="flex items-center gap-2">
+										<Circle className="h-4 w-4 text-zinc-500" />
+										<span>Status</span>
+									</DropdownMenuSubTrigger>
 									<DropdownMenuPortal>
 										<DropdownMenuSubContent>
-											<DropdownMenuCheckboxItem checked={!filters.status} onCheckedChange={() => setFilters((prev) => ({ ...prev, status: "" as any }))}>All Status</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={filters.status === "active"} onCheckedChange={() => setFilters((prev) => ({ ...prev, status: "active" as any }))}>Active</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={filters.status === "archived"} onCheckedChange={() => setFilters((prev) => ({ ...prev, status: "archived" as any }))}>Archived</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={!filters.status} onCheckedChange={() => setFilters((prev) => ({ ...prev, status: "" as any }))} className="flex items-center gap-2">
+												<Circle className="h-3.5 w-3.5 text-zinc-400" />
+												<span>All Status</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={filters.status === "active"} onCheckedChange={() => setFilters((prev) => ({ ...prev, status: "active" as any }))} className="flex items-center gap-2">
+												<Circle className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500" />
+												<span>Active</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={filters.status === "archived"} onCheckedChange={() => setFilters((prev) => ({ ...prev, status: "archived" as any }))} className="flex items-center gap-2">
+												<Circle className="h-3.5 w-3.5 text-zinc-400 fill-zinc-400" />
+												<span>Archived</span>
+											</DropdownMenuCheckboxItem>
 										</DropdownMenuSubContent>
 									</DropdownMenuPortal>
 								</DropdownMenuSub>
@@ -371,96 +440,33 @@ export default function WorkspacesPage() {
 						})()}
 
 						{/* Sort Popover */}
-						<Popover>
-							<PopoverTrigger asChild>
-								<Button
-									variant="ghost"
-									className="h-9 gap-1.5 px-3 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all cursor-pointer rounded-md outline-hidden focus:ring-0 focus-visible:ring-0"
-								>
-									<ArrowUpDown className="h-4 w-4" />
-									<span>Sort</span>
-									{sort.length > 0 && (
-										<span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-											{sort.length}
-										</span>
-									)}
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200" sideOffset={8}>
-								<div className="px-2 py-1.5 mb-1">
-									<span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Sort By</span>
-								</div>
-								<div className="space-y-0.5">
-									<div
-										className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-zinc-50 transition-colors text-zinc-600"
-										onClick={() => setSort([])}
-									>
-										<span className="flex-1">None (default)</span>
-										{sort.length === 0 && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-									</div>
-									{[
-										{ id: "name", label: "Name" },
-										{ id: "status", label: "Status" },
-										{ id: "updatedAt", label: "Updated Date" },
-									].map((opt) => {
-										const currentSortIndex = sort.findIndex(s => s.id === opt.id);
-										const isSelected = currentSortIndex >= 0;
-										const currentSort = isSelected ? sort[currentSortIndex] : null;
-
-										return (
-											<div
-												key={opt.id}
-												className={cn(
-													"flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item",
-													isSelected ? "bg-zinc-50 text-zinc-900" : "text-zinc-600 hover:bg-zinc-100"
-												)}
-												onClick={() => {
-													if (isSelected) setSort(s => s.filter(i => i.id !== opt.id));
-													else setSort(s => [...s, { id: opt.id, desc: false }]);
-												}}
-											>
-												<div
-													className="h-5 w-5 flex items-center justify-center rounded hover:bg-zinc-200 transition-colors"
-													onClick={(e) => {
-														e.stopPropagation();
-														if (isSelected) setSort(s => s.map(i => i.id === opt.id ? { ...i, desc: !i.desc } : i));
-														else setSort(s => [...s, { id: opt.id, desc: false }]);
-													}}
-												>
-													{isSelected &&
-														<div className="flex flex-col items-center -space-y-1">
-															<ChevronUp className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-800' : 'text-zinc-300'}`} />
-															<ChevronDown className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-300' : 'text-zinc-800'}`} />
-														</div>
-													}
-												</div>
-												<span className="flex-1">{opt.label}</span>
-												{isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-											</div>
-										);
-									})}
-								</div>
-							</PopoverContent>
-						</Popover>
+						<DashboardSortPopover
+							sort={sort}
+							onSortChange={setSort}
+							options={[
+								{ id: "name", label: "Name" },
+								{ id: "status", label: "Status" },
+							]}
+						/>
 					</SearchSection>
 
 					{filterChips.length > 0 && (
 						<div className="flex flex-wrap items-center gap-2">
 							{filterChips.map((chip) => (
-							    <span
-							        key={chip.id}
-							        className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
-							    >
-							        <span>{chip.label}</span>
-							        <button
-							            type="button"
-							            onClick={chip.onRemove}
-							            className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
-							            aria-label={`Remove ${chip.label} filter`}
-							        >
-							            <X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
-							        </button>
-							    </span>
+								<span
+									key={chip.id}
+									className="group inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300"
+								>
+									<span>{chip.label}</span>
+									<button
+										type="button"
+										onClick={chip.onRemove}
+										className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
+										aria-label={`Remove ${chip.label} filter`}
+									>
+										<X className="h-3 w-3 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-500 dark:group-hover:text-zinc-300" />
+									</button>
+								</span>
 							))}
 							<Button
 								variant="ghost"
@@ -532,7 +538,16 @@ export default function WorkspacesPage() {
 								)}
 							</>
 						) : (
-							<DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
+							<DataTable
+								columns={columns}
+								data={data.items}
+								onDeleteSelected={handleBulkDelete}
+								onTableReady={setTable}
+								renderRowContextMenu={renderRowContextMenu}
+								hideToolbar
+								columnVisibility={columnVisibility}
+								onColumnVisibilityChange={setColumnVisibility}
+							/>
 						)
 					) : (
 						<div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">

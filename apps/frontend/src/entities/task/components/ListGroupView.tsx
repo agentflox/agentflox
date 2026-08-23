@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { FolderPlusIcon } from 'lucide-react'
 import { TaskContextType } from './TaskView'
 import { trpc } from '@/lib/trpc'
-import { ListCreationModal } from './ListCreationModal'
+import { ListCreationModal } from '../../lists/components/ListCreationModal'
 
 interface ListGroupViewProps {
   context: TaskContextType

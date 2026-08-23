@@ -19,6 +19,8 @@ import {
   Globe,
   Info,
   Loader2,
+  Play,
+  Briefcase,
 } from "lucide-react";
 import {
   Dialog,
@@ -793,7 +795,22 @@ export function TagManagerModal({
                       !p.spaceId &&
                       (!isSearching || p.name?.toLowerCase().includes(locationSearchLower))
                   );
-                  const hasWsChildren = wsSpaces.length > 0 || wsProjects.length > 0;
+                  const wsFolders = folders.filter(
+                    (f) =>
+                      f.workspaceId === ws.id &&
+                      !f.spaceId &&
+                      !f.projectId &&
+                      (!isSearching || f.name?.toLowerCase().includes(locationSearchLower))
+                  );
+                  const wsLists = lists.filter(
+                    (l) =>
+                      l.workspaceId === ws.id &&
+                      !l.spaceId &&
+                      !l.projectId &&
+                      !l.folderId &&
+                      (!isSearching || l.name?.toLowerCase().includes(locationSearchLower))
+                  );
+                  const hasWsChildren = wsSpaces.length > 0 || wsProjects.length > 0 || wsFolders.length > 0 || wsLists.length > 0;
                   const isWsSelected = activeLocation.id === ws.id && activeLocation.type === "WORKSPACE";
                   const wsTagCount = getTagCountForLocation("WORKSPACE", ws.id);
 
@@ -811,7 +828,7 @@ export function TagManagerModal({
                           setIsCreatingInline(false);
                         }}
                         className={cn(
-                          "group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
+                          "group/ws flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
                           isWsSelected
                             ? "bg-zinc-200/80 font-semibold text-zinc-900 shadow-2xs"
                             : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 font-medium"
@@ -819,19 +836,17 @@ export function TagManagerModal({
                       >
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
                           <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
+                            <span className={cn("flex items-center justify-center", hasWsChildren && "group-hover/ws:hidden")}>
+                              <WorkspaceIcon icon={ws.logo ?? ws.avatarUrl ?? null} size={16} className="text-indigo-500" />
+                            </span>
                             {hasWsChildren && (
                               <div
-                                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-white shadow-sm border border-zinc-200 rounded-md cursor-pointer z-10 hover:bg-zinc-50"
+                                className="hidden group-hover/ws:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
                                 onClick={(e) => toggleCollapse(ws.id, e)}
                               >
-                                {isWsExpanded ? (
-                                  <ChevronDown className="h-3 w-3 text-zinc-600 cursor-pointer" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3 text-zinc-600 cursor-pointer" />
-                                )}
+                                <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isWsExpanded && "rotate-90")} />
                               </div>
                             )}
-                            <WorkspaceIcon icon={ws.logo ?? ws.avatarUrl ?? null} size={16} className="text-indigo-500" />
                           </div>
                           <span className="truncate">{ws.name}</span>
                         </div>
@@ -842,7 +857,7 @@ export function TagManagerModal({
 
                       {/* Children of Workspace */}
                       {isWsExpanded && (
-                        <div className="space-y-0.5 pl-3">
+                        <div className="space-y-0.5 pl-3 border-l border-zinc-200/60 ml-3">
                           {wsSpaces.map((space) => {
                             const isSpaceExpanded = !collapsedNodes[space.id] || isSearching;
                             const spaceProjects = projects.filter((p) => p.spaceId === space.id);
@@ -866,33 +881,36 @@ export function TagManagerModal({
                                     setIsCreatingInline(false);
                                   }}
                                   className={cn(
-                                    "group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
+                                    "group/space flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
                                     isSpaceSelected
                                       ? "bg-zinc-200/80 font-semibold text-zinc-900 shadow-2xs"
                                       : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 font-medium"
                                   )}
                                 >
                                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                    {hasSpaceChildren ? (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => toggleCollapse(space.id, e)}
-                                        className="h-4 w-4 rounded hover:bg-zinc-200/60 flex items-center justify-center text-zinc-400 hover:text-zinc-700 shrink-0 cursor-pointer"
-                                      >
-                                        {isSpaceExpanded ? (
-                                          <ChevronDown className="h-3 w-3 cursor-pointer" />
-                                        ) : (
-                                          <ChevronRight className="h-3 w-3 cursor-pointer" />
+                                    <div className="relative h-5 w-5 rounded shrink-0 flex items-center justify-center">
+                                      <span
+                                        className={cn(
+                                          "h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center ml-0.5",
+                                          hasSpaceChildren && "group-hover/space:hidden"
                                         )}
-                                      </button>
-                                    ) : (
-                                      <span className="w-4" />
-                                    )}
-                                    <div
-                                      className="h-4 w-4 rounded flex items-center justify-center text-[9px] font-bold text-white shrink-0 shadow-2xs"
-                                      style={{ backgroundColor: space.color || "#a855f7" }}
-                                    >
-                                      {space.name ? space.name.charAt(0).toUpperCase() : "S"}
+                                        style={{ backgroundColor: space.color || "#6366f1" }}
+                                      >
+                                        <SpaceIcon
+                                          icon={space.icon}
+                                          className="text-white"
+                                          size={13}
+                                          fill
+                                        />
+                                      </span>
+                                      {hasSpaceChildren && (
+                                        <div
+                                          className="hidden group-hover/space:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
+                                          onClick={(e) => toggleCollapse(space.id, e)}
+                                        >
+                                          <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isSpaceExpanded && "rotate-90")} />
+                                        </div>
+                                      )}
                                     </div>
                                     <span className="truncate">{space.name}</span>
                                   </div>
@@ -903,7 +921,7 @@ export function TagManagerModal({
 
                                 {/* Space Nested Children */}
                                 {isSpaceExpanded && (
-                                  <div className="space-y-0.5 pl-5">
+                                  <div className="space-y-0.5 pl-3 border-l border-zinc-200/60 ml-2.5">
                                     {/* Projects */}
                                     {spaceProjects.map((proj) => {
                                       const isProjSelected =
@@ -925,7 +943,9 @@ export function TagManagerModal({
                                           )}
                                         >
                                           <div className="flex items-center gap-1.5 truncate">
-                                            <ProjectIcon icon={proj.logo} size={14} className="text-indigo-500 shrink-0" />
+                                            <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                              <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                                            </div>
                                             <span className="truncate">{proj.name}</span>
                                           </div>
                                           <span className="text-[10px] text-zinc-400 shrink-0">{projTagCount}</span>
@@ -938,31 +958,81 @@ export function TagManagerModal({
                                       const isFoldSelected =
                                         activeLocation.id === fold.id && activeLocation.type === "FOLDER";
                                       const foldTagCount = getTagCountForLocation("FOLDER", fold.id);
+                                      const foldLists = lists.filter((l) => l.folderId === fold.id);
+                                      const foldHasChildren = foldLists.length > 0;
+                                      const isFoldExpanded = !collapsedNodes[fold.id] || isSearching;
+
                                       return (
-                                        <div
-                                          key={fold.id}
-                                          onClick={() => {
-                                            setSelectedLocation({ id: fold.id, type: "FOLDER", name: fold.name });
-                                            setSelectedTagIds([]);
-                                            setIsCreatingInline(false);
-                                          }}
-                                          className={cn(
-                                            "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                            isFoldSelected
-                                              ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                          )}
-                                        >
-                                          <div className="flex items-center gap-1.5 truncate">
-                                            <Folder size={14} className="text-yellow-500 shrink-0" />
-                                            <span className="truncate">{fold.name}</span>
+                                        <div key={fold.id} className="space-y-0.5">
+                                          <div
+                                            onClick={() => {
+                                              setSelectedLocation({ id: fold.id, type: "FOLDER", name: fold.name });
+                                              setSelectedTagIds([]);
+                                              setIsCreatingInline(false);
+                                            }}
+                                            className={cn(
+                                              "group/folder flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
+                                              isFoldSelected
+                                                ? "bg-zinc-200/80 font-semibold text-zinc-900"
+                                                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                            )}
+                                          >
+                                            <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
+                                              <div className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center">
+                                                <div className={cn("h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0", foldHasChildren && "group-hover/folder:hidden")}>
+                                                  <Folder className="h-3 w-3 text-blue-600 shrink-0" />
+                                                </div>
+                                                {foldHasChildren && (
+                                                  <div
+                                                    className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
+                                                    onClick={(e) => toggleCollapse(fold.id, e)}
+                                                  >
+                                                    <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", isFoldExpanded && "rotate-90")} />
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <span className="truncate">{fold.name}</span>
+                                            </div>
+                                            <span className="text-[10px] text-zinc-400 shrink-0">{foldTagCount}</span>
                                           </div>
-                                          <span className="text-[10px] text-zinc-400 shrink-0">{foldTagCount}</span>
+
+                                          {isFoldExpanded && foldHasChildren && (
+                                            <div className="space-y-0.5 pl-3 border-l border-zinc-200/60 ml-2.5">
+                                              {foldLists.map((lst) => {
+                                                const isLstSelected = activeLocation.id === lst.id && activeLocation.type === "LIST";
+                                                const lstTagCount = getTagCountForLocation("LIST", lst.id);
+                                                return (
+                                                  <div
+                                                    key={lst.id}
+                                                    onClick={() => {
+                                                      setSelectedLocation({ id: lst.id, type: "LIST", name: lst.name });
+                                                      setSelectedTagIds([]);
+                                                      setIsCreatingInline(false);
+                                                    }}
+                                                    className={cn(
+                                                      "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
+                                                      isLstSelected
+                                                        ? "bg-zinc-200/80 font-semibold text-zinc-900"
+                                                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                                    )}
+                                                  >
+                                                    <div className="flex items-center gap-1.5 truncate">
+                                                      <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                                        <List size={12} className="text-emerald-600" />
+                                                      </div>
+                                                      <span className="truncate">{lst.name}</span>
+                                                    </div>
+                                                    <span className="text-[10px] text-zinc-400 shrink-0">{lstTagCount}</span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })}
 
-                                    {/* Lists */}
+                                    {/* Direct Lists under Space */}
                                     {spaceLists.map((lst) => {
                                       const isLstSelected =
                                         activeLocation.id === lst.id && activeLocation.type === "LIST";
@@ -983,7 +1053,9 @@ export function TagManagerModal({
                                           )}
                                         >
                                           <div className="flex items-center gap-1.5 truncate">
-                                            <List size={14} className="text-emerald-500 shrink-0" />
+                                            <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                              <List size={12} className="text-emerald-600" />
+                                            </div>
                                             <span className="truncate">{lst.name}</span>
                                           </div>
                                           <span className="text-[10px] text-zinc-400 shrink-0">{lstTagCount}</span>
@@ -992,6 +1064,96 @@ export function TagManagerModal({
                                     })}
                                   </div>
                                 )}
+                              </div>
+                            );
+                          })}
+
+                          {/* Direct Workspace Projects */}
+                          {wsProjects.map((proj) => {
+                            const isProjSelected = activeLocation.id === proj.id && activeLocation.type === "PROJECT";
+                            const projTagCount = getTagCountForLocation("PROJECT", proj.id);
+                            return (
+                              <div
+                                key={proj.id}
+                                onClick={() => {
+                                  setSelectedLocation({ id: proj.id, type: "PROJECT", name: proj.name });
+                                  setSelectedTagIds([]);
+                                  setIsCreatingInline(false);
+                                }}
+                                className={cn(
+                                  "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
+                                  isProjSelected
+                                    ? "bg-zinc-200/80 font-semibold text-zinc-900"
+                                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                )}
+                              >
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                    <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                                  </div>
+                                  <span className="truncate">{proj.name}</span>
+                                </div>
+                                <span className="text-[10px] text-zinc-400 shrink-0">{projTagCount}</span>
+                              </div>
+                            );
+                          })}
+
+                          {/* Direct Workspace Folders */}
+                          {wsFolders.map((fold) => {
+                            const isFoldSelected = activeLocation.id === fold.id && activeLocation.type === "FOLDER";
+                            const foldTagCount = getTagCountForLocation("FOLDER", fold.id);
+                            return (
+                              <div
+                                key={fold.id}
+                                onClick={() => {
+                                  setSelectedLocation({ id: fold.id, type: "FOLDER", name: fold.name });
+                                  setSelectedTagIds([]);
+                                  setIsCreatingInline(false);
+                                }}
+                                className={cn(
+                                  "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
+                                  isFoldSelected
+                                    ? "bg-zinc-200/80 font-semibold text-zinc-900"
+                                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                )}
+                              >
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                                    <Folder className="h-3 w-3 text-blue-600 shrink-0" />
+                                  </div>
+                                  <span className="truncate">{fold.name}</span>
+                                </div>
+                                <span className="text-[10px] text-zinc-400 shrink-0">{foldTagCount}</span>
+                              </div>
+                            );
+                          })}
+
+                          {/* Direct Workspace Lists */}
+                          {wsLists.map((lst) => {
+                            const isLstSelected = activeLocation.id === lst.id && activeLocation.type === "LIST";
+                            const lstTagCount = getTagCountForLocation("LIST", lst.id);
+                            return (
+                              <div
+                                key={lst.id}
+                                onClick={() => {
+                                  setSelectedLocation({ id: lst.id, type: "LIST", name: lst.name });
+                                  setSelectedTagIds([]);
+                                  setIsCreatingInline(false);
+                                }}
+                                className={cn(
+                                  "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
+                                  isLstSelected
+                                    ? "bg-zinc-200/80 font-semibold text-zinc-900"
+                                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                )}
+                              >
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                                    <List size={12} className="text-emerald-600" />
+                                  </div>
+                                  <span className="truncate">{lst.name}</span>
+                                </div>
+                                <span className="text-[10px] text-zinc-400 shrink-0">{lstTagCount}</span>
                               </div>
                             );
                           })}

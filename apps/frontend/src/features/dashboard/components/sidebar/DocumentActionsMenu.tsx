@@ -3,22 +3,15 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-    DropdownMenuSub,
-    DropdownMenuSubContent,
-    DropdownMenuSubTrigger,
-    DropdownMenuPortal,
-} from "@/components/ui/dropdown-menu";
-import { EnhancedIconPicker } from "@/components/ui/enhanced-icon-picker";
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import {
+    MoreHorizontal,
+    Ellipsis,
     Pencil,
     Copy,
-    Palette,
     Archive,
     Trash2,
     Settings,
@@ -27,25 +20,21 @@ import {
     EyeOff,
     Shield,
     Crown,
-    Ellipsis
 } from "lucide-react";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
 import { trpc } from "@/lib/trpc";
 import { EntityRenameDialog } from "@/entities/shared/components/EntityRenameDialog";
 import { ShareModal } from "@/components/permissions/ShareModal";
-import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
-import { DocumentDuplicateModal } from "@/entities/documents/components/DocumentDuplicateModal";
 import { DocumentArchiveModal } from "@/entities/documents/components/DocumentArchiveModal";
 import { DocumentDeleteModal } from "@/entities/documents/components/DocumentDeleteModal";
-import { DocumentGeneralSettingsModal } from "@/entities/documents/components/DocumentGeneralSettingsModal";
+import { DocumentDuplicateModal } from "@/entities/documents/components/DocumentDuplicateModal";
 import { DocumentTransferModal } from "@/entities/documents/components/DocumentTransferModal";
+import { DocumentGeneralSettingsModal } from "@/entities/documents/components/DocumentGeneralSettingsModal";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
 
 interface DocumentActionsMenuProps {
     workspaceId?: string;
@@ -60,12 +49,34 @@ interface DocumentActionsMenuProps {
     liveIcon?: string;
     liveCoverImage?: string | null;
     hasChildren?: boolean;
+    className?: string;
+    side?: "top" | "right" | "bottom" | "left";
+    align?: "start" | "center" | "end";
+    sideOffset?: number;
 }
 
-export function DocumentActionsMenu({ workspaceId, spaceId, projectId, documentId, trigger, disableDelete, onDelete, liveTitle, liveContent, liveIcon, liveCoverImage, hasChildren }: DocumentActionsMenuProps) {
+export function DocumentActionsMenu({
+    workspaceId,
+    spaceId,
+    projectId,
+    documentId,
+    trigger,
+    disableDelete,
+    onDelete,
+    liveTitle,
+    liveContent,
+    liveIcon,
+    liveCoverImage,
+    hasChildren,
+    className,
+    side = "right",
+    align = "start",
+    sideOffset = 6,
+}: DocumentActionsMenuProps) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const queryClient = useQueryClient();
+    const [popoverOpen, setPopoverOpen] = useState(false);
 
     // Dialog States
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -94,51 +105,82 @@ export function DocumentActionsMenu({ workspaceId, spaceId, projectId, documentI
         const url = `${window.location.origin}${window.location.pathname}?doc=${documentId}`;
         navigator.clipboard.writeText(url);
         toast({ title: "Link copied to clipboard" });
+        setPopoverOpen(false);
     };
 
     const handleRename = () => {
         setRenameDialogOpen(true);
+        setPopoverOpen(false);
     };
 
     const handleSaveRename = (newName: string) => {
         updateDocument.mutate({ id: documentId, title: newName });
     };
 
+    const handleHideDoc = () => {
+        updateDocument.mutate({ id: documentId, isArchived: true } as any);
+        toast({ title: "Document hidden from sidebar" });
+        setPopoverOpen(false);
+    };
+
     return (
         <TooltipProvider delayDuration={300}>
-            <DropdownMenu>
+            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                 {trigger ? (
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                    <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
                         {trigger}
-                    </DropdownMenuTrigger>
+                    </PopoverTrigger>
                 ) : (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                <button
-                                    className="h-5 w-5 inline-flex items-center justify-center rounded-sm hover:bg-zinc-300 text-zinc-600 focus-visible:ring-0 cursor-pointer"
+                            <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 inline-flex items-center justify-center rounded-sm hover:bg-zinc-200 text-muted-foreground hover:text-foreground cursor-pointer"
                                 >
-                                    <Ellipsis className="h-3.5 w-3.5" />
-                                </button>
-                            </DropdownMenuTrigger>
+                                    <MoreHorizontal size={16} />
+                                </Button>
+                            </PopoverTrigger>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Page settings</TooltipContent>
+                        <TooltipContent>
+                            <p>Document settings</p>
+                        </TooltipContent>
                     </Tooltip>
                 )}
-                <DropdownMenuContent align="end" className="w-56" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuLabel className="text-xs text-zinc-400 uppercase tracking-wider">Actions</DropdownMenuLabel>
+                <PopoverContent
+                    side={side}
+                    align={align}
+                    sideOffset={sideOffset}
+                    className={cn("w-56 p-1.5 bg-white rounded-xl shadow-xl border border-zinc-200/90 flex flex-col gap-0.5 z-50", className)}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setShareModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <UserPlus className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Invite</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setShareModalOpen(true)}>
-                        <UserPlus className="mr-2 h-4 w-4" /> Invite
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleRename}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Pencil className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Rename</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={handleRename}>
-                        <Pencil className="mr-2 h-4 w-4" /> Rename
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem onClick={handleCopyLink}>
-                        <Copy className="mr-2 h-4 w-4" /> Copy Link
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleCopyLink}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Copy className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Copy Link</span>
+                    </button>
 
                     <TemplateMenuPopover
                         entityType="DOC"
@@ -151,57 +193,88 @@ export function DocumentActionsMenu({ workspaceId, spaceId, projectId, documentI
                             teamId: document?.teamId ?? undefined,
                             folderId: document?.folderId ?? undefined,
                             docId: documentId,
-                            // Root document data (prefer live unsaved state if this is the currently edited document)
                             title: liveTitle ?? document?.title ?? "Document",
                             content: liveContent ?? document?.content ?? "",
                             icon: liveIcon ?? document?.icon ?? null,
                             coverImage: liveCoverImage ?? document?.coverImage ?? null,
-                            // Backend will fetch children recursively from this ID
                             sourceDocId: documentId,
                         }}
-                        triggerClassName="text-sm"
+                        triggerClassName="text-sm font-normal"
                         targetDocHasChildren={hasChildren ?? ((document?.children?.length ?? 0) > 0)}
                     />
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
-                    <DropdownMenuItem onClick={() => {
-                        // Fallback UI update while backend might not have this endpoint yet
-                        toast({ title: "Document hidden from sidebar" });
-                        // trpc.document.toggleSidebarVisibility?.mutate({ documentId });
-                    }}>
-                        <EyeOff className="mr-2 h-4 w-4" /> Hide Doc
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleHideDoc}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <EyeOff className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Hide Doc</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setShareModalOpen(true)}>
-                        <Shield className="mr-2 h-4 w-4" /> Manage Access
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setShareModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Shield className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Manage Access</span>
+                    </button>
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
-                    <DropdownMenuItem onClick={() => setDuplicateModalOpen(true)}>
-                        <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setDuplicateModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <CopyPlus className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Duplicate</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setTransferModalOpen(true)}>
-                        <Crown className="mr-2 h-4 w-4" /> Transfer Ownership
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setTransferModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Crown className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Transfer Ownership</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setArchiveModalOpen(true)} disabled={disableDelete}>
-                        <Archive className="mr-2 h-4 w-4" /> Archive
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        disabled={disableDelete}
+                        onClick={() => { setPopoverOpen(false); setArchiveModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal disabled:opacity-50"
+                    >
+                        <Archive className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Archive</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setDeleteModalOpen(true)} disabled={disableDelete} className="text-red-600 focus:text-red-600 focus:bg-red-50">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        disabled={disableDelete}
+                        onClick={() => { setPopoverOpen(false); setDeleteModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer w-full text-left transition-colors font-normal disabled:opacity-50"
+                    >
+                        <Trash2 className="h-4 w-4 shrink-0 text-red-500" />
+                        <span>Delete</span>
+                    </button>
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
-                    <DropdownMenuItem onClick={() => setSettingsModalOpen(true)}>
-                        <Settings className="mr-2 h-4 w-4" /> Settings
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setSettingsModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Settings className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Settings</span>
+                    </button>
+                </PopoverContent>
+            </Popover>
 
             {/* Modals */}
             <EntityRenameDialog

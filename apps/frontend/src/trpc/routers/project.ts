@@ -181,7 +181,7 @@ export const projectRouter = router({
 				include: {
 					views: { orderBy: { position: "asc" }, take: 100 },
 					members: { take: 200, include: { user: { select: { id: true, name: true, image: true, email: true } } } },
-					teams: { take: 100, include: { team: { select: { id: true, name: true } } } },
+					teams: { take: 100, include: { team: { select: { id: true, name: true, icon: true, color: true } } } },
 					owner: { select: { id: true, name: true, image: true } },
 					_count: {
 						select: {
@@ -378,6 +378,8 @@ export const projectRouter = router({
 				id: z.string(),
 				name: z.string().optional(),
 				description: z.string().optional(),
+				icon: z.string().optional().nullable(),
+				color: z.string().optional().nullable(),
 				tagline: z.string().optional(),
 				logo: z.string().optional(),
 				website: z.string().optional(),

@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import {
 	GitBranch, UserIcon, Bot, MessageSquare, Paperclip,
-	Calendar, CheckCircle2, MoreVertical, Flag, Target, ListIcon, FileText, PenSquare, Trash2, ArrowRight
+	Calendar, CheckCircle2, MoreVertical, Flag, Target, ListIcon, FileText, PenSquare, Trash2, ArrowRight, Folder
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TaskTypeIcon } from "./TaskTypeIcon";
-
+import { EntityStatusBadge } from "@/components/ui/status-badge";
 
 type TaskSummary = {
 	id: string;
@@ -87,6 +87,19 @@ const getPriorityIcon = (priority: string | null | undefined) => {
 export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSelect, onDelete }: Props) {
 	const statusLabel = typeof item.status === 'object' ? (item as any).status?.name : item.status;
 
+	const locationText =
+		(item as any).locationPath ||
+		(item.list?.locationType === 'PERSONAL'
+			? `My personal / ${item.list?.name || 'List'}`
+			: [
+				item.workspace?.name,
+				item.space?.name,
+				item.team?.name,
+				item.project?.name,
+				item.list?.folder?.name,
+				item.list?.name
+			].filter(Boolean).join(' / ') || null);
+
 	// Format date if needed
 	const dueDate = item.dueDate ? new Date(item.dueDate) : null;
 	const isOverdue = dueDate && dueDate < new Date();
@@ -145,43 +158,29 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 			</div>
 
 			<div className="p-3 flex flex-col gap-4 flex-1 pt-12 relative z-0">
-				{/* Header: Project/Context */}
-				<div className="flex items-center justify-between text-[10px] text-zinc-500 font-medium uppercase tracking-wider -mt-4">
-					<div className="flex items-center gap-2 min-w-0">
-						<span className="truncate text-[10px] text-zinc-500 mt-0.5 font-medium italic normal-case">
-							{item.list?.locationType === 'PERSONAL' ? (
-								`My personal / ${item.list.name}`
-							) : (
-								[
-									item.workspace?.name,
-									item.space?.name,
-									item.team?.name,
-									item.project?.name,
-									item.list?.folder?.name,
-									item.list?.name
-								].filter(Boolean).join(' / ') || 'Task'
-							)}
-						</span>
+				{/* Location / Destination */}
+				{locationText && (
+					<div
+						className="flex items-center gap-1.5 text-xs text-slate-500 font-normal truncate min-w-0 max-w-full"
+						title={locationText}
+					>
+						<Folder className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+						<span className="truncate">{locationText}</span>
+						{item.parent && (
+							<div className="flex items-center gap-1 shrink-0 ml-2 text-zinc-400" title={item.parent.title}>
+								<GitBranch className="h-3 w-3" />
+								<span className="truncate text-xs max-w-[80px]">{item.parent.title}</span>
+							</div>
+						)}
 					</div>
-
-					{item.parent && (
-						<div className="flex items-center gap-1 shrink-0 ml-2 text-zinc-400" title={item.parent.title}>
-							<GitBranch className="h-3 w-3" />
-							<span className="truncate text-[10px] max-w-[80px]">{item.parent.title}</span>
-						</div>
-					)}
-				</div>
+				)}
 
 				{/* Title & Description */}
 				<div className="min-w-0 space-y-2.5 flex-1">
 					<div className="flex items-start justify-between gap-4">
 						<div className="flex items-center gap-2">
 							<div className="h-4 w-4 flex items-center justify-center flex-shrink-0">
-								{item.taskType ? (
-									<TaskTypeIcon type={item.taskType} className="h-4 w-4" />
-								) : (
-									<div className={cn("h-3.5 w-3.5 rounded-full border flex-shrink-0", getStatusColor(statusLabel))} />
-								)}
+								{item.taskType && <TaskTypeIcon type={item.taskType} className="h-4 w-4" />}
 							</div>
 							<h3 className={cn(
 								"font-medium text-base leading-snug line-clamp-1 transition-colors duration-200",
@@ -189,6 +188,9 @@ export function TaskCard({ item, onOpen, onConvert, className, isSelected, onSel
 							)}>
 								{item.title || "Untitled Task"}
 							</h3>
+						</div>
+						<div className="shrink-0">
+							<EntityStatusBadge status={statusLabel} />
 						</div>
 					</div>
 					{item.description ? (

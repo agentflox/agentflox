@@ -119,10 +119,14 @@ export function TeamMoveToPopover({ teamId, teamName, workspaceId, onSuccess }: 
 
     const triggerNode = (
         <button
-            className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-slate-100 hover:text-slate-900 focus:bg-slate-100 focus:text-slate-900"
+            type="button"
+            className="flex items-center justify-between px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
         >
-            <LogOut className="mr-2 h-4 w-4" /> Move
-            <ChevronRight className="ml-auto h-4 w-4" />
+            <div className="flex items-center gap-2">
+                <LogOut className="h-4 w-4 shrink-0 text-zinc-500" />
+                <span>Move</span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-zinc-500" />
         </button>
     );
 
@@ -137,20 +141,20 @@ export function TeamMoveToPopover({ teamId, teamName, workspaceId, onSuccess }: 
                     {triggerNode}
                 </div>
             </HoverCardTrigger>
-            <HoverCardContent align="start" side="right" sideOffset={5} className="w-64 p-0 z-[9999] shadow-md border-muted">
-                <div className="p-2 border-b border-slate-100">
-                    <div className="flex items-center rounded-md border border-indigo-500 px-2 h-9">
-                        <Search className="size-4 text-slate-400 shrink-0" />
+            <HoverCardContent align="start" side="right" sideOffset={8} className="w-64 p-1.5 bg-white rounded-xl shadow-xl border border-zinc-200/90 flex flex-col gap-0.5 z-[9999]">
+                <div className="p-1 pb-1.5 border-b border-zinc-100 mb-1">
+                    <div className="flex items-center rounded-lg border border-zinc-200 bg-zinc-50/50 px-2.5 h-8 focus-within:bg-white focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
+                        <Search className="size-3.5 text-zinc-400 shrink-0" />
                         <input
                             value={destinationSearch}
                             onChange={(e) => setDestinationSearch(e.target.value)}
                             placeholder="Search locations..."
-                            className="w-full bg-transparent px-2 text-sm outline-none"
+                            className="w-full bg-transparent px-2 text-xs outline-none placeholder:text-zinc-400"
                             autoFocus
                         />
                     </div>
                 </div>
-                <div className="max-h-[320px] overflow-y-auto py-1">
+                <div className="max-h-[320px] overflow-y-auto py-0.5 space-y-0.5">
                     {treeNodes.spaces.filter((s: any) => !destinationSearch.trim() || s.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((space: any) => (
                         <div key={space.key}>
                             <button
@@ -158,12 +162,12 @@ export function TeamMoveToPopover({ teamId, teamName, workspaceId, onSuccess }: 
                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMove(space.key); }}
                                 disabled={isMoving}
                                 className={cn(
-                                    "w-full flex items-center gap-2 py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
+                                    "w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer transition-colors font-normal",
                                     isMoving && movingToKey === space.key && "bg-indigo-50 text-indigo-700 pointer-events-none"
                                 )}
-                                style={{ paddingLeft: "14px" }}
+                                style={{ paddingLeft: "10px" }}
                             >
-                                {isMoving && movingToKey === space.key ? <Loader2 className="size-3.5 text-indigo-500 shrink-0 animate-spin" /> : <Network className="size-3.5 text-slate-400 shrink-0" />}
+                                {isMoving && movingToKey === space.key ? <Loader2 className="size-3.5 text-indigo-500 shrink-0 animate-spin" /> : <Network className="size-3.5 text-zinc-400 shrink-0" />}
                                 <span className="font-medium truncate flex-1">{space.name}</span>
                             </button>
                             {space.children.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase())).map((child: any) => (
@@ -173,16 +177,16 @@ export function TeamMoveToPopover({ teamId, teamName, workspaceId, onSuccess }: 
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMove(child.key); }}
                                     disabled={isMoving}
                                     className={cn(
-                                        "w-full flex items-center gap-2 py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
+                                        "w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer transition-colors font-normal",
                                         isMoving && movingToKey === child.key && "bg-indigo-50 text-indigo-700 pointer-events-none"
                                     )}
-                                    style={{ paddingLeft: `${child.depth * 14 + 14}px` }}
+                                    style={{ paddingLeft: `${child.depth * 14 + 10}px` }}
                                 >
                                     {isMoving && movingToKey === child.key ? <Loader2 className="size-3.5 text-indigo-500 shrink-0 animate-spin" /> : (
                                         <>
                                             {child.kind === "project" && <Briefcase className="size-3.5 text-indigo-400 shrink-0" />}
                                             {child.kind === "team" && <Building2 className="size-3.5 text-blue-400 shrink-0" />}
-                                            {child.kind === "folder" && <FolderIconLucide className="size-3.5 text-slate-400 shrink-0" />}
+                                            {child.kind === "folder" && <FolderIconLucide className="size-3.5 text-zinc-400 shrink-0" />}
                                         </>
                                     )}
                                     <span className="truncate flex-1">{child.label}</span>
@@ -197,23 +201,23 @@ export function TeamMoveToPopover({ teamId, teamName, workspaceId, onSuccess }: 
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMove(child.key); }}
                             disabled={isMoving}
                             className={cn(
-                                "w-full flex items-center gap-2 py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
+                                "w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer transition-colors font-normal",
                                 isMoving && movingToKey === child.key && "bg-indigo-50 text-indigo-700 pointer-events-none"
                             )}
-                            style={{ paddingLeft: "14px" }}
+                            style={{ paddingLeft: "10px" }}
                         >
                             {isMoving && movingToKey === child.key ? <Loader2 className="size-3.5 text-indigo-500 shrink-0 animate-spin" /> : (
                                 <>
                                     {child.kind === "project" && <Briefcase className="size-3.5 text-indigo-400 shrink-0" />}
                                     {child.kind === "team" && <Building2 className="size-3.5 text-blue-400 shrink-0" />}
-                                    {child.kind === "folder" && <FolderIconLucide className="size-3.5 text-slate-400 shrink-0" />}
+                                    {child.kind === "folder" && <FolderIconLucide className="size-3.5 text-zinc-400 shrink-0" />}
                                 </>
                             )}
                             <span className="truncate flex-1">{child.label}</span>
                         </button>
                     ))}
                     {spaces.length === 0 && treeNodes.rootChildren.length === 0 && (
-                        <div className="px-3 py-2 text-sm text-slate-500 text-center italic">No destinations found</div>
+                        <div className="px-3 py-2 text-sm text-zinc-500 text-center italic">No destinations found</div>
                     )}
                 </div>
             </HoverCardContent>

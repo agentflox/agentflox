@@ -8,10 +8,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarDays, RefreshCw, Network, Settings2, ArrowLeft, X, Info, Search, Check, Folder, List as ListIcon, Briefcase, Building2 } from "lucide-react";
+import { CalendarDays, RefreshCw, Network, Settings2, ArrowLeft, X, Info, Search, Check, Folder, List as ListIcon, Briefcase, Building2, Building, Users, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { trpc } from "@/lib/trpc";
+import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import {
 	TASK_IMPORT_ITEMS_COL1,
 	TASK_IMPORT_ITEMS_COL2,
@@ -85,7 +86,7 @@ function TaskChecksGrid({
 							onCheckedChange={(c) => onChange(item.id, !!c)}
 							className="rounded-[4px] data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 cursor-pointer"
 						/>
-						<label htmlFor={`use-${item.id}`} className="text-[13.5px] font-normal cursor-pointer text-slate-700 leading-none">
+						<label htmlFor={`use-${item.id}`} className="text-[13.5px] font-normal cursor-pointer text-zinc-700 leading-none">
 							{item.label}
 						</label>
 					</div>
@@ -100,7 +101,7 @@ function TaskChecksGrid({
 							onCheckedChange={(c) => onChange(item.id, !!c)}
 							className="rounded-[4px] data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600 cursor-pointer"
 						/>
-						<label htmlFor={`use2-${item.id}`} className="text-[13.5px] font-normal cursor-pointer text-slate-700 leading-none">
+						<label htmlFor={`use2-${item.id}`} className="text-[13.5px] font-normal cursor-pointer text-zinc-700 leading-none">
 							{item.label}
 						</label>
 					</div>
@@ -128,6 +129,18 @@ export function UseTemplateModal({
 	const [destinationOpen, setDestinationOpen] = useState(false);
 	const [destinationSearch, setDestinationSearch] = useState("");
 	const [destinationKey, setDestinationKey] = useState<string>("");
+	const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+
+	const toggleNode = (e: React.MouseEvent, key: string) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setCollapsedNodes((prev) => {
+			const next = new Set(prev);
+			if (next.has(key)) next.delete(key);
+			else next.add(key);
+			return next;
+		});
+	};
 	const [importMode, setImportMode] = useState<"everything" | "customize">("everything");
 	const [taskChecks, setTaskChecks] = useState<Record<string, boolean>>(defaultTaskChecks);
 	const [dateMode, setDateMode] = useState<"as-is" | "remap">("as-is");
@@ -568,20 +581,20 @@ export function UseTemplateModal({
 	const content = (
 		<>
 				{/* Header */}
-				<div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 shrink-0">
+				<div className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-100 shrink-0">
 					<button
 						onClick={() => onBack ? onBack() : onOpenChange(false)}
-						className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-slate-600 hover:text-slate-900 bg-slate-100/70 hover:bg-slate-200/70 rounded-md transition-colors cursor-pointer"
+						className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-zinc-600 hover:text-zinc-900 bg-zinc-100/70 hover:bg-zinc-200/70 rounded-md transition-colors cursor-pointer"
 					>
 						<ArrowLeft className="size-3.5" />
 						Back
 					</button>
-					<DialogTitle className="text-[15px] font-semibold text-slate-800">
+					<DialogTitle className="text-[15px] font-semibold text-zinc-800">
 						Use {entityTypeLabel} template
 					</DialogTitle>
 					<button
 						onClick={() => onOpenChange(false)}
-						className="size-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+						className="size-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
 					>
 						<X className="size-4" />
 					</button>
@@ -594,15 +607,15 @@ export function UseTemplateModal({
 						<>
 							{/* Entity name */}
 							<div className="space-y-4">
-								<label className="block mb-1.5 text-[13px] font-semibold text-slate-700">
+								<label className="block mb-1.5 text-[13px] font-semibold text-zinc-700">
 									{entityTypeLabel} name
 								</label>
 								<div className="flex items-center gap-2 h-10 rounded-md border border-indigo-400 bg-white px-3 shadow-sm focus-within:ring-1 focus-within:ring-indigo-500">
-									<span className="text-slate-400 text-sm">≡</span>
+									<span className="text-zinc-400 text-sm">≡</span>
 									<Input
 										value={entityName}
 										onChange={(e) => setEntityName(e.target.value)}
-										className="h-full bg-transparent !border-0 focus:outline-none focus:ring-0 focus-visible:ring-0 shadow-none text-[14px] text-slate-700 placeholder:text-slate-400"
+										className="h-full bg-transparent !border-0 focus:outline-none focus:ring-0 focus-visible:ring-0 shadow-none text-[14px] text-zinc-700 placeholder:text-zinc-400"
 										placeholder={`${entityTypeLabel} name…`}
 									/>
 								</div>
@@ -610,14 +623,14 @@ export function UseTemplateModal({
 
 							{/* Location */}
 							<div className="space-y-3">
-								<label className="block mb-1.5 text-[13px] font-semibold text-slate-700">
+								<label className="block mb-1.5 text-[13px] font-semibold text-zinc-700">
 									Where should this {entityTypeLabel} be created?
 									<span className="text-red-500 ml-0.5">*</span>
 								</label>
 								<Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
 									<PopoverTrigger asChild>
-										<button className="h-10 w-full border border-slate-200 bg-white text-[14px] shadow-sm text-slate-700 rounded-md px-3 flex items-center justify-between cursor-pointer">
-											<span className={cn("truncate text-left", !selectedDestination && "text-slate-400")}>
+										<button className="h-10 w-full border border-zinc-200 bg-white text-[14px] shadow-sm text-zinc-700 rounded-md px-3 flex items-center justify-between cursor-pointer">
+											<span className={cn("truncate text-left", !selectedDestination && "text-zinc-400")}>
 												{selectedDestination
 													? selectedDestination.kind === "standalone"
 														? "Standalone"
@@ -626,130 +639,238 @@ export function UseTemplateModal({
 															: getDestinationPath(selectedDestination)
 													: "Select a destination..."}
 											</span>
-											<span className="text-slate-400">⌄</span>
+											<span className="text-zinc-400">⌄</span>
 										</button>
 									</PopoverTrigger>
-									<PopoverContent align="start" className="w-[420px] p-0 shadow-lg">
-										<div className="p-2 border-b border-slate-100">
-											<div className="flex items-center rounded-md border border-indigo-500 px-2 h-9">
-												<Search className="size-4 text-slate-400 shrink-0" />
-												<input
-													value={destinationSearch}
-													onChange={(e) => setDestinationSearch(e.target.value)}
-													placeholder="Search..."
-													className="w-full bg-transparent px-2 text-sm outline-none"
-												/>
-											</div>
+									<PopoverContent
+										align="start"
+										side="bottom"
+										sideOffset={4}
+										className="w-[360px] p-0 rounded-xl shadow-xl border-zinc-200 bg-white overflow-hidden max-h-[380px] flex flex-col z-50"
+									>
+										<div className="flex h-8 items-center rounded-md border border-zinc-200 bg-white px-2.5 mx-2.5 mt-2.5 mb-1.5 shrink-0 focus-within:border-zinc-400">
+											<Search className="h-3.5 w-3.5 text-zinc-400 shrink-0 mr-2" />
+											<input
+												type="text"
+												value={destinationSearch}
+												onChange={(e) => setDestinationSearch(e.target.value)}
+												placeholder="Search locations..."
+												className="w-full bg-transparent border-0 p-0 text-xs outline-none placeholder:text-zinc-400"
+												autoFocus
+											/>
 										</div>
 
-										<div className="max-h-[320px] overflow-y-auto py-1">
+										<div className="overflow-y-auto flex-1 py-1 max-h-[320px] px-1">
 											{allowedKinds.has("standalone") && (!destinationSearch.trim() || "standalone".includes(destinationSearch.toLowerCase())) && (
 												<button
+													type="button"
 													onClick={() => { setDestinationKey("standalone"); setDestinationOpen(false); }}
 													className={cn(
-														"w-full flex items-center justify-between px-3 py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-														destinationKey === "standalone" && "bg-indigo-50 text-indigo-700"
+														"w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+														destinationKey === "standalone" ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
 													)}
 												>
-													<span className="flex items-center gap-2">
-														<Briefcase className="size-3.5 text-slate-400 shrink-0" />
-														<span>Standalone</span>
-													</span>
-													{destinationKey === "standalone" && <Check className="size-3.5 text-indigo-600 shrink-0" />}
+													<div className="flex items-center gap-2 truncate">
+														<div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 flex items-center justify-center shrink-0">
+															<Briefcase className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+														</div>
+														<span className="truncate">Standalone</span>
+													</div>
+													{destinationKey === "standalone" && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
 												</button>
 											)}
 
-											{workspaceGroups.map((group) => (
-												<div key={group.workspaceKey}>
-													{allowedKinds.has("workspace") && (!destinationSearch.trim() || group.workspaceName.toLowerCase().includes(destinationSearch.toLowerCase())) && (
-														<button
-															onClick={() => { setDestinationKey(group.workspaceKey); setDestinationOpen(false); }}
-															className={cn(
-																"w-full flex items-center justify-between px-3 py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-																destinationKey === group.workspaceKey && "bg-indigo-50 text-indigo-700"
-															)}
-														>
-															<span className="flex items-center gap-2">
-																<span
-																	className="size-5 rounded text-[10px] font-semibold flex items-center justify-center shrink-0 text-white"
-																	style={{ background: group.avatarColor }}
-																>
-																	{group.workspaceName.charAt(0).toUpperCase()}
-																</span>
-																<span className="font-medium">{group.workspaceName}</span>
-															</span>
-															{destinationKey === group.workspaceKey && <Check className="size-3.5 text-indigo-600 shrink-0" />}
-														</button>
-													)}
+											{workspaceGroups.map((group) => {
+												const isWsCollapsed = collapsedNodes.has(`ws-${group.workspaceKey}`);
+												const wsHasChildren = (group.spaces && group.spaces.length > 0) || (group.rootChildren && group.rootChildren.length > 0);
 
-													{group.spaces
-														.filter((s: any) => !destinationSearch.trim() || s.name.toLowerCase().includes(destinationSearch.toLowerCase()))
-														.map((space: any) => (
-															<div key={space.key}>
-																<button
-																	onClick={() => { setDestinationKey(space.key); setDestinationOpen(false); }}
-																	className={cn(
-																		"w-full flex items-center justify-between py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-																		destinationKey === space.key && "bg-indigo-50 text-indigo-700"
-																	)}
-																	style={{ paddingLeft: "28px" }}
-																>
-																	<span className="flex items-center gap-2">
-																		<Network className="size-3.5 text-slate-400 shrink-0" />
-																		<span>{space.name}</span>
-																	</span>
-																	{destinationKey === space.key && <Check className="size-3.5 text-indigo-600 shrink-0 mr-3" />}
-																</button>
+												return (
+													<div key={group.workspaceKey} className="space-y-0.5">
+														{allowedKinds.has("workspace") && (!destinationSearch.trim() || group.workspaceName.toLowerCase().includes(destinationSearch.toLowerCase())) && (
+															<div
+																className="group/ws w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+																onClick={(e) => {
+																	if (wsHasChildren) toggleNode(e, `ws-${group.workspaceKey}`);
+																	else {
+																		setDestinationKey(group.workspaceKey);
+																		setDestinationOpen(false);
+																	}
+																}}
+															>
+																<div className="flex items-center gap-2 truncate flex-1 min-w-0">
+																	<div className="relative h-5 w-5 rounded shrink-0 flex items-center justify-center">
+																		<span
+																			className={cn("size-5 rounded text-[10px] font-semibold flex items-center justify-center shrink-0 text-white ml-0.5", wsHasChildren && "group-hover/ws:hidden")}
+																			style={{ background: group.avatarColor }}
+																		>
+																			{group.workspaceName.charAt(0).toUpperCase()}
+																		</span>
+																		{wsHasChildren && (
+																			<div
+																				className="hidden group-hover/ws:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
+																				onClick={(e) => toggleNode(e, `ws-${group.workspaceKey}`)}
+																			>
+																				<Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isWsCollapsed && "rotate-90")} />
+																			</div>
+																		)}
+																	</div>
+																	<span className="truncate flex-1 font-medium">{group.workspaceName}</span>
+																</div>
+																<div className="flex items-center gap-1 shrink-0">
+																	<button
+																		type="button"
+																		className="text-[11px] text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 px-1.5 py-0.5 rounded transition-colors"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			setDestinationKey(group.workspaceKey);
+																			setDestinationOpen(false);
+																		}}
+																	>
+																		Select
+																	</button>
+																	{destinationKey === group.workspaceKey && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+																</div>
+															</div>
+														)}
 
-																{space.children
+														{!isWsCollapsed && (
+															<div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
+																{group.spaces
+																	.filter((s: any) => !destinationSearch.trim() || s.name.toLowerCase().includes(destinationSearch.toLowerCase()))
+																	.map((space: any) => {
+																		const isSpaceCollapsed = collapsedNodes.has(`space-${space.key}`);
+																		const spaceHasChildren = space.children && space.children.length > 0;
+
+																		return (
+																			<div key={space.key} className="space-y-0.5">
+																				<div
+																					className="group/space w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
+																					onClick={(e) => {
+																						if (spaceHasChildren) toggleNode(e, `space-${space.key}`);
+																						else {
+																							setDestinationKey(space.key);
+																							setDestinationOpen(false);
+																						}
+																					}}
+																				>
+																					<div className="flex items-center gap-2 truncate flex-1 min-w-0">
+																						<div className="relative h-5 w-5 rounded shrink-0 flex items-center justify-center">
+																							<span className={cn("h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center bg-indigo-500 text-white ml-0.5", spaceHasChildren && "group-hover/space:hidden")}>
+																								<SpaceIcon icon={space.icon} className="text-white" size={13} fill />
+																							</span>
+																							{spaceHasChildren && (
+																								<div
+																									className="hidden group-hover/space:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
+																									onClick={(e) => toggleNode(e, `space-${space.key}`)}
+																								>
+																									<Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isSpaceCollapsed && "rotate-90")} />
+																								</div>
+																							)}
+																						</div>
+																						<span className="truncate flex-1 font-medium">{space.name}</span>
+																					</div>
+																					<div className="flex items-center gap-1 shrink-0">
+																						<button
+																							type="button"
+																							className="text-[11px] text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200 px-1.5 py-0.5 rounded transition-colors"
+																							onClick={(e) => {
+																								e.stopPropagation();
+																								setDestinationKey(space.key);
+																								setDestinationOpen(false);
+																							}}
+																						>
+																							Select
+																						</button>
+																						{destinationKey === space.key && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+																					</div>
+																				</div>
+
+																				{!isSpaceCollapsed && (
+																					<div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
+																						{space.children
+																							.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase()))
+																							.map((child: any) => (
+																								<button
+																									key={child.key}
+																									type="button"
+																									onClick={() => { setDestinationKey(child.key); setDestinationOpen(false); }}
+																									className={cn(
+																										"w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+																										destinationKey === child.key ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+																									)}
+																									style={{ paddingLeft: `${(child.depth - 1) * 12 + 8}px` }}
+																								>
+																									<div className="flex items-center gap-2 truncate">
+																										{child.kind === "project" && (
+																											<div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+																												<Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+																											</div>
+																										)}
+																										{child.kind === "team" && (
+																											<div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+																												<Users className="h-3 w-3 text-emerald-600 shrink-0" />
+																											</div>
+																										)}
+																										{child.kind === "folder" && (
+																											<div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+																												<Folder className="h-3 w-3 text-blue-600 shrink-0" />
+																											</div>
+																										)}
+																										{child.kind === "list" && (
+																											<ListIcon className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+																										)}
+																										<span className="truncate">{child.label}</span>
+																									</div>
+																									{destinationKey === child.key && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+																								</button>
+																							))}
+																					</div>
+																				)}
+																			</div>
+																		);
+																	})}
+
+																{group.rootChildren
 																	.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase()))
 																	.map((child: any) => (
 																		<button
 																			key={child.key}
+																			type="button"
 																			onClick={() => { setDestinationKey(child.key); setDestinationOpen(false); }}
 																			className={cn(
-																				"w-full flex items-center justify-between py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-																				destinationKey === child.key && "bg-indigo-50 text-indigo-700"
+																				"w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
+																				destinationKey === child.key ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
 																			)}
-																			style={{ paddingLeft: `${child.depth * 14 + 28}px` }}
 																		>
-																			<span className="flex items-center gap-2">
-																				{child.kind === "project" && <Briefcase className="size-3.5 text-indigo-400 shrink-0" />}
-																				{child.kind === "team" && <Building2 className="size-3.5 text-blue-400 shrink-0" />}
-																				{child.kind === "folder" && <Folder className="size-3.5 text-slate-400 shrink-0" />}
-																				{child.kind === "list" && <ListIcon className="size-3.5 text-slate-400 shrink-0" />}
-																				<span>{child.label}</span>
-																			</span>
-																			{destinationKey === child.key && <Check className="size-3.5 text-indigo-600 shrink-0 mr-3" />}
+																			<div className="flex items-center gap-2 truncate">
+																				{child.kind === "project" && (
+																					<div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+																						<Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+																					</div>
+																				)}
+																				{child.kind === "team" && (
+																					<div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+																						<Users className="h-3 w-3 text-emerald-600 shrink-0" />
+																					</div>
+																				)}
+																				{child.kind === "folder" && (
+																					<div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
+																						<Folder className="h-3 w-3 text-blue-600 shrink-0" />
+																					</div>
+																				)}
+																				{child.kind === "list" && (
+																					<ListIcon className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+																				)}
+																				<span className="truncate">{child.label}</span>
+																			</div>
+																			{destinationKey === child.key && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
 																		</button>
 																	))}
 															</div>
-														))}
-
-													{group.rootChildren
-														.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase()))
-														.map((child: any) => (
-															<button
-																key={child.key}
-																onClick={() => { setDestinationKey(child.key); setDestinationOpen(false); }}
-																className={cn(
-																	"w-full flex items-center justify-between py-1.5 text-left text-[13.5px] cursor-pointer hover:bg-slate-50",
-																	destinationKey === child.key && "bg-indigo-50 text-indigo-700"
-																)}
-																style={{ paddingLeft: `${child.depth * 14 + 14}px` }}
-															>
-																<span className="flex items-center gap-2">
-																	{child.kind === "project" && <Briefcase className="size-3.5 text-indigo-400 shrink-0" />}
-																	{child.kind === "team" && <Building2 className="size-3.5 text-blue-400 shrink-0" />}
-																	{child.kind === "folder" && <Folder className="size-3.5 text-slate-400 shrink-0" />}
-																	{child.kind === "list" && <ListIcon className="size-3.5 text-slate-400 shrink-0" />}
-																	<span>{child.label}</span>
-																</span>
-																{destinationKey === child.key && <Check className="size-3.5 text-indigo-600 shrink-0 mr-3" />}
-															</button>
-														))}
-												</div>
-											))}
+														)}
+													</div>
+												);
+											})}
 										</div>
 									</PopoverContent>
 								</Popover>
@@ -760,17 +881,17 @@ export function UseTemplateModal({
 					{/* Import options */}
 					{(taskOnly || showAdvancedSectionsForNonTask) && hasImportOptions && (
 						<div className="space-y-2.5">
-							<label className="block mb-1.5 text-[13px] font-semibold text-slate-700">Import options</label>
+							<label className="block mb-1.5 text-[13px] font-semibold text-zinc-700">Import options</label>
 
 							{/* Tab-style selector */}
-								<div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
+								<div className="grid grid-cols-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
 								<button
 									onClick={() => setImportMode("everything")}
 									className={cn(
 											"flex items-center justify-center gap-2 rounded-md py-2 text-[13px] font-medium transition-colors cursor-pointer",
 										importMode === "everything"
-												? "bg-white text-slate-900 shadow-sm"
-												: "text-slate-500 hover:text-slate-700"
+												? "bg-white text-zinc-900 shadow-sm"
+												: "text-zinc-500 hover:text-zinc-700"
 									)}
 								>
 									<Network className="size-3.5" />
@@ -781,8 +902,8 @@ export function UseTemplateModal({
 									className={cn(
 											"flex items-center justify-center gap-2 rounded-md py-2 text-[13px] font-medium transition-colors cursor-pointer",
 										importMode === "customize"
-												? "bg-white text-slate-900 shadow-sm"
-												: "text-slate-500 hover:text-slate-700"
+												? "bg-white text-zinc-900 shadow-sm"
+												: "text-zinc-500 hover:text-zinc-700"
 									)}
 								>
 									<Settings2 className="size-3.5" />
@@ -791,9 +912,9 @@ export function UseTemplateModal({
 							</div>
 
 							{/* Content below tab */}
-							<div className="rounded-lg border border-slate-200 bg-white p-4">
+							<div className="rounded-lg border border-zinc-200 bg-white p-4">
 								{importMode === "everything" ? (
-									<p className="text-[13px] text-slate-500">
+									<p className="text-[13px] text-zinc-500">
 										All properties, fields and settings will be imported exactly as is.
 									</p>
 								) : (
@@ -806,15 +927,15 @@ export function UseTemplateModal({
 					{/* Start and due dates */}
 					{(taskOnly || showAdvancedSectionsForNonTask) && (
 					<div className="space-y-3.5">
-						<label className="block mb-1.5 text-[13px] font-semibold text-slate-700">Start and due dates</label>
-						<div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
+						<label className="block mb-1.5 text-[13px] font-semibold text-zinc-700">Start and due dates</label>
+						<div className="grid grid-cols-2 rounded-lg border border-zinc-200 bg-zinc-50 p-1">
 							<button
 								onClick={() => setDateMode("as-is")}
 								className={cn(
 									"flex items-center justify-center gap-2 rounded-md py-2 text-[13px] font-medium transition-colors cursor-pointer",
 									dateMode === "as-is"
-										? "bg-white text-slate-900 shadow-sm"
-										: "text-slate-500 hover:text-slate-700"
+										? "bg-white text-zinc-900 shadow-sm"
+										: "text-zinc-500 hover:text-zinc-700"
 								)}
 							>
 								<CalendarDays className="size-3.5" />
@@ -825,32 +946,32 @@ export function UseTemplateModal({
 								className={cn(
 									"flex items-center justify-center gap-2 rounded-md py-2 text-[13px] font-medium transition-colors cursor-pointer",
 									dateMode === "remap"
-										? "bg-white text-slate-900 shadow-sm"
-										: "text-slate-500 hover:text-slate-700"
+										? "bg-white text-zinc-900 shadow-sm"
+										: "text-zinc-500 hover:text-zinc-700"
 								)}
 							>
 								<RefreshCw className="size-3.5" />
 								Remap dates
 							</button>
 						</div>
-						<p className="text-[12.5px] text-slate-500">
+						<p className="text-[12.5px] text-zinc-500">
 							{dateMode === "as-is"
 								? "Due Dates and Start Dates are static and will be imported exactly as is."
 								: "Remap dates relative to today when the template is applied."}
 						</p>
 						{dateMode === "remap" && (
 							<div className="space-y-2">
-								<label className="text-[13px] font-semibold text-slate-700">Parent task Due Date:</label>
+								<label className="text-[13px] font-semibold text-zinc-700">Parent task Due Date:</label>
 								<Popover open={remapPopoverOpen} onOpenChange={setRemapPopoverOpen}>
 									<PopoverTrigger asChild>
 										<Button
 											variant="outline"
-											className="h-10 w-full justify-between border-slate-200 bg-white text-[14px] shadow-sm text-slate-700 hover:bg-slate-50 font-normal"
+											className="h-10 w-full justify-between border-zinc-200 bg-white text-[14px] shadow-sm text-zinc-700 hover:bg-zinc-50 font-normal"
 										>
-											<span className={cn(!remapDueDate && "text-slate-400")}>
+											<span className={cn(!remapDueDate && "text-zinc-400")}>
 												{remapDueDate ? remapDueDate.toLocaleDateString() : "Pick a Due Date"}
 											</span>
-											<CalendarDays className="size-4 text-slate-400" />
+											<CalendarDays className="size-4 text-zinc-400" />
 										</Button>
 									</PopoverTrigger>
 									<PopoverContent className="w-auto p-0 border-0 shadow-none bg-transparent" align="start">
@@ -864,7 +985,7 @@ export function UseTemplateModal({
 										/>
 									</PopoverContent>
 								</Popover>
-								<p className="text-[12.5px] text-slate-500">
+								<p className="text-[12.5px] text-zinc-500">
 									Subtask dates will be shifted by the same difference from the template parent due date.
 								</p>
 							</div>
@@ -875,31 +996,31 @@ export function UseTemplateModal({
 					{/* Archived tasks */}
 					{showArchivedTasksOption && (
 					<div className="space-y-3.5">
-						<label className="block mb-1.5 text-[13px] font-semibold text-slate-700">
+						<label className="block mb-1.5 text-[13px] font-semibold text-zinc-700">
 							Do you want to include archived tasks?
 						</label>
 						<RadioGroup
 							value={archivedTasks}
 							onValueChange={(v) => setArchivedTasks(v as typeof archivedTasks)}
-							className="rounded-lg border border-slate-200 bg-white p-3 gap-1"
+							className="rounded-lg border border-zinc-200 bg-white p-3 gap-1"
 						>
 							<div className="flex items-center space-x-2.5">
 								<RadioGroupItem value="no" id="arch-no" className="cursor-pointer" />
-								<Label htmlFor="arch-no" className="text-[13.5px] font-normal cursor-pointer text-slate-700">No</Label>
+								<Label htmlFor="arch-no" className="text-[13.5px] font-normal cursor-pointer text-zinc-700">No</Label>
 							</div>
 							<div className="flex items-center space-x-2.5">
 								<RadioGroupItem value="yes-include" id="arch-yes" className="cursor-pointer" />
 								<Label htmlFor="arch-yes" className="text-[13.5px] font-normal cursor-pointer">
-									<span className="text-slate-700">Yes, </span>
+									<span className="text-zinc-700">Yes, </span>
 									<span className="text-indigo-600">include archived tasks</span>
 								</Label>
 							</div>
 							<div className="flex items-center space-x-2.5">
 								<RadioGroupItem value="yes-unarchive" id="arch-unarchive" className="cursor-pointer" />
 								<Label htmlFor="arch-unarchive" className="text-[13.5px] font-normal cursor-pointer">
-									<span className="text-slate-700">Yes, include </span>
+									<span className="text-zinc-700">Yes, include </span>
 									<span className="text-indigo-600">and</span>
-									<span className="text-slate-700"> unarchive tasks</span>
+									<span className="text-zinc-700"> unarchive tasks</span>
 								</Label>
 							</div>
 						</RadioGroup>
@@ -909,17 +1030,17 @@ export function UseTemplateModal({
 				</div>
 
 				{/* Footer */}
-				<div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
-					<div className="flex items-center gap-2 text-[12.5px] text-slate-500">
-						<Info className="size-3.5 shrink-0 text-slate-400" />
+				<div className="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between shrink-0">
+					<div className="flex items-center gap-2 text-[12.5px] text-zinc-500">
+						<Info className="size-3.5 shrink-0 text-zinc-400" />
 						{taskOnly
 							? "This template will override the selected task using your import options."
-							: <>Using this template will create a new <span className="font-medium text-slate-700">{entityTypeLabel}</span> in your selected location!</>}
+							: <>Using this template will create a new <span className="font-medium text-zinc-700">{entityTypeLabel}</span> in your selected location!</>}
 					</div>
 					<div className="flex items-center gap-3 shrink-0">
 						<Button
 							variant="ghost"
-							className="h-9 px-4 text-[13px] cursor-pointer text-slate-600"
+							className="h-9 px-4 text-[13px] cursor-pointer text-zinc-600"
 							onClick={() => onOpenChange(false)}
 						>
 							Cancel
@@ -928,8 +1049,8 @@ export function UseTemplateModal({
 							className={cn(
 								"h-9 px-5 text-[13px] font-medium transition-colors",
 								(taskOnly || (entityName.trim() && !!selectedDestination)) && (dateMode !== "remap" || !!remapDueDate)
-									? "bg-slate-900 text-white hover:bg-slate-800 cursor-pointer"
-									: "bg-slate-200 text-slate-400 pointer-events-none"
+									? "bg-zinc-900 text-white hover:bg-zinc-800 cursor-pointer"
+									: "bg-zinc-200 text-zinc-400 pointer-events-none"
 							)}
 							disabled={(!taskOnly && (!entityName.trim() || !selectedDestination)) || (dateMode === "remap" && !remapDueDate)}
 							onClick={handleUse}

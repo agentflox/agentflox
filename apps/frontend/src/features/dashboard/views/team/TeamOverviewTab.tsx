@@ -20,8 +20,8 @@ import { DASHBOARD_ROUTES } from "@/constants/routes.config";
 import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
 import { EntityIcon } from "@/entities/shared/components/EntityIcon";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
-import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
-import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
+import { FolderCreationModal } from "@/entities/folders/components/FolderCreationModal";
+import { ListCreationModal } from "@/entities/lists/components/ListCreationModal";
 import { ChatCreationModal } from "@/entities/channels/components/ChatCreationModal";
 import { ShareModal } from "@/components/permissions/ShareModal";
 
@@ -656,6 +656,7 @@ export function TeamOverviewTab({ team }: { team: any }) {
             <ProjectCreationModal
                 open={projectModalOpen}
                 onOpenChange={setProjectModalOpen}
+                defaultSpaceId={team.spaceId}
                 onCreated={() => refreshTeam()}
             />
 

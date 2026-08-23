@@ -152,7 +152,7 @@ function DropdownSortableItem({
                 >
                     <Pin className={cn("h-3.5 w-3.5", view.isPinned ? "text-primary rotate-45 opacity-100" : "text-muted-foreground")} />
                 </div>
-                
+
                 {renderMoreAction ? renderMoreAction(view) : (
                     <div
                         role="button"
@@ -208,7 +208,7 @@ function TabSortableItem({ view, isActive, renderTab }: { view: ViewItem, isActi
     };
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="shrink-0 outline-none">
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="shrink-0 outline-none flex items-center h-10">
             {renderTab(view, isActive)}
         </div>
     );
@@ -435,7 +435,7 @@ export function ViewTabsOverflow({
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div ref={containerRef} className="flex items-center min-w-0 flex-1 relative">
+            <div ref={containerRef} className="flex items-center min-w-0 flex-1 relative h-10">
                 {/* Invisible measurement layer — canonical views for stable tab sizing */}
                 <div
                     ref={measureRef}
@@ -471,7 +471,7 @@ export function ViewTabsOverflow({
                                 variant="ghost"
                                 size="sm"
                                 className={cn(
-                                    "h-10 px-3 py-2 ml-0.5 shrink-0 whitespace-nowrap text-sm font-medium rounded-md",
+                                    "h-10 px-3 py-1.5 ml-0.5 shrink-0 whitespace-nowrap text-sm font-medium rounded-md",
                                     "text-muted-foreground hover:text-foreground hover:bg-slate-100 transition-colors",
                                     activeIsHidden && "text-primary font-semibold"
                                 )}

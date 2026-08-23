@@ -2,12 +2,13 @@
 
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { setCleanViewParam, parseDashboardState } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ViewTabsOverflow } from "@/features/dashboard/components/shared/ViewTabsOverflow";
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
-import { SpaceViewContextMenu } from "@/features/dashboard/components/space/SpaceViewContextMenu";
+import { ViewContextMenu } from "@/features/dashboard/components/shared/ViewContextMenu";
 import {
     ListView,
     BoardView,
@@ -187,7 +188,8 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
     const effectiveWorkspaceId = workspaceId || (list as any)?.workspaceId;
     const views = useMemo(() => {
         if (!list?.views) return [];
-        return [...list.views].sort((a: any, b: any) => {
+        const nonSidebarViews = list.views.filter((v: any) => !v.sidebarView);
+        return [...nonSidebarViews].sort((a: any, b: any) => {
             if (a.isPinned !== b.isPinned) {
                 return a.isPinned ? -1 : 1;
             }
@@ -235,22 +237,21 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
             await utils.list.get.invalidate({ id: listId });
             toast.success("View created from template");
 
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("nv", data.id);
-            router.push(`?${params.toString()}`, { scroll: false });
+            const clean = setCleanViewParam(searchParams, data.id);
+            router.push(`?${clean.toString()}`, { scroll: false });
         },
         onError: (err) => toast.error(`Failed to create view: ${err.message}`)
     });
 
     // Active Tab Logic
-    const urlViewId = searchParams.get("nv");
+    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
+    const urlViewId = parsedState.viewId;
     const activeView = views.find(v => v.id === urlViewId) || views[0];
     const activeTab = activeView?.id;
 
     const handleTabChange = useCallback((viewId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("nv", viewId);
-        router.push(`?${params.toString()}`, { scroll: false });
+        const clean = setCleanViewParam(searchParams, viewId);
+        router.push(`?${clean.toString()}`, { scroll: false });
     }, [searchParams, router]);
 
     const handleRenameView = (name: string) => {
@@ -277,7 +278,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}${window.location.pathname}?list=${listId}&lv=${view.id}`;
+        const url = `${window.location.origin}${window.location.pathname}?lt=${listId}&v=${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -306,9 +307,8 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
 
         if (lastCreatedViewId) {
             await utils.list.byContext.invalidate();
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("nv", lastCreatedViewId);
-            router.push(`?${params.toString()}`, { scroll: false });
+            const clean = setCleanViewParam(searchParams, lastCreatedViewId);
+            router.push(`?${clean.toString()}`, { scroll: false });
         }
     };
 
@@ -331,11 +331,10 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
 
     useEffect(() => {
         if (!urlViewId && views.length > 0) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("nv", views[0].id);
-            history.replaceState(null, "", `?${params.toString()}`);
+            const clean = setCleanViewParam(searchParams, views[0].id);
+            history.replaceState(null, "", `?${clean.toString()}`);
         }
-    }, [urlViewId, views, searchParams, router]);
+    }, [urlViewId, views, searchParams]);
 
     const renderViewContent = (view: any) => {
         if (!view) return null;
@@ -665,9 +664,9 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
         >
             <div className="flex h-full flex-col">
                 <Tabs value={activeTab} onValueChange={handleTabChange} className="flex h-full flex-col gap-0">
-                    <div className="dashboard-tabs-container border-b border-slate-200 bg-white px-4 py-1 transition-all">
+                    <div className="dashboard-tabs-container border-b border-slate-200 bg-white px-4 py-2 transition-all h-[57px] flex items-center shrink-0">
                         <div className="flex items-center gap-1 min-w-0 overflow-visible">
-                            <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
+                            <TabsList className="h-10 bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible transition-all duration-200">
                                 <ViewTabsOverflow
                                     views={views}
                                     activeTab={activeTab}
@@ -714,7 +713,8 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
 
                                         utils.list.get.setData({ id: listId }, (old: any) => {
                                             if (!old) return old;
-                                            return { ...old, views: newSortedViews };
+                                            const sidebarViews = (old.views ?? []).filter((v: any) => v.sidebarView);
+                                            return { ...old, views: [...newSortedViews, ...sidebarViews] };
                                         });
 
                                         utils.list.byContext.setData({ spaceId, projectId, teamId, workspaceId }, (old: any) => {
@@ -724,7 +724,8 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                                             const listIndex = oldLists.findIndex((l: any) => l.id === listId);
                                             if (listIndex === -1) return old;
 
-                                            oldLists[listIndex] = { ...oldLists[listIndex], views: newSortedViews };
+                                            const sidebarListViews = (oldLists[listIndex].views ?? []).filter((v: any) => v.sidebarView);
+                                            oldLists[listIndex] = { ...oldLists[listIndex], views: [...newSortedViews, ...sidebarListViews] };
                                             return { ...old, items: oldLists };
                                         });
 
@@ -794,7 +795,7 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                                             <ContextMenuTrigger asChild>
                                                 {trigger}
                                             </ContextMenuTrigger>
-                                            <SpaceViewContextMenu
+                                            <ViewContextMenu
                                                 view={view}
                                                 onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
                                                 onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
@@ -820,16 +821,16 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                                         const config = viewConfig[viewType] || { label: view.name, icon: FileText };
                                         const Icon = config.icon;
                                         return (
-                                            <ContextMenu key={view.id}>
-                                                <ContextMenuTrigger>
-                                                    <Tooltip>
+                                            <Tooltip key={view.id}>
+                                                <ContextMenu>
+                                                    <ContextMenuTrigger asChild>
                                                         <TooltipTrigger asChild>
                                                             <TabsTrigger value={view.id} asChild>
                                                                 <div className={cn(
                                                                     "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
                                                                     activeTab === view.id
                                                                         ? "text-primary font-medium"
-                                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                                                                 )}>
                                                                     <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
                                                                     <span className="inline-block max-w-[120px] truncate align-bottom">{view.name}</span>
@@ -842,29 +843,29 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                                                                 </div>
                                                             </TabsTrigger>
                                                         </TooltipTrigger>
-                                                        <TooltipContent>{view.name}</TooltipContent>
-                                                    </Tooltip>
-                                                </ContextMenuTrigger>
-                                                <SpaceViewContextMenu
-                                                    view={view}
-                                                    onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
-                                                    onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
-                                                    onDuplicate={(v) => {
-                                                        createViewMutation.mutate({
-                                                            name: `${v.name} Copy`,
-                                                            type: v.type,
-                                                            listId: listId,
-                                                        });
-                                                    }}
-                                                    onTogglePin={togglePin}
-                                                    onTogglePrivate={togglePrivate}
-                                                    onToggleLock={toggleLock}
-                                                    onToggleDefault={toggleDefault}
-                                                    onCopyLink={handleCopyViewLink}
-                                                    onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
-                                                    onSaveTemplate={(v) => setViewToTemplate(v)}
-                                                />
-                                            </ContextMenu>
+                                                    </ContextMenuTrigger>
+                                                    <ViewContextMenu
+                                                        view={view}
+                                                        onRename={(v) => setViewToRename({ id: v.id, name: v.name })}
+                                                        onDelete={(v) => setViewToDelete({ id: v.id, name: v.name })}
+                                                        onDuplicate={(v) => {
+                                                            createViewMutation.mutate({
+                                                                name: `${v.name} Copy`,
+                                                                type: v.type,
+                                                                listId: listId,
+                                                            });
+                                                        }}
+                                                        onTogglePin={togglePin}
+                                                        onTogglePrivate={togglePrivate}
+                                                        onToggleLock={toggleLock}
+                                                        onToggleDefault={toggleDefault}
+                                                        onCopyLink={handleCopyViewLink}
+                                                        onShare={(v) => setViewToShare({ id: v.id, name: v.name })}
+                                                        onSaveTemplate={(v) => setViewToTemplate(v)}
+                                                    />
+                                                </ContextMenu>
+                                                <TooltipContent>{view.name}</TooltipContent>
+                                            </Tooltip>
                                         );
                                     }}
                                     renderMeasureTab={(view) => {
@@ -883,15 +884,22 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
                                 />
                             </TabsList>
                             <div className="flex items-center shrink-0">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setAddViewModalOpen(true)}
-                                    className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-                                >
-                                    <Plus className="h-4 w-4 mr-1" />
-                                    View
-                                </Button>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setAddViewModalOpen(true)}
+                                            className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            View
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        <p className="text-xs">Add view</p>
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                         </div>
                     </div>

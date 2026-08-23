@@ -3,17 +3,10 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-    DropdownMenuSub,
-    DropdownMenuSubContent,
-    DropdownMenuSubTrigger,
-    DropdownMenuPortal,
-} from "@/components/ui/dropdown-menu";
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { EnhancedIconPicker } from "@/components/ui/enhanced-icon-picker";
 import {
     MoreHorizontal,
@@ -27,9 +20,9 @@ import {
     UserPlus,
     EyeOff,
     Shield,
-    LogOut,
     SlidersHorizontal,
     Crown,
+    ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/useToast";
@@ -45,6 +38,12 @@ import { ShareModal } from "@/components/permissions/ShareModal";
 import { ListMoveToPopover } from "@/entities/lists/components/ListMoveToPopover";
 import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { CustomFieldsManagerModal } from "@/entities/customfields/components/CustomFieldsManagerModal";
+import { cn } from "@/lib/utils";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ListActionsMenuProps {
     workspaceId: string;
@@ -53,12 +52,28 @@ interface ListActionsMenuProps {
     teamId?: string;
     listId: string;
     trigger?: React.ReactNode;
+    className?: string;
+    side?: "top" | "right" | "bottom" | "left";
+    align?: "start" | "center" | "end";
+    sideOffset?: number;
 }
 
-export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listId, trigger }: ListActionsMenuProps) {
+export function ListActionsMenu({
+    workspaceId,
+    spaceId,
+    projectId,
+    teamId,
+    listId,
+    trigger,
+    className,
+    side = "right",
+    align = "start",
+    sideOffset = 6,
+}: ListActionsMenuProps) {
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const queryClient = useQueryClient();
+    const [popoverOpen, setPopoverOpen] = useState(false);
 
     // Dialog States
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -80,10 +95,12 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
 
     const updateList = trpc.list.update.useMutation({
         onSuccess: () => {
-            toast({ title: "List updated" });
             utils.list.byContext.invalidate();
             if (spaceId) {
                 utils.space.get.invalidate({ id: spaceId });
+            }
+            if (projectId) {
+                utils.project.get.invalidate({ id: projectId });
             }
         },
         onError: () => toast({ title: "Failed to update list", variant: "destructive" })
@@ -95,10 +112,12 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
             : `${window.location.origin}${window.location.pathname}?list=${listId}`;
         navigator.clipboard.writeText(url);
         toast({ title: "Link copied to clipboard" });
+        setPopoverOpen(false);
     };
 
     const handleRename = () => {
         setRenameDialogOpen(true);
+        setPopoverOpen(false);
     };
 
     const handleSaveRename = (newName: string) => {
@@ -106,34 +125,69 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
     };
 
     const handleHideList = () => {
-        // Placeholder for future implementation
-        toast({ title: "Hide list functionality coming soon", description: "You can archive the list to hide it from everyone." });
+        updateList.mutate({ id: listId, isHidden: true } as any);
+        toast({ title: "List hidden from sidebar" });
+        setPopoverOpen(false);
     };
 
     return (
         <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    {trigger || (
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-400 hover:text-zinc-900 focus-visible:ring-0">
-                            <MoreHorizontal size={16} />
-                        </Button>
-                    )}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenuLabel className="text-xs text-zinc-400 uppercase tracking-wider">Actions</DropdownMenuLabel>
+            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                {trigger ? (
+                    <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        {trigger}
+                    </PopoverTrigger>
+                ) : (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 inline-flex items-center justify-center rounded-sm hover:bg-zinc-200 text-muted-foreground hover:text-foreground cursor-pointer"
+                                >
+                                    <MoreHorizontal size={16} />
+                                </Button>
+                            </PopoverTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>List settings</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+                <PopoverContent
+                    side={side}
+                    align={align}
+                    sideOffset={sideOffset}
+                    className={cn("w-56 p-1.5 bg-white rounded-xl shadow-xl border border-zinc-200/90 flex flex-col gap-0.5 z-50", className)}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setShareModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <UserPlus className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Invite</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setShareModalOpen(true)}>
-                        <UserPlus className="mr-2 h-4 w-4" /> Invite
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleRename}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Pencil className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Rename</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={handleRename}>
-                        <Pencil className="mr-2 h-4 w-4" /> Rename
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem onClick={handleCopyLink}>
-                        <Copy className="mr-2 h-4 w-4" /> Copy Link
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleCopyLink}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Copy className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Copy Link</span>
+                    </button>
 
                     <TemplateMenuPopover
                         entityType="LIST"
@@ -148,40 +202,62 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                             listId,
                             name: list?.name ?? "List",
                         }}
-                        triggerClassName="text-sm"
+                        triggerClassName="text-sm font-normal"
                     />
 
-                    <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>
-                            <Palette className="mr-2 h-4 w-4" /> Color & Icon
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuPortal>
-                            <DropdownMenuSubContent className="p-0 border-0 bg-transparent shadow-none w-auto" sideOffset={12}>
-                                <EnhancedIconPicker
-                                    icon={list?.icon || "List"}
-                                    color={list?.color || "#5e5f61ff"}
-                                    spaceId={listId}
-                                    entityName={list?.name || "List"}
-                                    onIconChange={(newIcon) => updateList.mutate({ id: listId, icon: newIcon, color: list?.color || "#3B82F6" })}
-                                    onColorChange={(newColor) => updateList.mutate({ id: listId, icon: list?.icon || "List", color: newColor })}
-                                />
-                            </DropdownMenuSubContent>
-                        </DropdownMenuPortal>
-                    </DropdownMenuSub>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                className="flex items-center justify-between px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Palette className="h-4 w-4 shrink-0 text-zinc-500" />
+                                    <span>Color & Icon</span>
+                                </div>
+                                <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="right" align="start" className="p-0 border-0 bg-transparent shadow-none w-auto" sideOffset={12}>
+                            <EnhancedIconPicker
+                                icon={list?.icon || "List"}
+                                color={list?.color || "#5e5f61ff"}
+                                spaceId={listId}
+                                entityName={list?.name || "List"}
+                                onIconChange={(newIcon) => updateList.mutate({ id: listId, icon: newIcon, color: list?.color || "#3B82F6" })}
+                                onColorChange={(newColor) => updateList.mutate({ id: listId, icon: list?.icon || "List", color: newColor })}
+                            />
+                        </PopoverContent>
+                    </Popover>
 
-                    <DropdownMenuItem onClick={() => setCustomFieldsModalOpen(true)}>
-                        <SlidersHorizontal className="mr-2 h-4 w-4" /> Custom Fields
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setCustomFieldsModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <SlidersHorizontal className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Custom Fields</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={handleHideList}>
-                        <EyeOff className="mr-2 h-4 w-4" /> Hide List
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={handleHideList}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <EyeOff className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Hide List</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setPermissionsModalOpen(true)}>
-                        <Shield className="mr-2 h-4 w-4" /> Manage Access
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setPermissionsModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Shield className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Manage Access</span>
+                    </button>
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
                     <ListMoveToPopover
                         listId={listId}
@@ -189,29 +265,54 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                         workspaceId={workspaceId}
                     />
 
-                    <DropdownMenuItem onClick={() => setDuplicateDialogOpen(true)}>
-                        <CopyPlus className="mr-2 h-4 w-4" /> Duplicate
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setDuplicateDialogOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <CopyPlus className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Duplicate</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setTransferModalOpen(true)}>
-                        <Crown className="mr-2 h-4 w-4" /> Transfer Ownership
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setTransferModalOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Crown className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Transfer Ownership</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setArchiveDialogOpen(true)}>
-                        <Archive className="mr-2 h-4 w-4" /> Archive
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setArchiveDialogOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Archive className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Archive</span>
+                    </button>
 
-                    <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                    </DropdownMenuItem>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setDeleteDialogOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Trash2 className="h-4 w-4 shrink-0 text-red-500" />
+                        <span>Delete</span>
+                    </button>
 
-                    <DropdownMenuSeparator />
+                    <div className="h-px bg-zinc-100 my-1 mx-1" />
 
-                    <DropdownMenuItem onClick={() => setSettingsDialogOpen(true)}>
-                        <Settings className="mr-2 h-4 w-4" /> Settings
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+                    <button
+                        type="button"
+                        onClick={() => { setPopoverOpen(false); setSettingsDialogOpen(true); }}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer w-full text-left transition-colors font-normal"
+                    >
+                        <Settings className="h-4 w-4 shrink-0 text-zinc-500" />
+                        <span>Settings</span>
+                    </button>
+                </PopoverContent>
+            </Popover>
 
             {/* Modals */}
             <EntityRenameDialog
@@ -228,8 +329,16 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                 onOpenChange={setDuplicateDialogOpen}
                 listId={listId}
                 listName={list?.name || ""}
-                listIcon={list?.icon || ""}
-                listColor={list?.color || ""}
+                listIcon={list?.icon || "📋"}
+                listColor={list?.color || "#5e5f61ff"}
+            />
+
+            <ListSettingsModal
+                open={settingsDialogOpen}
+                onOpenChange={setSettingsDialogOpen}
+                listId={listId}
+                workspaceId={workspaceId}
+                spaceId={spaceId}
             />
 
             <ListArchiveModal
@@ -239,14 +348,6 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                 listName={list?.name || ""}
             />
 
-            <ListSettingsModal
-                workspaceId={workspaceId}
-                spaceId={spaceId}
-                listId={listId}
-                open={settingsDialogOpen}
-                onOpenChange={setSettingsDialogOpen}
-            />
-
             <ListDeleteModal
                 open={deleteDialogOpen}
                 onOpenChange={setDeleteDialogOpen}
@@ -254,14 +355,30 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                 listName={list?.name || ""}
             />
 
-            <ShareModal
-                isOpen={shareModalOpen}
-                onClose={() => setShareModalOpen(false)}
-                itemType="list"
-                itemId={listId}
-                itemName={list?.name || "List"}
+            <ListTransferModal
+                open={transferModalOpen}
+                onOpenChange={setTransferModalOpen}
+                listId={listId}
+                listName={list?.name || ""}
+            />
+
+            <ListPermissionsModal
+                open={permissionsModalOpen}
+                onOpenChange={setPermissionsModalOpen}
+                listId={listId}
                 workspaceId={workspaceId}
             />
+
+            {workspaceId && (
+                <ShareModal
+                    isOpen={shareModalOpen}
+                    onClose={() => setShareModalOpen(false)}
+                    itemType="list"
+                    itemId={listId}
+                    itemName={list?.name || "List"}
+                    workspaceId={workspaceId}
+                />
+            )}
 
             <CustomFieldsManagerModal
                 open={customFieldsModalOpen}
@@ -269,20 +386,6 @@ export function ListActionsMenu({ workspaceId, spaceId, projectId, teamId, listI
                 workspaceId={workspaceId}
                 initialLocation={`list:${listId}`}
             />
-            <ListTransferModal
-                listId={listId}
-                listName={list?.name || ""}
-                open={transferModalOpen}
-                onOpenChange={setTransferModalOpen}
-            />
-
-            <ListPermissionsModal
-                workspaceId={workspaceId}
-                listId={listId}
-                open={permissionsModalOpen}
-                onOpenChange={setPermissionsModalOpen}
-            />
-
         </>
     );
 }

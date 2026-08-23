@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { SingleDateCalendar } from "@/components/ui/date-picker";
 import { DestinationPicker } from "@/entities/task/components/DestinationPicker";
 import { Info, Box, Trash2, Link, Star, GitMerge, Wand2, SquarePen, Save, Copy, LogOut, RefreshCw } from "lucide-react";
-import type { FilterCondition, FilterOperator } from "./listViewTypes";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
+import type { FilterCondition, FilterOperator } from "./viewTypes";
 import { parseEncodedTag } from "@/entities/task/utils/tags";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -102,13 +103,14 @@ import { TaskActionsPopover } from "@/entities/task/components/TaskActionsPopove
 import { TaskCalendar } from "@/entities/task/components/TaskCalendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addDays, isToday as isTodayFns, isSameDay, getWeek, startOfWeek, endOfWeek } from "date-fns";
-import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
+import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./viewConstants";
 import { evaluateGroup, hasFilterValue, hasAnyValueInGroup } from "./filterUtils";
-import type { FilterGroup } from "./listViewTypes";
+import type { FilterGroup } from "./viewTypes";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { ViewToolbarSaveDropdown } from "@/features/dashboard/components/shared/ViewToolbarSaveDropdown";
 import { ViewToolbarClosedPopover } from "@/features/dashboard/components/shared/ViewToolbarClosedPopover";
 import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
+import { ViewFilterPopoverContent } from "./ViewFilterPopoverContent";
 
 interface CalendarViewProps {
     spaceId?: string;
@@ -609,7 +611,7 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
     const FIELD_CONFIG = useMemo(() => {
         const standardFields = STANDARD_FIELD_CONFIG.map(f => ({ ...f, isCustom: false }));
         const customFieldsConfig = (customFields as any[])
-            
+
             .map((cf: any) => ({
                 id: cf.id,
                 label: cf.name,
@@ -619,6 +621,46 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
             }));
         return [...standardFields, ...customFieldsConfig];
     }, [customFields, usedCustomFieldIds]);
+
+    const viewContentToSave = useMemo(() => {
+        return {
+            id: viewId,
+            name: viewData?.name || "Calendar",
+            type: "CALENDAR",
+            workspaceId: (workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined,
+            spaceId: (spaceId || viewData?.spaceId) ?? undefined,
+            projectId: (projectId || viewData?.projectId) ?? undefined,
+            folderId: (folderId || viewData?.folderId) ?? undefined,
+            listId: (listId || viewData?.listId) ?? undefined,
+            teamId: (teamId || viewData?.teamId) ?? undefined,
+            config: {
+                calendarView: {
+                    viewMode,
+                    showWeekends,
+                    showWeekNumbers,
+                    showClosed,
+                    showSubtasks,
+                    showHourGridLines,
+                    fadeTasksInPast,
+                    alwaysStayOnThisDate,
+                    showFutureRecurringTasks,
+                    showTasksFromOtherLists,
+                    showSubtasksFromOtherLists,
+                    myTasksFromAllLists,
+                    defaultToMeMode,
+                    filterGroups,
+                    viewAutosave,
+                }
+            },
+            filters: filterGroups,
+        };
+    }, [
+        viewId, viewData, workspaceId, resolvedWorkspaceId, spaceId, projectId, folderId, listId, teamId,
+        viewMode, showWeekends, showWeekNumbers, showClosed, showSubtasks,
+        showHourGridLines, fadeTasksInPast, alwaysStayOnThisDate, showFutureRecurringTasks,
+        showTasksFromOtherLists, showSubtasksFromOtherLists, myTasksFromAllLists,
+        defaultToMeMode, filterGroups, viewAutosave
+    ]);
 
     // Filtering logic
     const filteredTasks = useMemo(() => {
@@ -915,7 +957,8 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
     };
 
 
-    const addFilterCondition = (groupId: string = "root") => {
+    const addFilterCondition = (groupId?: string) => {
+        const targetId = groupId || "root";
         // Start with an empty field so the UI shows "Select filter" like ClickUp
         const newCond: FilterCondition = {
             id: Math.random().toString(36).substring(7),
@@ -924,7 +967,7 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
             value: [],
         };
         const update = (group: FilterGroup): FilterGroup => {
-            if (group.id === groupId) return { ...group, conditions: [...group.conditions, newCond] };
+            if (group.id === targetId) return { ...group, conditions: [...group.conditions, newCond] };
             return { ...group, conditions: group.conditions.map(c => "conditions" in c ? update(c as FilterGroup) : c) };
         };
         setFilterGroups(update(filterGroups));
@@ -1080,655 +1123,38 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
         setSavedFiltersPanelOpen(false);
     };
 
-    const renderFilterContent = (props?: { onClose?: () => void }) => {
-        return (
-            <div className="flex flex-col max-h-[85vh]">
-                <div className="flex items-center justify-between p-4 border-b border-zinc-100 bg-zinc-50/50">
-                    <div>
-                        <h3 className="font-bold text-zinc-900 flex items-center gap-2 text-base">
-                            Filters
-                            <Info className="h-4 w-4 text-zinc-400" />
-                        </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Popover open={savedFiltersPanelOpen} onOpenChange={setSavedFiltersPanelOpen}>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 text-xs font-bold gap-1.5 border-zinc-200 shadow-none hover:bg-white"
-                                >
-                                    Saved filters
-                                    <ChevronDown className={cn("h-3 w-3 transition-transform", savedFiltersPanelOpen && "rotate-180")} />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="end" className="w-80 p-0 overflow-hidden shadow-2xl">
-                                <div className="p-3 border-b border-zinc-100 bg-zinc-50/50">
-                                    <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
-                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                        <Input
-                                            variant="ghost"
-                                            placeholder="Search..."
-                                            className="h-full px-2 text-xs border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0"
-                                            value={savedFiltersSearch}
-                                            onChange={e => setSavedFiltersSearch(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="max-h-[300px] overflow-auto">
-                                    {savedFilters.length === 0 ? (
-                                        <div className="p-8 text-center bg-white">
-                                            <p className="text-xs text-zinc-400">No saved filters yet</p>
-                                        </div>
-                                    ) : (
-                                        <div className="p-1 space-y-0.5 bg-white">
-                                            <p className="px-3 py-1.5 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Workspace</p>
-                                            {savedFilters
-                                                .filter(f => !savedFiltersSearch || f.name.toLowerCase().includes(savedFiltersSearch.toLowerCase()))
-                                                .map(f => (
-                                                    <div
-                                                        key={f.id}
-                                                        className="group flex items-center justify-between px-3 py-2 rounded-lg hover:bg-zinc-50 cursor-pointer transition-colors"
-                                                        onClick={() => applySavedFilter(f.config)}
-                                                    >
-                                                        <span className="text-xs font-medium text-zinc-700">{f.name}</span>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-zinc-200"
-                                                            onClick={(e) => deleteSavedFilter(f.id, e)}
-                                                        >
-                                                            <Trash2 className="h-3 w-3 text-zinc-400" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="p-3 border-t border-zinc-100 bg-zinc-50/30">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            placeholder="Name..."
-                                            className="h-8 text-xs flex-1"
-                                            value={savedFilterName}
-                                            onChange={e => setSavedFilterName(e.target.value)}
-                                        />
-                                        <Button
-                                            className="h-8 text-xs font-bold bg-zinc-900 hover:bg-black text-white px-3"
-                                            onClick={saveNewFilter}
-                                            disabled={!savedFilterName.trim()}
-                                        >
-                                            Save new filter
-                                        </Button>
-                                    </div>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-zinc-100" onClick={() => props?.onClose ? props.onClose() : setFiltersPanelOpen(false)}><X className="h-4 w-4" /></Button>
-                    </div>
-                </div>
-
-                {filterGroups.conditions.length === 0 ? (
-                    <div className="p-6 h-[88px]">
-                        <Button
-                            className="h-9 px-3 text-sm font-bold bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl shadow-sm cursor-pointer"
-                            onClick={() => addFilterGroup()}
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add filter
-                        </Button>
-                    </div>
-                ) : (
-                    <ScrollArea className="p-5 text-sm h-[350px]">
-                        <div className="space-y-4">
-                            <div className="space-y-4">
-                                {/* Render each top-level group */}
-                                {(() => {
-                                    const hasAnyValueAtRoot = filterGroups.conditions.some(c => {
-                                        if ("conditions" in c) {
-                                            return hasAnyValueInGroup(c as FilterGroup);
-                                        }
-                                        return hasFilterValue(c as FilterCondition);
-                                    });
-
-                                    // If any group has a value, only show groups with values
-                                    // BUT always show ALL empty groups at the end to allow adding multiple filters
-                                    const visibleGroups = hasAnyValueAtRoot
-                                        ? (() => {
-                                            const groupsWithValues = filterGroups.conditions.filter(c => {
-                                                if ("conditions" in c) {
-                                                    return hasAnyValueInGroup(c as FilterGroup);
-                                                }
-                                                return hasFilterValue(c as FilterCondition);
-                                            });
-                                            // Include ALL empty groups at the end (not just the last one)
-                                            const emptyGroups = filterGroups.conditions.filter(c => {
-                                                if ("conditions" in c) {
-                                                    return !hasAnyValueInGroup(c as FilterGroup);
-                                                }
-                                                return !hasFilterValue(c as FilterCondition);
-                                            });
-                                            // Return groups with values first, then all empty groups
-                                            return [...groupsWithValues, ...emptyGroups];
-                                        })()
-                                        : filterGroups.conditions;
-
-                                    return visibleGroups.map((groupItem, visibleGroupIdx) => {
-                                        const isGroup = "conditions" in groupItem;
-                                        if (!isGroup) {
-                                            // This shouldn't happen at root level, but handle it gracefully
-                                            return null;
-                                        }
-                                        const group = groupItem as FilterGroup;
-
-                                        // Find the original index in the full conditions array for "where" label logic
-                                        const originalIdx = filterGroups.conditions.findIndex(c => c.id === group.id);
-                                        const isFirstWithValue = hasAnyValueAtRoot && visibleGroupIdx === 0;
-                                        const shouldShowWhere = !hasAnyValueAtRoot ? (originalIdx === 0) : isFirstWithValue;
-                                        const shouldShowOperator = visibleGroups.length > 1 && visibleGroupIdx === 1;
-
-                                        return (
-                                            <div key={group.id} className="flex gap-3 items-start">
-                                                {/* Operator selector for inter-group logic - only show when multiple groups */}
-                                                {visibleGroups.length > 1 && (
-                                                    <div className="w-[60px] flex justify-end items-center shrink-0">
-                                                        {shouldShowWhere ? (
-                                                            <span className="text-[10px] font-bold text-zinc-400/80 pr-3 uppercase tracking-wider">Where</span>
-                                                        ) : shouldShowOperator ? (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-8 w-[50px] text-xs font-black uppercase tracking-widest bg-white border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer mr-2 pl-2 pr-1"
-                                                                onClick={() => updateFilterGroupOperator("root", filterGroups.operator === "AND" ? "OR" : "AND")}
-                                                            >
-                                                                {filterGroups.operator}
-                                                                <ChevronDown className="h-3 w-3 ml-0 opacity-40 shrink-0" />
-                                                            </Button>
-                                                        ) : (
-                                                            <div className="pr-3 flex items-center h-8">
-                                                                <span className="text-xs font-black uppercase tracking-widest text-zinc-300">{filterGroups.operator}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Group block */}
-                                                <div className="flex-1 p-5 bg-zinc-50/50 rounded-2xl border border-zinc-100/80 space-y-4">
-                                                    {/* Render conditions within this group */}
-                                                    {(() => {
-                                                        const hasAnyValue = hasAnyValueInGroup(group);
-                                                        // If any condition has a value, only show conditions with values
-                                                        // BUT always show ALL empty conditions at the end to allow adding multiple nested filters
-                                                        const visibleConditions = hasAnyValue
-                                                            ? (() => {
-                                                                const conditionsWithValues = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                // Include ALL empty conditions at the end (not just the last one)
-                                                                const emptyConditions = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return !hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return !hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                // Return conditions with values first, then all empty conditions
-                                                                return [...conditionsWithValues, ...emptyConditions];
-                                                            })()
-                                                            : group.conditions;
-
-                                                        return visibleConditions.map((item, visibleIdx) => {
-                                                            const isNestedGroup = "conditions" in item;
-                                                            const cond = !isNestedGroup ? (item as FilterCondition) : null;
-                                                            const field = cond ? (FILTER_OPTIONS.find(f => f.id === cond.field) || FIELD_CONFIG.find(f => f.id === cond.field)) : null;
-                                                            const availableOps = cond ? (FIELD_OPERATORS[cond.field] || [{ id: "is", label: "Is" }]) : [];
-
-                                                            if (isNestedGroup) {
-                                                                // Handle nested groups if needed (for future expansion)
-                                                                return null;
-                                                            }
-
-                                                            // Find the original index in the full conditions array for "where" label logic
-                                                            const originalIdx = group.conditions.findIndex(c => c.id === item.id);
-                                                            const isFirstWithValue = hasAnyValue && visibleIdx === 0;
-                                                            const shouldShowWhere = !hasAnyValue ? (originalIdx === 0) : isFirstWithValue;
-                                                            const shouldShowOperator = visibleConditions.length > 1 && visibleIdx === 1;
-
-                                                            return (
-                                                                <div key={item.id} className="flex gap-3 items-start">
-                                                                    {/* Label Column for conditions within group - only show when multiple conditions */}
-                                                                    {visibleConditions.length > 1 && (
-                                                                        <div className="w-[60px] flex justify-end items-center shrink-0">
-                                                                            {shouldShowWhere ? (
-                                                                                <span className="text-[10px] font-bold text-zinc-400/80 pr-3 uppercase tracking-wider">Where</span>
-                                                                            ) : shouldShowOperator ? (
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    className="h-8 w-[50px] text-xs font-black uppercase tracking-widest bg-white border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer mr-2 pl-2 pr-1"
-                                                                                    onClick={() => updateFilterGroupOperator(group.id, group.operator === "AND" ? "OR" : "AND")}
-                                                                                >
-                                                                                    {group.operator}
-                                                                                    <ChevronDown className="h-3 w-3 ml-0 opacity-40 shrink-0" />
-                                                                                </Button>
-                                                                            ) : (
-                                                                                <span className="text-xs font-black uppercase tracking-widest text-zinc-300 pr-3">{group.operator}</span>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-
-                                                                    {/* Filter condition content */}
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex gap-2 items-center">
-                                                                            <DropdownMenu>
-                                                                                <DropdownMenuTrigger asChild>
-                                                                                    <Button variant="ghost" size="sm" className="h-8 text-xs font-medium gap-2 px-3 hover:bg-zinc-50 shrink-0 justify-between w-[120px] bg-white border border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer text-zinc-700 truncate whitespace-nowrap">
-                                                                                        <div className="flex items-center gap-2 min-w-0">
-                                                                                            {field ? (
-                                                                                                <>
-                                                                                                    {typeof field.icon === "function" ? <field.icon className="h-3.5 w-3.5 text-zinc-500 shrink-0" /> : <Box className="h-3.5 w-3.5 text-zinc-500 shrink-0" />}
-                                                                                                    <span className="truncate">{field.label}</span>
-                                                                                                </>
-                                                                                            ) : (
-                                                                                                <span className="text-zinc-500">Select filter</span>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        <ChevronDown className="h-3 w-3 opacity-30 shrink-0" />
-                                                                                    </Button>
-                                                                                </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent
-                                                                                    side="bottom"
-                                                                                    align="start"
-                                                                                    avoidCollisions={false}
-                                                                                    sideOffset={6}
-                                                                                    className="w-64 max-h-[400px] overflow-auto p-0"
-                                                                                >
-                                                                                    <div className="p-2 border-b border-zinc-100 sticky top-0 bg-white z-10">
-                                                                                        <Input placeholder="Search fields..." className="h-8 text-xs border-zinc-100" value={filterSearch} onChange={e => setFilterSearch(e.target.value)} />
-                                                                                    </div>
-                                                                                    <div className="p-1">
-                                                                                        {FILTER_OPTIONS.filter(f => !filterSearch || f.label.toLowerCase().includes(filterSearch.toLowerCase())).map(f => (
-                                                                                            <DropdownMenuItem key={f.id} onClick={() => { updateFilterCondition(cond!.id, { field: f.id as string, operator: (FIELD_OPERATORS[f.id] || [{ id: "is" }])[0].id, value: [] }); setFilterSearch(""); }} className="rounded-lg h-9">
-                                                                                                <div className="flex items-center gap-2.5">
-                                                                                                    {typeof f.icon === "function" ? <f.icon className="h-4 w-4 text-zinc-400" /> : <Box className="h-4 w-4 text-zinc-400" />}
-                                                                                                    <span className="font-medium text-zinc-700">{f.label}</span>
-                                                                                                </div>
-                                                                                            </DropdownMenuItem>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                </DropdownMenuContent>
-                                                                            </DropdownMenu>
-
-                                                                            {field && (
-                                                                                <>
-                                                                                    <DropdownMenu>
-                                                                                        <DropdownMenuTrigger asChild>
-                                                                                            <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold px-3 text-zinc-800 hover:bg-zinc-50 shrink-0 w-20 justify-start bg-white border border-zinc-200 rounded-sm shadow-sm hover:border-zinc-300 cursor-pointer">
-                                                                                                {availableOps.find(o => o.id === cond!.operator)?.label || cond!.operator}
-                                                                                                <ChevronDown className="h-3 w-3 ml-auto opacity-30" />
-                                                                                            </Button>
-                                                                                        </DropdownMenuTrigger>
-                                                                                        <DropdownMenuContent className="w-48 p-1">
-                                                                                            {availableOps.map(op => (
-                                                                                                <DropdownMenuItem key={op.id} onClick={() => updateFilterCondition(cond!.id, { operator: op.id as any })} className="rounded-lg h-9">
-                                                                                                    <span className="font-medium text-zinc-700">{op.label}</span>
-                                                                                                </DropdownMenuItem>
-                                                                                            ))}
-                                                                                        </DropdownMenuContent>
-                                                                                    </DropdownMenu>
-
-                                                                                    <div className="flex-1 min-w-0">
-                                                                                        {cond!.operator === "is_set" || cond!.operator === "is_not_set" || cond!.operator === "is_archived" || cond!.operator === "is_not_archived" || cond!.operator === "has" || cond!.operator === "doesnt_have" ? null : (
-                                                                                            <>
-                                                                                                {cond!.field === "status" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-56 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {allAvailableStatuses.map(s => (
-                                                                                                                    <label key={s.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(s.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, s.id] : current.filter(id => id !== s.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate">{s.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "priority" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-48 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {["URGENT", "HIGH", "NORMAL", "LOW"].map(p => (
-                                                                                                                    <label key={p} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(p)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, p] : current.filter(val => val !== p);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <Flag className={cn("h-3.5 w-3.5", getPriorityStyles(p).icon)} />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate capitalize">{p.toLowerCase()}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "assignee" || cond!.field === "createdBy" || cond!.field === "follower" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-64 p-2">
-                                                                                                            <div className="p-2 border-b border-zinc-100 mb-1">
-                                                                                                                <div className="flex items-center h-8 rounded-md border border-zinc-200 bg-white px-2">
-                                                                                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                                                                                                    <Input variant="ghost" placeholder="Search people..." className="h-full px-2 text-[10px] border-0 bg-transparent shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0" value={assigneesSearch} onChange={e => setAssigneesSearch(e.target.value)} />
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                            <ScrollArea className="h-[240px]">
-                                                                                                                {users.filter(u => !assigneesSearch || u.name?.toLowerCase().includes(assigneesSearch.toLowerCase())).map(u => (
-                                                                                                                    <label key={u.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(u.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, u.id] : current.filter(id => id !== u.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <Avatar className="h-6 w-6">
-                                                                                                                            <AvatarImage src={u.image || undefined} />
-                                                                                                                            <AvatarFallback className="text-[10px]">{u.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
-                                                                                                                        </Avatar>
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 truncate">{u.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </ScrollArea>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "tags" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} tags selected`
-                                                                                                                    : "Select option"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-56 p-2">
-                                                                                                            {allAvailableTags.length === 0 ? (
-                                                                                                                <p className="text-[10px] text-zinc-500 p-4 text-center">No tags found in this view</p>
-                                                                                                            ) : (
-                                                                                                                <div className="space-y-0.5">
-                                                                                                                    {allAvailableTags.map(tag => {
-                                                                                                                        const parsed = parseEncodedTag(tag);
-                                                                                                                        return (
-                                                                                                                            <label key={tag} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                                <Checkbox
-                                                                                                                                    checked={Array.isArray(cond!.value) && cond!.value.includes(tag)}
-                                                                                                                                    onCheckedChange={(checked) => {
-                                                                                                                                        const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                        const next = checked ? [...current, tag] : current.filter(t => t !== tag);
-                                                                                                                                        updateFilterCondition(cond!.id, { value: next });
-                                                                                                                                    }}
-                                                                                                                                />
-                                                                                                                                <span className="text-[11px] font-bold px-2 py-1 rounded-md" style={{ backgroundColor: parsed.color + '20', color: parsed.color }}>
-                                                                                                                                    {parsed.label}
-                                                                                                                                </span>
-                                                                                                                            </label>
-                                                                                                                        );
-                                                                                                                    })}
-                                                                                                                </div>
-                                                                                                            )}
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "dependency" ? (
-                                                                                                    <DropdownMenu>
-                                                                                                        <DropdownMenuTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {cond!.value || "Select dependency type"}
-                                                                                                            </Button>
-                                                                                                        </DropdownMenuTrigger>
-                                                                                                        <DropdownMenuContent align="start" className="w-48">
-                                                                                                            {["Blocking", "Waiting on", "Link", "Any"].map(v => (
-                                                                                                                <DropdownMenuItem key={v} onClick={() => updateFilterCondition(cond!.id, { value: v })} className="text-xs font-medium">
-                                                                                                                    {v}
-                                                                                                                </DropdownMenuItem>
-                                                                                                            ))}
-                                                                                                        </DropdownMenuContent>
-                                                                                                    </DropdownMenu>
-                                                                                                ) : cond!.field === "taskType" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {Array.isArray(cond!.value) && cond!.value.length > 0
-                                                                                                                    ? `${cond!.value.length} selected`
-                                                                                                                    : "Select type"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-48 p-2">
-                                                                                                            <div className="space-y-0.5">
-                                                                                                                {availableTaskTypes?.map((t: any) => (
-                                                                                                                    <label key={t.id} className="flex items-center gap-2 p-2 hover:bg-zinc-50 rounded-lg cursor-pointer transition-colors">
-                                                                                                                        <Checkbox
-                                                                                                                            checked={Array.isArray(cond!.value) && cond!.value.includes(t.id)}
-                                                                                                                            onCheckedChange={(checked) => {
-                                                                                                                                const current = Array.isArray(cond!.value) ? cond!.value : [];
-                                                                                                                                const next = checked ? [...current, t.id] : current.filter(val => val !== t.id);
-                                                                                                                                updateFilterCondition(cond!.id, { value: next });
-                                                                                                                            }}
-                                                                                                                        />
-                                                                                                                        <TaskTypeIcon type={t} className="h-3.5 w-3.5" />
-                                                                                                                        <span className="text-xs font-medium text-zinc-700 capitalize">{t.name}</span>
-                                                                                                                    </label>
-                                                                                                                ))}
-                                                                                                            </div>
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : ["dueDate", "startDate", "dateDone", "dateCreated", "dateUpdated", "latestStatusChange"].includes(cond!.field) ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {(() => {
-                                                                                                                    const raw = cond!.value;
-                                                                                                                    const ts = typeof raw === "number" && raw > 0 ? raw : null;
-                                                                                                                    return ts ? format(new Date(ts), "MMM d, yyyy") : "Select date";
-                                                                                                                })()}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-auto p-0">
-                                                                                                            <SingleDateCalendar
-                                                                                                                selectedDate={(() => {
-                                                                                                                    const raw = cond!.value;
-                                                                                                                    if (typeof raw !== "number" || raw <= 0) return undefined;
-                                                                                                                    return new Date(raw);
-                                                                                                                })()}
-                                                                                                                onDateChange={(d) => updateFilterCondition(cond!.id, { value: d ? d.getTime() : null })}
-                                                                                                            />
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : cond!.field === "location" ? (
-                                                                                                    <Popover>
-                                                                                                        <PopoverTrigger asChild>
-                                                                                                            <Button variant="ghost" size="sm" className="h-8 w-full text-xs font-medium justify-start px-2 hover:bg-zinc-50 border border-zinc-100 rounded-sm">
-                                                                                                                {cond!.value ? "Location selected" : "Select location"}
-                                                                                                            </Button>
-                                                                                                        </PopoverTrigger>
-                                                                                                        <PopoverContent align="start" className="w-[300px] p-0">
-                                                                                                            <DestinationPicker
-                                                                                                                workspaceId={resolvedWorkspaceId as string}
-                                                                                                                onSelect={(listId) => updateFilterCondition(cond!.id, { value: listId })}
-                                                                                                            />
-                                                                                                        </PopoverContent>
-                                                                                                    </Popover>
-                                                                                                ) : (
-                                                                                                    <div className="relative">
-                                                                                                        <Input
-                                                                                                            className="h-8 text-xs border-zinc-100 bg-white rounded-sm focus-visible:ring-violet-500 pr-8"
-                                                                                                            placeholder="Select option"
-                                                                                                            value={typeof cond!.value === "string" ? cond!.value : ""}
-                                                                                                            onChange={e => updateFilterCondition(cond!.id, { value: e.target.value })}
-                                                                                                        />
-                                                                                                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-zinc-300 pointer-events-none" />
-                                                                                                    </div>
-                                                                                                )}
-                                                                                            </>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0 mt-1 cursor-pointer" onClick={() => {
-                                                                        if (group.conditions.length === 1) {
-                                                                            // If this is the last condition in the group, remove the entire group
-                                                                            removeFilterItem(group.id);
-                                                                        } else {
-                                                                            // Otherwise, just remove this condition
-                                                                            removeFilterItem(item.id);
-                                                                        }
-                                                                    }}>
-                                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()}
-
-                                                    {/* Add nested filter button within group - hide only for first root-level "Where" condition when displaying first filter item with value */}
-                                                    {(() => {
-                                                        const hasAnyValue = hasAnyValueInGroup(group);
-                                                        // Get visible conditions to check if first one is "Where" with value
-                                                        const visibleConditions = hasAnyValue
-                                                            ? (() => {
-                                                                const conditionsWithValues = group.conditions.filter(c => {
-                                                                    if ("conditions" in c) {
-                                                                        return hasAnyValueInGroup(c as FilterGroup);
-                                                                    }
-                                                                    return hasFilterValue(c as FilterCondition);
-                                                                });
-                                                                const lastCondition = group.conditions[group.conditions.length - 1];
-                                                                if (lastCondition && !conditionsWithValues.includes(lastCondition)) {
-                                                                    const lastHasValue = "conditions" in lastCondition
-                                                                        ? hasAnyValueInGroup(lastCondition as FilterGroup)
-                                                                        : hasFilterValue(lastCondition as FilterCondition);
-                                                                    if (!lastHasValue) {
-                                                                        return [...conditionsWithValues, lastCondition];
-                                                                    }
-                                                                }
-                                                                return conditionsWithValues;
-                                                            })()
-                                                            : group.conditions;
-
-                                                        // Check if this is the first root-level group
-                                                        const isFirstRootGroup = filterGroups.conditions.findIndex(c => c.id === group.id) === 0;
-
-                                                        // Check if first visible condition is the first "Where" condition with value
-                                                        const firstVisibleCondition = visibleConditions[0];
-                                                        const firstConditionInGroup = group.conditions[0];
-
-                                                        // Hide if:
-                                                        // 1. This is the first root-level group
-                                                        // 2. We're displaying filters with values (hasAnyValue is true)
-                                                        // 3. The first visible condition exists and has a value
-                                                        // 4. The first visible condition is the first condition in the original group (the "Where" condition)
-                                                        const isFirstWhereWithValue = isFirstRootGroup &&
-                                                            hasAnyValue &&
-                                                            firstVisibleCondition &&
-                                                            !("conditions" in firstVisibleCondition) &&
-                                                            hasFilterValue(firstVisibleCondition as FilterCondition) &&
-                                                            firstConditionInGroup &&
-                                                            firstConditionInGroup.id === firstVisibleCondition.id;
-
-                                                        // Hide only if it's the first root-level "Where" condition with value
-                                                        return !isFirstWhereWithValue && (
-                                                            <div className="flex items-center justify-between pt-2 group/footer">
-                                                                <button
-                                                                    className="text-[11px] font-bold text-zinc-400 hover:text-zinc-500 hover:bg-zinc-200 cursor-pointer px-2 py-1 rounded-md"
-                                                                    onClick={() => addFilterCondition(group.id)}
-                                                                >
-                                                                    Add nested filter
-                                                                </button>
-                                                                {group.conditions.length >= 2 && (
-                                                                    <button
-                                                                        className="text-[11px] font-bold text-zinc-400 hover:text-zinc-500 hover:bg-zinc-200 transition-colors opacity-0 group-hover/footer:opacity-100 cursor-pointer px-2 py-1 rounded-md"
-                                                                        onClick={() => removeFilterItem(group.id)}
-                                                                    >
-                                                                        Clear group
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        );
-                                    });
-                                })()}
-
-                            </div>
-                        </div>
-                    </ScrollArea>
-                )}
-                {filterGroups.conditions.length > 0 && (
-                    <div className="w-full p-4 border-t border-zinc-100 bg-white flex items-center justify-between z-10">
-                        <Button
-                            variant="outline"
-                            className="h-9 px-3 text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200 rounded-xl cursor-pointer"
-                            onClick={() => addFilterGroup()}
-                        >
-                            <Plus className="h-4 w-4 mr-1.5" />
-                            Add filter
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-500 hover:text-red-600 font-medium px-3 hover:bg-red-50 border border-red-200 rounded-xl cursor-pointer"
-                            onClick={() => setFilterGroups({
-                                id: "root",
-                                operator: "AND",
-                                conditions: [],
-                            })}
-                        >
-                            Clear all
-                        </Button>
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-
+    const renderFilterContent = (opts?: { onClose?: () => void }) => (
+        <ViewFilterPopoverContent
+            onClose={opts?.onClose ?? (() => setFiltersPanelOpen(false))}
+            savedFiltersPanelOpen={savedFiltersPanelOpen}
+            setSavedFiltersPanelOpen={setSavedFiltersPanelOpen}
+            savedFiltersSearch={savedFiltersSearch}
+            setSavedFiltersSearch={setSavedFiltersSearch}
+            savedFilterName={savedFilterName}
+            setSavedFilterName={setSavedFilterName}
+            savedFilters={savedFilters}
+            saveNewFilter={saveNewFilter}
+            deleteSavedFilter={deleteSavedFilter}
+            applySavedFilter={applySavedFilter}
+            filterGroups={filterGroups}
+            setFilterGroups={setFilterGroups}
+            addFilterGroup={addFilterGroup}
+            addFilterCondition={addFilterCondition}
+            removeFilterItem={removeFilterItem}
+            updateFilterCondition={updateFilterCondition}
+            updateFilterGroupOperator={updateFilterGroupOperator}
+            filterSearch={filterSearch}
+            setFilterSearch={setFilterSearch}
+            assigneesSearch={assigneesSearch}
+            setAssigneesSearch={setAssigneesSearch}
+            FIELD_CONFIG={FIELD_CONFIG}
+            users={users}
+            allAvailableStatuses={allAvailableStatuses}
+            allAvailableTags={allAvailableTags}
+            availableTaskTypes={availableTaskTypes}
+            resolvedWorkspaceId={resolvedWorkspaceId}
+        />
+    );
 
     if (isTasksLoading) {
         return (
@@ -2105,9 +1531,9 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
     };
 
     return (
-        <div className="h-full flex flex-col bg-white border border-zinc-200 shadow-sm overflow-hidden text-[13px] relative">
+        <div className="h-full flex flex-col bg-white shadow-sm overflow-hidden text-[13px] relative">
             {/* Toolbar */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-100 bg-white min-h-[52px] gap-4">
+            <div className="flex items-center justify-between px-4 py-2 bg-white min-h-[52px] gap-4">
                 <div className="flex items-center gap-3">
                     <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-medium text-zinc-700 bg-zinc-50 border-zinc-200 hover:bg-zinc-100 cursor-pointer" onClick={() => setCurrentDate(new Date())}>
                         Today
@@ -2711,181 +2137,181 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                                     </div>
                                 ))}
                             </div>
-                                <div className="grid grid-cols-7 auto-rows-[minmax(185px,1fr)]">
-                                    {calendarDays.map((date, i) => {
-                                        const dateKey = format(date, 'yyyy-MM-dd');
-                                        const dayTasks = tasksByDate.get(dateKey) || [];
-                                        const isCurrent = isTodayFns(date);
-                                        const isSelectedMonth = date.getMonth() === currentDate.getMonth();
-                                        const isExpanded = expandedMonthCells[dateKey];
-                                        const visibleTasks = isExpanded ? dayTasks : dayTasks.slice(0, 5);
-                                        const hiddenCount = dayTasks.length - 5;
-                                        const isInlineCreate = inlineCreateState?.dayKey === dateKey && inlineCreateState?.hour === -1;
+                            <div className="grid grid-cols-7 auto-rows-[minmax(185px,1fr)]">
+                                {calendarDays.map((date, i) => {
+                                    const dateKey = format(date, 'yyyy-MM-dd');
+                                    const dayTasks = tasksByDate.get(dateKey) || [];
+                                    const isCurrent = isTodayFns(date);
+                                    const isSelectedMonth = date.getMonth() === currentDate.getMonth();
+                                    const isExpanded = expandedMonthCells[dateKey];
+                                    const visibleTasks = isExpanded ? dayTasks : dayTasks.slice(0, 5);
+                                    const hiddenCount = dayTasks.length - 5;
+                                    const isInlineCreate = inlineCreateState?.dayKey === dateKey && inlineCreateState?.hour === -1;
 
-                                        return (
-                                            <div
-                                                key={i}
-                                                className={cn(
-                                                    "border-r border-b border-zinc-200 group transition-all relative min-h-[185px]",
-                                                    !isSelectedMonth && "bg-zinc-50/30",
-                                                    isCurrent && "ring-inset ring-[1px] ring-zinc-900 z-10",
-                                                    isInlineCreate && "z-[60]"
-                                                )}
-                                                onClick={() => {
-                                                    setSelectedDateForNewTask(date);
-                                                    setIsCreateModalOpen(true);
-                                                }}
-                                            >
-                                                {isInlineCreate && renderInlineCreateForm(true, i % 7, 7, false)}
+                                    return (
+                                        <div
+                                            key={i}
+                                            className={cn(
+                                                "border-r border-b border-zinc-200 group transition-all relative min-h-[185px]",
+                                                !isSelectedMonth && "bg-zinc-50/30",
+                                                isCurrent && "ring-inset ring-[1px] ring-zinc-900 z-10",
+                                                isInlineCreate && "z-[60]"
+                                            )}
+                                            onClick={() => {
+                                                setSelectedDateForNewTask(date);
+                                                setIsCreateModalOpen(true);
+                                            }}
+                                        >
+                                            {isInlineCreate && renderInlineCreateForm(true, i % 7, 7, false)}
 
-                                                <div className={cn(
-                                                    "absolute flex flex-col z-0 cursor-default",
-                                                    isExpanded
-                                                        ? "top-[-4px] left-[-4px] right-[-4px] bg-white border border-zinc-200 shadow-[0_12px_45px_rgba(0,0,0,0.18)] rounded-lg p-1.5 z-[70] h-max min-h-[calc(100%+8px)]"
-                                                        : "left-2 right-2 top-1.5 bottom-1.5"
-                                                )} onClick={(e) => { if (isExpanded) e.stopPropagation(); }}>
-                                                    <div className={cn("flex-1 space-y-1 mb-1", !isExpanded && "overflow-hidden")}>
-                                                        {visibleTasks.map((task) => {
-                                                            const statusColor = task.status?.color || "#a1a1aa";
-                                                            return (
-                                                                <div
-                                                                    key={task.id}
-                                                                    className={cn(
-                                                                        "px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-1 text-zinc-700 group/task relative",
-                                                                        "hover:opacity-80 border"
-                                                                    )}
-                                                                    style={{
-                                                                        backgroundColor: `${statusColor}15`,
-                                                                        borderColor: `${statusColor}30`,
-                                                                    }}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        onTaskSelect ? onTaskSelect(task.id) : setSelectedDetailTaskId(task.id);
-                                                                    }}
-                                                                >
-                                                                    <Popover>
-                                                                        <TooltipProvider delayDuration={300}>
-                                                                            <Tooltip>
-                                                                                <PopoverTrigger asChild>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <div
-                                                                                            onClick={(e) => e.stopPropagation()}
-                                                                                            className="absolute top-0 bottom-0 left-0 w-[3px] group-hover/task:-left-[13px] group-hover/task:w-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer hover:brightness-95 z-10 shadow-sm rounded-l-[2px]"
-                                                                                            style={{ backgroundColor: statusColor }}
-                                                                                        >
-                                                                                            <div className="w-[6px] h-[6px] border-[1.5px] border-black/20 rounded-[2px] opacity-0 group-hover/task:opacity-100 transition-opacity" />
-                                                                                        </div>
-                                                                                    </TooltipTrigger>
-                                                                                </PopoverTrigger>
-                                                                                <TooltipContent side="left" className="bg-zinc-800 text-white border-zinc-700 text-[11px] font-medium px-2 py-1 z-50">
-                                                                                    Change status
-                                                                                </TooltipContent>
-                                                                            </Tooltip>
-                                                                        </TooltipProvider>
-                                                                        <PopoverContent side="left" align="start" className="w-[200px] p-2 shadow-xl border-zinc-200 rounded-lg z-[100]" onClick={(e) => e.stopPropagation()}>
-                                                                            <Input placeholder="Search..." className="h-8 text-xs mb-2 bg-zinc-50 border-zinc-200" />
-                                                                            <div className="max-h-[250px] overflow-y-auto pr-1 space-y-3">
-                                                                                {Object.entries(groupedStatuses).map(([groupName, statuses]) => {
-                                                                                    if (statuses.length === 0) return null;
-                                                                                    return (
-                                                                                        <div key={groupName}>
-                                                                                            <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">{groupName}</div>
-                                                                                            <div className="space-y-0.5">
-                                                                                                {statuses.map((s: any) => (
-                                                                                                    <button
-                                                                                                        key={s.id}
-                                                                                                        onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, s.id); }}
-                                                                                                        className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] hover:bg-zinc-100 rounded transition-colors text-zinc-700 font-medium"
-                                                                                                    >
-                                                                                                        <div className="flex items-center gap-2">
-                                                                                                            <div className="w-2.5 h-2.5 rounded-[3px]" style={{ backgroundColor: s.color }} />
-                                                                                                            <span>{s.name}</span>
-                                                                                                        </div>
-                                                                                                        {s.id === task.status?.id && <Check className="h-3 w-3 text-zinc-500" />}
-                                                                                                    </button>
-                                                                                                ))}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
-                                                                        </PopoverContent>
-                                                                    </Popover>
-                                                                    <div className="flex items-center gap-1.5 truncate relative z-0 ml-[4px]">
-                                                                        <span className="truncate">{task.title || task.name}</span>
-                                                                    </div>
-                                                                    {task.dueDate && !(task.noStartTime && task.noEndTime) && (
-                                                                        <span className="text-[9px] opacity-60 flex items-center shrink-0">
-                                                                            <Clock className="w-2.5 h-2.5 mr-0.5" />
-                                                                            {format(new Date(task.dueDate), 'h:mm a')}
-                                                                        </span>
-                                                                    )}
-                                                                    <ActionButtons task={task} />
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-
-                                                    {/* Unified Footer */}
-                                                    <div className="flex items-center justify-between mt-auto shrink-0 pointer-events-none pb-[1px]">
-                                                        <div className="flex items-center pointer-events-auto">
-                                                            {!isExpanded && hiddenCount > 0 && (
-                                                                <div
-                                                                    className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 cursor-pointer transition-colors"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        e.preventDefault();
-                                                                        setExpandedMonthCells(prev => ({ ...prev, [dateKey]: true }));
-                                                                    }}
-                                                                >
-                                                                    + {hiddenCount} MORE
-                                                                </div>
-                                                            )}
-                                                            {isExpanded && hiddenCount > 0 && (
-                                                                <div
-                                                                    className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 cursor-pointer transition-colors"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        e.preventDefault();
-                                                                        setExpandedMonthCells(prev => ({ ...prev, [dateKey]: false }));
-                                                                    }}
-                                                                >
-                                                                    {hiddenCount} LESS
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 pointer-events-auto">
-                                                            <button
-                                                                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm flex items-center justify-center h-4 w-4 bg-zinc-600 hover:bg-zinc-800 text-white rounded-[3px]"
+                                            <div className={cn(
+                                                "absolute flex flex-col z-0 cursor-default",
+                                                isExpanded
+                                                    ? "top-[-4px] left-[-4px] right-[-4px] bg-white border border-zinc-200 shadow-[0_12px_45px_rgba(0,0,0,0.18)] rounded-lg p-1.5 z-[70] h-max min-h-[calc(100%+8px)]"
+                                                    : "left-2 right-2 top-1.5 bottom-1.5"
+                                            )} onClick={(e) => { if (isExpanded) e.stopPropagation(); }}>
+                                                <div className={cn("flex-1 space-y-1 mb-1", !isExpanded && "overflow-hidden")}>
+                                                    {visibleTasks.map((task) => {
+                                                        const statusColor = task.status?.color || "#a1a1aa";
+                                                        return (
+                                                            <div
+                                                                key={task.id}
+                                                                className={cn(
+                                                                    "px-2 py-1 rounded text-[11px] font-medium transition-all cursor-pointer flex items-center justify-between gap-1 text-zinc-700 group/task relative",
+                                                                    "hover:opacity-80 border"
+                                                                )}
+                                                                style={{
+                                                                    backgroundColor: `${statusColor}15`,
+                                                                    borderColor: `${statusColor}30`,
+                                                                }}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setInlineCreateState({ dayKey: dateKey, hour: -1, half: 0 });
-                                                                    setInlineCreateText("");
-                                                                    setInlineAddTags([]);
-                                                                    setInlineAddAssigneeIds([]);
-                                                                    setInlineAddPriority(null);
-                                                                    setInlineAddDueDate(null);
-                                                                    setInlineAddStartDate(null);
-                                                                    setInlineNoStartTime(true);
-                                                                    setInlineNoEndTime(true);
+                                                                    onTaskSelect ? onTaskSelect(task.id) : setSelectedDetailTaskId(task.id);
                                                                 }}
                                                             >
-                                                                <Plus className="h-3 w-3" />
-                                                            </button>
-                                                            <span className={cn(
-                                                                "text-[12px] font-medium transition-all pointer-events-none select-none tabular-nums tracking-tight",
-                                                                isCurrent ? "font-black text-zinc-900" :
-                                                                    isSelectedMonth ? "text-zinc-500" : "text-zinc-400"
-                                                            )}>
-                                                                {format(date, 'd')}
-                                                            </span>
-                                                        </div>
+                                                                <Popover>
+                                                                    <TooltipProvider delayDuration={300}>
+                                                                        <Tooltip>
+                                                                            <PopoverTrigger asChild>
+                                                                                <TooltipTrigger asChild>
+                                                                                    <div
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                        className="absolute top-0 bottom-0 left-0 w-[3px] group-hover/task:-left-[13px] group-hover/task:w-[16px] transition-all duration-200 flex items-center justify-center cursor-pointer hover:brightness-95 z-10 shadow-sm rounded-l-[2px]"
+                                                                                        style={{ backgroundColor: statusColor }}
+                                                                                    >
+                                                                                        <div className="w-[6px] h-[6px] border-[1.5px] border-black/20 rounded-[2px] opacity-0 group-hover/task:opacity-100 transition-opacity" />
+                                                                                    </div>
+                                                                                </TooltipTrigger>
+                                                                            </PopoverTrigger>
+                                                                            <TooltipContent side="left" className="bg-zinc-800 text-white border-zinc-700 text-[11px] font-medium px-2 py-1 z-50">
+                                                                                Change status
+                                                                            </TooltipContent>
+                                                                        </Tooltip>
+                                                                    </TooltipProvider>
+                                                                    <PopoverContent side="left" align="start" className="w-[200px] p-2 shadow-xl border-zinc-200 rounded-lg z-[100]" onClick={(e) => e.stopPropagation()}>
+                                                                        <Input placeholder="Search..." className="h-8 text-xs mb-2 bg-zinc-50 border-zinc-200" />
+                                                                        <div className="max-h-[250px] overflow-y-auto pr-1 space-y-3">
+                                                                            {Object.entries(groupedStatuses).map(([groupName, statuses]) => {
+                                                                                if (statuses.length === 0) return null;
+                                                                                return (
+                                                                                    <div key={groupName}>
+                                                                                        <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">{groupName}</div>
+                                                                                        <div className="space-y-0.5">
+                                                                                            {statuses.map((s: any) => (
+                                                                                                <button
+                                                                                                    key={s.id}
+                                                                                                    onClick={(e) => { e.stopPropagation(); handleUpdateTaskStatus(task.id, s.id); }}
+                                                                                                    className="flex items-center justify-between w-full px-2 py-1.5 text-[11px] hover:bg-zinc-100 rounded transition-colors text-zinc-700 font-medium"
+                                                                                                >
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <div className="w-2.5 h-2.5 rounded-[3px]" style={{ backgroundColor: s.color }} />
+                                                                                                        <span>{s.name}</span>
+                                                                                                    </div>
+                                                                                                    {s.id === task.status?.id && <Check className="h-3 w-3 text-zinc-500" />}
+                                                                                                </button>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                                <div className="flex items-center gap-1.5 truncate relative z-0 ml-[4px]">
+                                                                    <span className="truncate">{task.title || task.name}</span>
+                                                                </div>
+                                                                {task.dueDate && !(task.noStartTime && task.noEndTime) && (
+                                                                    <span className="text-[9px] opacity-60 flex items-center shrink-0">
+                                                                        <Clock className="w-2.5 h-2.5 mr-0.5" />
+                                                                        {format(new Date(task.dueDate), 'h:mm a')}
+                                                                    </span>
+                                                                )}
+                                                                <ActionButtons task={task} />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* Unified Footer */}
+                                                <div className="flex items-center justify-between mt-auto shrink-0 pointer-events-none pb-[1px]">
+                                                    <div className="flex items-center pointer-events-auto">
+                                                        {!isExpanded && hiddenCount > 0 && (
+                                                            <div
+                                                                className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 cursor-pointer transition-colors"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    e.preventDefault();
+                                                                    setExpandedMonthCells(prev => ({ ...prev, [dateKey]: true }));
+                                                                }}
+                                                            >
+                                                                + {hiddenCount} MORE
+                                                            </div>
+                                                        )}
+                                                        {isExpanded && hiddenCount > 0 && (
+                                                            <div
+                                                                className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 cursor-pointer transition-colors"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    e.preventDefault();
+                                                                    setExpandedMonthCells(prev => ({ ...prev, [dateKey]: false }));
+                                                                }}
+                                                            >
+                                                                {hiddenCount} LESS
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 pointer-events-auto">
+                                                        <button
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm flex items-center justify-center h-4 w-4 bg-zinc-600 hover:bg-zinc-800 text-white rounded-[3px]"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setInlineCreateState({ dayKey: dateKey, hour: -1, half: 0 });
+                                                                setInlineCreateText("");
+                                                                setInlineAddTags([]);
+                                                                setInlineAddAssigneeIds([]);
+                                                                setInlineAddPriority(null);
+                                                                setInlineAddDueDate(null);
+                                                                setInlineAddStartDate(null);
+                                                                setInlineNoStartTime(true);
+                                                                setInlineNoEndTime(true);
+                                                            }}
+                                                        >
+                                                            <Plus className="h-3 w-3" />
+                                                        </button>
+                                                        <span className={cn(
+                                                            "text-[12px] font-medium transition-all pointer-events-none select-none tabular-nums tracking-tight",
+                                                            isCurrent ? "font-black text-zinc-900" :
+                                                                isSelectedMonth ? "text-zinc-500" : "text-zinc-400"
+                                                        )}>
+                                                            {format(date, 'd')}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -2995,22 +2421,22 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                                         const task = sortedSidebarTasks[idx];
                                         const taskColor = task.status?.color || "#a1a1aa";
                                         return (
-                                        <div key={task.id} className="group flex items-center justify-between px-3 py-2 hover:bg-zinc-50/80 rounded-lg cursor-pointer transition-colors"
-                                            onClick={() => openTaskDetail(task.id)}
-                                        >
-                                            <div className="flex items-center gap-3 overflow-hidden min-w-0 pr-2">
-                                                <div className="w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors"
-                                                    style={{ borderColor: taskColor }} />
-                                                <span className="text-[13px] text-zinc-800 truncate font-medium">{task.title || task.name}</span>
+                                            <div key={task.id} className="group flex items-center justify-between px-3 py-2 hover:bg-zinc-50/80 rounded-lg cursor-pointer transition-colors"
+                                                onClick={() => openTaskDetail(task.id)}
+                                            >
+                                                <div className="flex items-center gap-3 overflow-hidden min-w-0 pr-2">
+                                                    <div className="w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors"
+                                                        style={{ borderColor: taskColor }} />
+                                                    <span className="text-[13px] text-zinc-800 truncate font-medium">{task.title || task.name}</span>
+                                                </div>
+                                                {task.dueDate && (
+                                                    <span className="text-[11px] text-zinc-500 shrink-0 whitespace-nowrap">
+                                                        {task.noStartTime && task.noEndTime
+                                                            ? format(new Date(task.dueDate), 'MMM d')
+                                                            : format(new Date(task.dueDate), 'MMM d, h:mma')}
+                                                    </span>
+                                                )}
                                             </div>
-                                            {task.dueDate && (
-                                                <span className="text-[11px] text-zinc-500 shrink-0 whitespace-nowrap">
-                                                    {task.noStartTime && task.noEndTime
-                                                        ? format(new Date(task.dueDate), 'MMM d')
-                                                        : format(new Date(task.dueDate), 'MMM d, h:mma')}
-                                                </span>
-                                            )}
-                                        </div>
                                         );
                                     }}
                                 />
@@ -3205,110 +2631,110 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                     onClose={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(false); }}
                     className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col"
                 >
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <h3 className="font-semibold text-zinc-900">Layout options</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => setLayoutOptionsOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
+                    <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 -ml-1 cursor-pointer" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                            <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <h3 className="font-semibold text-zinc-900">Layout options</h3>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => setLayoutOptionsOpen(false)}><X className="h-4 w-4" /></Button>
+                    </div>
 
-                        <ScrollArea className="flex-1 min-h-0">
-                            <div className="p-3 space-y-4 pb-24">
+                    <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-3 space-y-4 pb-24">
 
-                                {/* Page & card layout */}
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
-                                        <span className="text-sm text-zinc-800">Task dates</span>
-                                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                            1 shown <ChevronRight className="h-3 w-3 ml-1" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
-                                        <span className="text-sm text-zinc-800">Color tasks by</span>
-                                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                            Task status <ChevronRight className="h-3 w-3 ml-1" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
-                                        <span className="text-sm text-zinc-800">Time format</span>
-                                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                            12h <ChevronRight className="h-3 w-3 ml-1" />
-                                        </div>
+                            {/* Page & card layout */}
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Page layout</p>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                    <span className="text-sm text-zinc-800">Task dates</span>
+                                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                        1 shown <ChevronRight className="h-3 w-3 ml-1" />
                                     </div>
                                 </div>
-
-                                <div className="h-px bg-zinc-100" />
-
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekends(!showWeekends))}>
-                                        <span className="text-sm text-zinc-800">Show weekends</span>
-                                        <Switch checked={showWeekends} onCheckedChange={(v) => handleConfigChange(() => setShowWeekends(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekNumbers(!showWeekNumbers))}>
-                                        <span className="text-sm text-zinc-800">Show week numbers</span>
-                                        <Switch checked={showWeekNumbers} onCheckedChange={(v) => handleConfigChange(() => setShowWeekNumbers(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowHourGridLines(!showHourGridLines))}>
-                                        <span className="text-sm text-zinc-800">Show hour grid lines</span>
-                                        <Switch checked={showHourGridLines} onCheckedChange={(v) => handleConfigChange(() => setShowHourGridLines(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setFadeTasksInPast(!fadeTasksInPast))}>
-                                        <span className="text-sm text-zinc-800">Fade tasks in the past</span>
-                                        <Switch checked={fadeTasksInPast} onCheckedChange={(v) => handleConfigChange(() => setFadeTasksInPast(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setAlwaysStayOnThisDate(!alwaysStayOnThisDate))}>
-                                        <span className="text-sm text-zinc-800">Always stay on this date</span>
-                                        <Switch checked={alwaysStayOnThisDate} onCheckedChange={(v) => handleConfigChange(() => setAlwaysStayOnThisDate(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowFutureRecurringTasks(!showFutureRecurringTasks))}>
-                                        <span className="text-sm text-zinc-800">Show future recurring tasks</span>
-                                        <Switch checked={showFutureRecurringTasks} onCheckedChange={(v) => handleConfigChange(() => setShowFutureRecurringTasks(v))} />
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                    <span className="text-sm text-zinc-800">Color tasks by</span>
+                                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                        Task status <ChevronRight className="h-3 w-3 ml-1" />
                                     </div>
                                 </div>
-
-                                <div className="h-px bg-zinc-100" />
-
-                                {/* Task visibility */}
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowTasksFromOtherLists(!showTasksFromOtherLists))}>
-                                        <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
-                                        <Switch checked={showTasksFromOtherLists} onCheckedChange={(v) => handleConfigChange(() => setShowTasksFromOtherLists(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowSubtasksFromOtherLists(!showSubtasksFromOtherLists))}>
-                                        <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
-                                        <Switch checked={showSubtasksFromOtherLists} onCheckedChange={(v) => handleConfigChange(() => setShowSubtasksFromOtherLists(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setMyTasksFromAllLists(!myTasksFromAllLists))}>
-                                        <span className="text-sm text-zinc-800">My tasks from all Lists</span>
-                                        <Switch checked={myTasksFromAllLists} onCheckedChange={(v) => handleConfigChange(() => setMyTasksFromAllLists(v))} />
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                    <span className="text-sm text-zinc-800">Time format</span>
+                                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                        12h <ChevronRight className="h-3 w-3 ml-1" />
                                     </div>
                                 </div>
-
-                                <div className="h-px bg-zinc-100" />
-
-                                {/* View settings */}
-                                <div className="space-y-2">
-                                    <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setDefaultToMeMode(!defaultToMeMode))}>
-                                        <span className="text-sm flex items-center gap-2"><User className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
-                                        <Switch checked={defaultToMeMode} onCheckedChange={(v) => handleConfigChange(() => setDefaultToMeMode(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer">
-                                        <span className="text-sm flex items-center gap-2"><LogOut className="h-4 w-4 text-zinc-400" />Move view</span>
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer">
-                                        <span className="text-sm flex items-center gap-2"><Copy className="h-4 w-4 text-zinc-400" />Duplicate view</span>
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer">
-                                        <span className="text-sm flex items-center gap-2"><RefreshCw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
-                                    </div>
-                                </div>
-
                             </div>
-                        </ScrollArea>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekends(!showWeekends))}>
+                                    <span className="text-sm text-zinc-800">Show weekends</span>
+                                    <Switch checked={showWeekends} onCheckedChange={(v) => handleConfigChange(() => setShowWeekends(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekNumbers(!showWeekNumbers))}>
+                                    <span className="text-sm text-zinc-800">Show week numbers</span>
+                                    <Switch checked={showWeekNumbers} onCheckedChange={(v) => handleConfigChange(() => setShowWeekNumbers(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowHourGridLines(!showHourGridLines))}>
+                                    <span className="text-sm text-zinc-800">Show hour grid lines</span>
+                                    <Switch checked={showHourGridLines} onCheckedChange={(v) => handleConfigChange(() => setShowHourGridLines(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setFadeTasksInPast(!fadeTasksInPast))}>
+                                    <span className="text-sm text-zinc-800">Fade tasks in the past</span>
+                                    <Switch checked={fadeTasksInPast} onCheckedChange={(v) => handleConfigChange(() => setFadeTasksInPast(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setAlwaysStayOnThisDate(!alwaysStayOnThisDate))}>
+                                    <span className="text-sm text-zinc-800">Always stay on this date</span>
+                                    <Switch checked={alwaysStayOnThisDate} onCheckedChange={(v) => handleConfigChange(() => setAlwaysStayOnThisDate(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowFutureRecurringTasks(!showFutureRecurringTasks))}>
+                                    <span className="text-sm text-zinc-800">Show future recurring tasks</span>
+                                    <Switch checked={showFutureRecurringTasks} onCheckedChange={(v) => handleConfigChange(() => setShowFutureRecurringTasks(v))} />
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            {/* Task visibility */}
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">Task visibility</p>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowTasksFromOtherLists(!showTasksFromOtherLists))}>
+                                    <span className="text-sm text-zinc-800">Show tasks from other Lists</span>
+                                    <Switch checked={showTasksFromOtherLists} onCheckedChange={(v) => handleConfigChange(() => setShowTasksFromOtherLists(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowSubtasksFromOtherLists(!showSubtasksFromOtherLists))}>
+                                    <span className="text-sm text-zinc-800">Show subtasks from other Lists</span>
+                                    <Switch checked={showSubtasksFromOtherLists} onCheckedChange={(v) => handleConfigChange(() => setShowSubtasksFromOtherLists(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setMyTasksFromAllLists(!myTasksFromAllLists))}>
+                                    <span className="text-sm text-zinc-800">My tasks from all Lists</span>
+                                    <Switch checked={myTasksFromAllLists} onCheckedChange={(v) => handleConfigChange(() => setMyTasksFromAllLists(v))} />
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-zinc-100" />
+
+                            {/* View settings */}
+                            <div className="space-y-2">
+                                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">View settings</p>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setDefaultToMeMode(!defaultToMeMode))}>
+                                    <span className="text-sm flex items-center gap-2"><User className="h-4 w-4 text-zinc-400" />Default to Me Mode</span>
+                                    <Switch checked={defaultToMeMode} onCheckedChange={(v) => handleConfigChange(() => setDefaultToMeMode(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer">
+                                    <span className="text-sm flex items-center gap-2"><LogOut className="h-4 w-4 text-zinc-400" />Move view</span>
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer">
+                                    <span className="text-sm flex items-center gap-2"><Copy className="h-4 w-4 text-zinc-400" />Duplicate view</span>
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 hover:bg-zinc-50 rounded cursor-pointer">
+                                    <span className="text-sm flex items-center gap-2"><RefreshCw className="h-4 w-4 text-zinc-400" />Reset view to defaults</span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </ScrollArea>
                 </SidePanel>
             )}
 
@@ -3319,191 +2745,207 @@ export function CalendarView({ spaceId, projectId, teamId, folderId, listId, vie
                     onClose={() => setCustomizePanelOpen(false)}
                     className="absolute bottom-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200 ease-out"
                 >
-                        <div className="flex items-center justify-between p-4 border-b border-zinc-100 shrink-0">
-                            <h3 className="font-semibold text-zinc-900 text-sm tracking-tight">Customize view</h3>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
-                        </div>
-                        <ScrollArea className="flex-1 min-h-0">
-                            <div className="p-3 space-y-2 pb-24">
-                                <div className="flex items-center gap-2 mb-4">
-                                    <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                        <CalendarIcon className="h-5 w-5 text-zinc-600" />
-                                    </div>
-                                    <Input
-                                        value={viewNameDraft}
-                                        onChange={(e) => setViewNameDraft(e.target.value)}
-                                        onBlur={() => updateViewName(viewNameDraft)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter") {
-                                                updateViewName(viewNameDraft);
-                                                (e.target as HTMLInputElement).blur();
-                                            }
-                                        }}
-                                        className="h-10 text-sm font-medium border-zinc-200"
-                                        placeholder="View name"
-                                    />
+                    <div className="flex items-center justify-between p-4 border-b border-zinc-100 shrink-0">
+                        <h3 className="font-semibold text-zinc-900 text-sm tracking-tight">Customize view</h3>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                    </div>
+                    <ScrollArea className="flex-1 min-h-0">
+                        <div className="p-3 space-y-2 pb-24">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                    <CalendarIcon className="h-5 w-5 text-zinc-600" />
                                 </div>
+                                <Input
+                                    value={viewNameDraft}
+                                    onChange={(e) => setViewNameDraft(e.target.value)}
+                                    onBlur={() => updateViewName(viewNameDraft)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            updateViewName(viewNameDraft);
+                                            (e.target as HTMLInputElement).blur();
+                                        }
+                                    }}
+                                    className="h-10 text-sm font-medium border-zinc-200"
+                                    placeholder="View name"
+                                />
+                            </div>
 
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors text-zinc-500 cursor-pointer">
-                                        <span className="text-sm text-zinc-800">Task dates</span>
-                                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                            1 shown <ChevronRight className="h-3 w-3 ml-1" />
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors text-zinc-500 cursor-pointer">
+                                    <span className="text-sm text-zinc-800">Task dates</span>
+                                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                        1 shown <ChevronRight className="h-3 w-3 ml-1" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors text-zinc-500 cursor-pointer">
+                                    <span className="text-sm text-zinc-800">Color tasks by</span>
+                                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                        Task status <ChevronRight className="h-3 w-3 ml-1" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors text-zinc-500 cursor-pointer">
+                                    <span className="text-sm text-zinc-800">Time format</span>
+                                    <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                        12h <ChevronRight className="h-3 w-3 ml-1" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekends(!showWeekends))}>
+                                    <span className="text-sm text-zinc-800">Show weekends</span>
+                                    <Switch checked={showWeekends} onCheckedChange={(v) => handleConfigChange(() => setShowWeekends(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekNumbers(!showWeekNumbers))}>
+                                    <span className="text-sm text-zinc-800">Show week numbers</span>
+                                    <Switch checked={showWeekNumbers} onCheckedChange={(v) => handleConfigChange(() => setShowWeekNumbers(v))} />
+                                </div>
+                                <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowClosed(!showClosed))}>
+                                    <span className="text-sm text-zinc-800">Show closed tasks</span>
+                                    <Switch checked={showClosed} onCheckedChange={(v) => handleConfigChange(() => setShowClosed(v))} />
+                                </div>
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    onClick={() => { setLayoutOptionsOpen(true); }}
+                                >
+                                    <span className="flex items-center gap-2">More options</span>
+                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                </button>
+                            </div>
+
+                            <div className="h-px bg-zinc-100 my-2" />
+
+                            <div className="space-y-1">
+                                <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                            onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                        >
+                                            <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
+                                            <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
+                                        {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
+                                    </PopoverContent>
+                                </Popover>
+                                <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                        >
+                                            <span className="flex items-center gap-2"><GitMerge className="h-4 w-4 text-zinc-400" />Subtasks</span>
+                                            <span className="text-xs text-zinc-500">{showSubtasks ? "Shown" : "Hidden"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent side="left" align="start" className="w-56 p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
+                                        <div className="px-2 py-1.5 mb-1">
+                                            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Show subtasks</span>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors text-zinc-500 cursor-pointer">
-                                        <span className="text-sm text-zinc-800">Color tasks by</span>
-                                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                            Task status <ChevronRight className="h-3 w-3 ml-1" />
+                                        <div className="space-y-0.5">
+                                            {[
+                                                { label: "Shown (default)", value: true },
+                                                { label: "Hidden", value: false },
+                                            ].map((opt) => (
+                                                <div
+                                                    key={String(opt.value)}
+                                                    className={cn(
+                                                        "flex items-center justify-between px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
+                                                        showSubtasks === opt.value ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
+                                                    )}
+                                                    onClick={() => { handleConfigChange(() => setShowSubtasks(opt.value)); setCustomizeViewGroupOpen(false); }}
+                                                >
+                                                    <span className="flex-1">{opt.label}</span>
+                                                    {showSubtasks === opt.value && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
+                                                </div>
+                                            ))}
                                         </div>
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors text-zinc-500 cursor-pointer">
-                                        <span className="text-sm text-zinc-800">Time format</span>
-                                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-                                            12h <ChevronRight className="h-3 w-3 ml-1" />
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekends(!showWeekends))}>
-                                        <span className="text-sm text-zinc-800">Show weekends</span>
-                                        <Switch checked={showWeekends} onCheckedChange={(v) => handleConfigChange(() => setShowWeekends(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowWeekNumbers(!showWeekNumbers))}>
-                                        <span className="text-sm text-zinc-800">Show week numbers</span>
-                                        <Switch checked={showWeekNumbers} onCheckedChange={(v) => handleConfigChange(() => setShowWeekNumbers(v))} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-1 px-2 cursor-pointer" onClick={() => handleConfigChange(() => setShowClosed(!showClosed))}>
-                                        <span className="text-sm text-zinc-800">Show closed tasks</span>
-                                        <Switch checked={showClosed} onCheckedChange={(v) => handleConfigChange(() => setShowClosed(v))} />
-                                    </div>
+                                    </PopoverContent>
+                                </Popover>
+                                <TemplateMenuPopover
+                                    entityType="VIEW"
+                                    workspaceId={(workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined}
+                                    contentToSave={viewContentToSave}
+                                >
                                     <button
                                         type="button"
                                         className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                        onClick={() => { setLayoutOptionsOpen(true); }}
                                     >
-                                        <span className="flex items-center gap-2">More options</span>
+                                        <span className="flex items-center gap-2">
+                                            <Wand2 className="h-4 w-4 text-zinc-400" />
+                                            Templates
+                                        </span>
                                         <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
                                     </button>
+                                </TemplateMenuPopover>
+                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer">
+                                    <span className="flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-zinc-400" />Sync with calendar</span>
+                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                </button>
+                            </div>
+
+                            <div className="h-px bg-zinc-100 my-2" />
+
+                            <div className="space-y-1">
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={handleToggleAutosave}>
+                                    <div className="flex items-center gap-2">
+                                        <Save className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Autosave for me</span>
+                                    </div>
+                                    <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
                                 </div>
-
-                                <div className="h-px bg-zinc-100 my-2" />
-
-                                <div className="space-y-1">
-                                    <Popover open={customizeViewFilterOpen} onOpenChange={setCustomizeViewFilterOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                                onClick={() => { if (filterGroups.conditions.length === 0) { addFilterGroup(); } }}
-                                            >
-                                                <span className="flex items-center gap-2"><Filter className="h-4 w-4 text-zinc-400" />Filter</span>
-                                                <span className="text-xs text-zinc-500">{appliedFilterCount > 0 ? `${appliedFilterCount} applied` : "None"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-[600px] max-w-[90vw] p-0 overflow-hidden shadow-2xl rounded-2xl border border-zinc-200/80" sideOffset={16}>
-                                            {renderFilterContent({ onClose: () => setCustomizeViewFilterOpen(false) })}
-                                        </PopoverContent>
-                                    </Popover>
-                                    <Popover open={customizeViewGroupOpen} onOpenChange={setCustomizeViewGroupOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                type="button"
-                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                            >
-                                                <span className="flex items-center gap-2"><GitMerge className="h-4 w-4 text-zinc-400" />Subtasks</span>
-                                                <span className="text-xs text-zinc-500">{showSubtasks ? "Shown" : "Hidden"} <ChevronRight className="inline h-3 w-3 ml-1" /></span>
-                                            </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent side="left" align="start" className="w-56 p-1.5 rounded-xl shadow-xl border-zinc-200/60" sideOffset={16}>
-                                            <div className="px-2 py-1.5 mb-1">
-                                                <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Show subtasks</span>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                {[
-                                                    { label: "Shown (default)", value: true },
-                                                    { label: "Hidden", value: false },
-                                                ].map((opt) => (
-                                                    <div
-                                                        key={String(opt.value)}
-                                                        className={cn(
-                                                            "flex items-center justify-between px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors",
-                                                            showSubtasks === opt.value ? "bg-violet-50 text-violet-700" : "text-zinc-600 hover:bg-zinc-100"
-                                                        )}
-                                                        onClick={() => { handleConfigChange(() => setShowSubtasks(opt.value)); setCustomizeViewGroupOpen(false); }}
-                                                    >
-                                                        <span className="flex-1">{opt.label}</span>
-                                                        {showSubtasks === opt.value && <div className="h-1.5 w-1.5 rounded-full bg-violet-600" />}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer">
-                                        <span className="flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-zinc-400" />Sync with calendar</span>
-                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                    </button>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPinView(v => !v); updateViewProperty('isPinned', !pinView); }}>
+                                    <div className="flex items-center gap-2">
+                                        <Pin className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Pin view</span>
+                                    </div>
+                                    <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
                                 </div>
-
-                                <div className="h-px bg-zinc-100 my-2" />
-
-                                <div className="space-y-1">
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={handleToggleAutosave}>
-                                        <div className="flex items-center gap-2">
-                                            <Save className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Autosave for me</span>
-                                        </div>
-                                        <Switch checked={viewAutosave} onCheckedChange={handleToggleAutosave} />
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPrivateView(v => !v); updateViewProperty('isPrivate', !privateView); }}>
+                                    <div className="flex items-center gap-2">
+                                        {privateView ? <Unlock className="h-4 w-4 text-zinc-400" /> : <Lock className="h-4 w-4 text-zinc-400" />}
+                                        <span className="text-sm text-zinc-800">Private view</span>
                                     </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPinView(v => !v); updateViewProperty('isPinned', !pinView); }}>
-                                        <div className="flex items-center gap-2">
-                                            <Pin className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Pin view</span>
-                                        </div>
-                                        <Switch checked={pinView} onCheckedChange={(val) => { setPinView(val); updateViewProperty('isPinned', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setPrivateView(v => !v); updateViewProperty('isPrivate', !privateView); }}>
-                                        <div className="flex items-center gap-2">
-                                            {privateView ? <Unlock className="h-4 w-4 text-zinc-400" /> : <Lock className="h-4 w-4 text-zinc-400" />}
-                                            <span className="text-sm text-zinc-800">Private view</span>
-                                        </div>
-                                        <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setProtectView(v => !v); updateViewProperty('isLocked', !protectView); }}>
-                                        <div className="flex items-center gap-2">
-                                            <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Protect view</span>
-                                        </div>
-                                        <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
-                                    </div>
-                                    <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setDefaultView(v => !v); updateViewProperty('isDefault', !defaultView); }}>
-                                        <div className="flex items-center gap-2">
-                                            <Home className="h-4 w-4 text-zinc-400" />
-                                            <span className="text-sm text-zinc-800">Set as default view</span>
-                                        </div>
-                                        <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
-                                    </div>
+                                    <Switch checked={privateView} onCheckedChange={(val) => { setPrivateView(val); updateViewProperty('isPrivate', val); }} />
                                 </div>
-
-                                <div className="h-px bg-zinc-100 my-2" />
-
-                                <div className="space-y-1">
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => {
-                                        if (typeof window !== 'undefined') {
-                                            navigator.clipboard.writeText(window.location.href);
-                                            toast.success('Link copied to clipboard');
-                                        }
-                                    }}>
-                                        <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
-                                    </button>
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => setIsShareModalOpen(true)}>
-                                        <span className="flex items-center gap-2"><Share className="h-4 w-4 text-zinc-400" />Sharing &amp; Permissions</span>
-                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                    </button>
-                                    <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-md px-2 cursor-pointer" onClick={() => { }}>
-                                        <span className="flex items-center gap-2"><Trash2 className="h-4 w-4" />Delete view</span>
-                                    </button>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setProtectView(v => !v); updateViewProperty('isLocked', !protectView); }}>
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Protect view</span>
+                                    </div>
+                                    <Switch checked={protectView} onCheckedChange={(val) => { setProtectView(val); updateViewProperty('isLocked', val); }} />
+                                </div>
+                                <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer" onClick={() => { setDefaultView(v => !v); updateViewProperty('isDefault', !defaultView); }}>
+                                    <div className="flex items-center gap-2">
+                                        <Home className="h-4 w-4 text-zinc-400" />
+                                        <span className="text-sm text-zinc-800">Set as default view</span>
+                                    </div>
+                                    <Switch checked={defaultView} onCheckedChange={(val) => { setDefaultView(val); updateViewProperty('isDefault', val); }} />
                                 </div>
                             </div>
-                        </ScrollArea>
+
+                            <div className="h-px bg-zinc-100 my-2" />
+
+                            <div className="space-y-1">
+                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => {
+                                    if (typeof window !== 'undefined') {
+                                        navigator.clipboard.writeText(window.location.href);
+                                        toast.success('Link copied to clipboard');
+                                    }
+                                }}>
+                                    <span className="flex items-center gap-2"><Link className="h-4 w-4 text-zinc-400" />Copy link to view</span>
+                                </button>
+                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer" onClick={() => setIsShareModalOpen(true)}>
+                                    <span className="flex items-center gap-2"><Share className="h-4 w-4 text-zinc-400" />Sharing &amp; Permissions</span>
+                                    <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                </button>
+                                <button type="button" className="w-full flex items-center justify-between py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-md px-2 cursor-pointer" onClick={() => { }}>
+                                    <span className="flex items-center gap-2"><Trash2 className="h-4 w-4" />Delete view</span>
+                                </button>
+                            </div>
+                        </div>
+                    </ScrollArea>
                 </SidePanel>
             )}
             <TaskListLoadMore

@@ -2,8 +2,9 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { buildCleanDashboardParams, parseDashboardState, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
-import { Loader2, Plus, ChevronRight, List as ListIcon, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Folder, CheckSquare, FileText } from "lucide-react";
+import { Loader2, Plus, Play, List as ListIcon, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Folder, CheckSquare, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -12,12 +13,14 @@ import { cn } from "@/lib/utils";
 import DashboardListView from "@/features/dashboard/views/generic/DashboardListView";
 import DashboardFolderView from "@/features/dashboard/views/generic/DashboardFolderView";
 import { DocView } from "@/features/dashboard/views/generic/DocView";
-import { ListCreationModal } from "@/entities/task/components/ListCreationModal";
-import { FolderCreationModal } from "@/entities/task/components/FolderCreationModal";
+import { ListCreationModal } from "@/entities/lists/components/ListCreationModal";
+import { FolderCreationModal } from "@/entities/folders/components/FolderCreationModal";
 import { TaskCreationModal } from "@/entities/task/components/TaskCreationModal";
-import DocumentCreationModal from "@/entities/documents/components/DocumentCreationModal";
+import { DocumentCreationModal } from "@/entities/documents/components/DocumentCreationModal";
 import { ListActionsMenu } from "@/features/dashboard/components/sidebar/ListActionsMenu";
 import { FolderActionsMenu } from "@/features/dashboard/components/sidebar/FolderActionsMenu";
+import { FolderIcon } from "@/entities/folders/components/FolderIcon";
+import { ListEntityIcon } from "@/entities/lists/components/ListEntityIcon";
 import { CreateOptionsModal } from "@/features/dashboard/components/modals/CreateOptionsModal";
 import {
     DropdownMenu,
@@ -26,6 +29,11 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface SpaceListViewProps {
     spaceId: string;
@@ -61,25 +69,31 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
     const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
     const [targetFolderId, setTargetFolderId] = useState<string | undefined>(undefined);
 
+    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
+
     const handleFolderClick = (folderId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("folder", folderId);
-        params.delete("list");
-        params.delete("nv");
-        params.delete("fv");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "fd", id: folderId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "lists",
+                entityKey: "folder",
+                entityId: folderId,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     // Sync expanded state with URL
     useEffect(() => {
-        const folderId = searchParams.get("folder");
+        const folderId = parsedState.folderId;
         if (folderId) {
             setExpandedFolders(prev => {
                 if (prev[folderId]) return prev;
                 return { ...prev, [folderId]: true };
             });
         }
-    }, [searchParams]);
+    }, [parsedState.folderId]);
 
     // Debounce search query
     useEffect(() => {
@@ -89,30 +103,27 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Fetch lists for this space
+    // Fetch lists for this space (direct space-only)
     const { data: listsData, isLoading: isLoadingList, refetch: refetchList } = trpc.list.byContext.useQuery(
-        { spaceId, workspaceId, includeViewDetails: false },
+        { spaceId, workspaceId, directOnly: true, includeViewDetails: false },
         { enabled: !!spaceId }
     );
 
-    // Fetch folders for this space
+    // Fetch folders for this space (direct space-only)
     const { data: foldersData, isLoading: isLoadingFolders } = trpc.folder.byContext.useQuery(
-        { spaceId, workspaceId, includeViewDetails: false },
+        { spaceId, workspaceId, directOnly: true, includeViewDetails: false },
         { enabled: !!spaceId }
     );
 
     const listsRaw = listsData?.items ?? [];
     const folders = foldersData?.items ?? [];
 
-    // Active doc view from URL
-    const activeDocViewId = searchParams.get("docView") || null;
-
-    // Fetch all DOC views for this space
+    // Fetch all DOC views for this space (direct space-only)
     const { data: docViewsData, refetch: refetchDocViews } = trpc.view.list.useQuery(
-        { spaceId, type: "DOC", sidebarView: true },
+        { spaceId, directOnly: true, type: "DOC", sidebarView: true },
         { enabled: !!spaceId }
     );
-    const allDocViews = docViewsData ?? [];
+    const allDocViews = (docViewsData ?? []).filter(v => v.sidebarView === true);
 
     // Client-side filter
     const lists = useMemo(() => {
@@ -123,20 +134,27 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
 
     // Auto-select first list when page loads
     useEffect(() => {
-        const hasListParam = searchParams.get("list");
-        const hasFolderParam = searchParams.get("folder");
+        const hasListParam = parsedState.listId;
+        const hasFolderParam = parsedState.folderId;
 
         // Only auto-select if neither list nor folder is selected and we have lists
         if (!hasListParam && !hasFolderParam && lists.length > 0) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("list", lists[0].id);
-            history.replaceState(null, "", `?${params.toString()}`);
+            if (spaceId) {
+                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: lists[0].id }));
+            } else {
+                const clean = buildCleanDashboardParams(searchParams, {
+                    tab: "lists",
+                    entityKey: "list",
+                    entityId: lists[0].id,
+                });
+                history.replaceState(null, "", `?${clean.toString()}`);
+            }
         }
-    }, [searchParams, lists, router]);
+    }, [parsedState, lists, spaceId]);
 
     // Group items by folder
     const groupedStructure = useMemo(() => {
-        const structure: { id: string, name: string, type: 'folder' | 'list', items?: any[], data?: any }[] = [];
+        const structure: { id: string; name: string; type: "folder" | "list"; items?: any[]; data?: any }[] = [];
 
         // Map of folderId -> lists
         const folderMap: Record<string, any[]> = {};
@@ -153,15 +171,13 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
             structure.push({
                 id: f.id,
                 name: f.name,
-                type: 'folder',
+                type: "folder",
                 data: f,
                 items: folderMap[f.id] || []
             });
         });
 
         // Find orphan lists (lists not in any folder in our current folder set)
-        // Note: lists might refer to deleted folders or folders not fetched? Assuming consistency.
-        // We also want lists with no folderId.
         const uncategorizedListMap = lists.filter(l => !l.folderId);
 
         // Add uncategorized lists
@@ -169,7 +185,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
             structure.push({
                 id: l.id,
                 name: l.name,
-                type: 'list',
+                type: "list",
                 data: l
             });
         });
@@ -177,59 +193,85 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
         return structure;
     }, [folders, lists]);
 
-    const activeListId = selectedListId;
-    const activeFolderId = searchParams.get("folder");
+    const activeListId = selectedListId || parsedState.listId;
+    const activeFolderId = parsedState.folderId;
+    const activeDocViewId = parsedState.docViewId || null;
 
     // Fetch details if a list is selected
     const selectedList = listsRaw.find(l => l.id === selectedListId);
 
     const handleBackToList = () => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete("list");
-        params.delete("nv");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(`/dashboard/spaces/${spaceId}`, { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "lists",
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleListCreated = (list: any) => {
         refetchList();
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("list", list.id);
-        params.delete("nv");
-        params.delete("docView");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: list.id }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "lists",
+                entityKey: "list",
+                entityId: list.id,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleListClick = (listId: string) => {
         if (onListSelect) {
             onListSelect(listId);
+        } else if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: listId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "lists",
+                entityKey: "list",
+                entityId: listId,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
         }
-        const params = new URLSearchParams(searchParams.toString());
-        params.delete("docView");
-        router.push(`?${params.toString()}`, { scroll: false });
     };
 
     // Auto-select first list if nothing is selected
     useEffect(() => {
-        if (!activeListId && !activeFolderId && !searchParams.get("docView") && listsRaw.length > 0) {
+        if (!activeListId && !activeFolderId && !activeDocViewId && listsRaw.length > 0) {
             handleListClick(listsRaw[0].id);
         }
-    }, [listsRaw, activeListId, activeFolderId, searchParams]);
+    }, [listsRaw, activeListId, activeFolderId, activeDocViewId]);
 
     const handleDocViewClick = (docViewId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("docView", docViewId);
-        params.delete("list");
-        params.delete("folder");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "dv", id: docViewId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "lists",
+                entityKey: "docView",
+                entityId: docViewId,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleDocCreated = (id: string) => {
         refetchDocViews();
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("docView", id);
-        params.delete("list");
-        params.delete("folder");
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (spaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "dv", id }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "lists",
+                entityKey: "docView",
+                entityId: id,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
     };
 
     const handleOpenCreateListInFolder = (folderId: string) => {
@@ -243,14 +285,14 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
             {/* Lists Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-                isSidebarCollapsed ? "w-0 border-none" : "w-[256px] border-r border-slate-200"
+                isSidebarCollapsed ? "w-0 border-l border-slate-200" : "w-[256px] border-x border-slate-200"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
                     {/* Header */}
                     {!isSidebarCollapsed && (
-                        <div className="flex flex-col border-b border-slate-200">
+                        <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
                             {isSearchOpen ? (
-                                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                                     <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                                     <Input
                                         autoFocus
@@ -272,40 +314,58 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between px-4 py-3">
+                                <div className="flex items-center justify-between px-4 h-full">
                                     <h2 className="text-sm font-semibold text-foreground">Lists</h2>
                                     <div className="flex items-center gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSearchOpen(true)}
-                                            title="Search"
-                                        >
-                                            <Search className="h-4 w-4" />
-                                        </Button>
-
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                            onClick={() => setIsSidebarCollapsed(true)}
-                                            title="Collapse Sidebar"
-                                        >
-                                            <ChevronsLeft className="h-4 w-4" />
-                                        </Button>
-
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                    title="Create"
+                                                    onClick={() => setIsSearchOpen(true)}
                                                 >
-                                                    <Plus className="h-4 w-4" />
+                                                    <Search className="h-4 w-4" />
                                                 </Button>
-                                            </DropdownMenuTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Search</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => setIsSidebarCollapsed(true)}
+                                                >
+                                                    <ChevronsLeft className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Collapse Sidebar</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+
+                                        <DropdownMenu>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        >
+                                                            <Plus className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Create Folders, Lists and more</p>
+                                                </TooltipContent>
+                                            </Tooltip>
                                             <DropdownMenuContent align="end" className="w-48">
                                                 <DropdownMenuItem onClick={() => {
                                                     setTargetFolderId(activeFolderId || undefined);
@@ -348,30 +408,54 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                     padding="md"
                                 />
                             ) : groupedStructure.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                                    <ListIcon className="mb-4 h-12 w-12 text-muted-foreground/50" />
-                                    <p className="text-sm font-medium text-foreground">No lists or folders found</p>
-                                    {searchQuery && (
+                                searchQuery ? (
+                                    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                                        <ListIcon className="mb-4 h-12 w-12 text-muted-foreground/50" />
+                                        <p className="text-sm font-medium text-foreground">No lists or folders found</p>
                                         <p className="mt-1 text-xs text-muted-foreground">
                                             Try adjusting your search
                                         </p>
-                                    )}
-                                    {!searchQuery && (
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            Create your first list or folder to get started
-                                        </p>
-                                    )}
-                                </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex h-full items-center justify-center py-12">
+                                        <div className="flex flex-col items-center text-center max-w-sm p-6">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 mb-4">
+                                                <ListIcon className="h-6 w-6 text-indigo-500" strokeWidth={1.5} />
+                                            </div>
+
+                                            <h2 className="text-lg font-semibold text-slate-900 mb-1">
+                                                Organize your Lists
+                                            </h2>
+
+                                            <p className="text-sm text-slate-500 leading-relaxed mb-5">
+                                                Lists help you organize tasks and workflows. Select one or create a new one.
+                                            </p>
+
+                                            <Button
+                                                size="sm"
+                                                className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg"
+                                                onClick={() => {
+                                                    setTargetFolderId(activeFolderId || undefined);
+                                                    setIsListModalOpen(true);
+                                                }}
+                                            >
+                                                <Plus className="mr-1.5 h-4 w-4" />
+                                                Create a List
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )
                             ) : (
                                 <div className="space-y-1">
                                     {groupedStructure.map((item) => {
                                         if (item.type === 'folder') {
-                                            const isExpanded = expandedFolders[item.id];
+                                            const hasFolderItems = Boolean(item.items && item.items.length > 0);
+                                            const isExpanded = hasFolderItems && Boolean(expandedFolders[item.id]);
                                             return (
                                                 <div key={item.id} className="relative select-none">
                                                     <div
                                                         className={cn(
-                                                            "group/folder flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-foreground transition-colors hover:bg-slate-50",
+                                                            "group/folder flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50",
                                                             "cursor-pointer",
                                                             activeFolderId === item.id && "bg-slate-100"
                                                         )}
@@ -380,20 +464,49 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                                         }}
                                                     >
                                                         <div
-                                                            className={cn("p-0.5 rounded-sm hover:bg-slate-200 transition-colors mr-1")}
+                                                            className={cn(
+                                                                "relative h-5 w-5 rounded shrink-0 flex items-center justify-center",
+                                                                hasFolderItems ? "cursor-pointer" : ""
+                                                            )}
                                                             onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setExpandedFolders(prev => ({
-                                                                    ...prev,
-                                                                    [item.id]: !prev[item.id]
-                                                                }));
+                                                                if (hasFolderItems) {
+                                                                    e.stopPropagation();
+                                                                    setExpandedFolders(prev => ({
+                                                                        ...prev,
+                                                                        [item.id]: !prev[item.id]
+                                                                    }));
+                                                                }
                                                             }}
                                                         >
-                                                            <ChevronRight className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", isExpanded && "rotate-90")} />
-                                                        </div>
+                                                            {/* Normal: Folder Icon */}
+                                                            <span
+                                                                className={cn(
+                                                                    "h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center",
+                                                                    hasFolderItems && "group-hover/folder:hidden"
+                                                                )}
+                                                                style={{ backgroundColor: item.data?.icon ? (item.data?.color || "#3b82f6") : "transparent" }}
+                                                            >
+                                                                <FolderIcon
+                                                                    icon={item.data?.icon}
+                                                                    className={cn(item.data?.icon ? "text-white" : activeFolderId === item.id ? "text-blue-500" : "text-blue-500/80")}
+                                                                    size={14}
+                                                                    fill
+                                                                />
+                                                            </span>
 
-                                                        <Folder className="h-4 w-4 text-blue-500/80 shrink-0" />
-                                                        <span className="flex-1 truncate">{item.name}</span>
+                                                            {/* Hover: Expand / Collapse Triangle button */}
+                                                            {hasFolderItems && (
+                                                                <div className="hidden group-hover/folder:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
+                                                                    <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <span className={cn(
+                                                            "flex-1 truncate text-sm",
+                                                            activeFolderId === item.id ? "font-normal text-foreground" : "text-zinc-600 group-hover/folder:text-foreground"
+                                                        )}>
+                                                            {item.name}
+                                                        </span>
 
                                                         <div className="opacity-0 group-hover/folder:opacity-100 transition-opacity flex items-center" onClick={(e) => e.stopPropagation()}>
                                                             <FolderActionsMenu
@@ -405,15 +518,21 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                                                 folderColor={item.data.color}
                                                             />
                                                             <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <button
-                                                                        className="h-6 w-6 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground hover:text-foreground"
-                                                                        title="Create"
-                                                                    >
-                                                                        <Plus className="h-3.5 w-3.5" />
-                                                                    </button>
-                                                                </DropdownMenuTrigger>
-                                                                 <DropdownMenuContent align="end" className="w-48">
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <button
+                                                                                className="h-6 w-6 inline-flex items-center justify-center rounded-sm hover:bg-zinc-200 text-muted-foreground hover:text-foreground cursor-pointer"
+                                                                            >
+                                                                                <Plus className="h-4 w-4" />
+                                                                            </button>
+                                                                        </DropdownMenuTrigger>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>Create Folders, Lists and more</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                                <DropdownMenuContent align="end" className="w-48">
                                                                     <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
                                                                         <ListIcon className="mr-2 h-4 w-4" />
                                                                         List
@@ -441,113 +560,139 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
 
                                                     </div>
 
-                                                    {isExpanded && (
+                                                    {isExpanded && hasFolderItems && (
                                                         <div className="ml-[1.125rem] pl-2 border-l border-slate-200 mt-1 space-y-1">
-                                                            {item.items && item.items.length > 0 ? (
-                                                                item.items.map((list: any) => {
-                                                                    const isActive = activeListId === list.id && !activeDocViewId;
-                                                                    const listDocViews = allDocViews.filter(v => v.listId === list.id);
-                                                                    const isDocExpanded = expandedDocs[list.id];
-                                                                    return (
-                                                                        <div key={list.id}>
+                                                            {item.items?.map((list: any) => {
+                                                                const isActive = activeListId === list.id && !activeDocViewId;
+                                                                const listDocViews = allDocViews.filter(v => v.listId === list.id);
+                                                                const isDocExpanded = expandedDocs[list.id];
+                                                                return (
+                                                                    <div key={list.id}>
+                                                                        <div
+                                                                            className={cn(
+                                                                                "group/item flex w-full items-center gap-2 rounded-md px-2 py-2 transition-colors",
+                                                                                "hover:bg-slate-50",
+                                                                                isActive && "bg-slate-100"
+                                                                            )}
+                                                                        >
                                                                             <div
                                                                                 className={cn(
-                                                                                    "group/item flex w-full items-center gap-2 rounded-md px-2 py-2 transition-colors",
-                                                                                    "hover:bg-slate-50",
-                                                                                    isActive && "bg-slate-100"
+                                                                                    "relative h-5 w-5 rounded shrink-0 flex items-center justify-center",
+                                                                                    listDocViews.length > 0 && "cursor-pointer"
                                                                                 )}
+                                                                                onClick={(e) => {
+                                                                                    if (listDocViews.length > 0) {
+                                                                                        e.stopPropagation();
+                                                                                        setExpandedDocs(prev => ({ ...prev, [list.id]: !prev[list.id] }));
+                                                                                    }
+                                                                                }}
                                                                             >
-                                                                                <button
-                                                                                    onClick={() => handleListClick(list.id)}
-                                                                                    className="flex min-w-0 flex-1 items-center gap-2 text-left focus:outline-none cursor-pointer"
-                                                                                >
-                                                                                    <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: list.color || '#cbd5e1' }} />
-                                                                                    <span className={cn("truncate text-sm", isActive ? "font-medium text-foreground" : "text-muted-foreground group-hover/item:text-foreground")}>
-                                                                                        {list.name}
-                                                                                    </span>
-                                                                                </button>
-                                                                                <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center gap-1">
-                                                                                    {listDocViews.length > 0 && (
-                                                                                        <button
-                                                                                            onClick={(e) => { e.stopPropagation(); setExpandedDocs(prev => ({ ...prev, [list.id]: !prev[list.id] })); }}
-                                                                                            className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground"
-                                                                                            title="Toggle docs"
-                                                                                        >
-                                                                                            <ChevronRight className={cn("h-3 w-3 transition-transform", isDocExpanded && "rotate-90")} />
-                                                                                        </button>
+                                                                                {/* Normal: List Icon */}
+                                                                                <span
+                                                                                    className={cn(
+                                                                                        "h-4 w-4 rounded shrink-0 overflow-hidden grid place-items-center",
+                                                                                        listDocViews.length > 0 && "group-hover/item:hidden"
                                                                                     )}
-                                                                                    <ListActionsMenu
-                                                                                        workspaceId={workspaceId}
-                                                                                        spaceId={spaceId}
-                                                                                        listId={list.id}
-                                                                                    />
-                                                                                    <DropdownMenu>
-                                                                                        <DropdownMenuTrigger asChild>
-                                                                                            <button
-                                                                                                className="h-5 w-5 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground hover:text-foreground"
-                                                                                                title="Create"
-                                                                                            >
-                                                                                                <Plus className="h-3 w-3" />
-                                                                                            </button>
-                                                                                        </DropdownMenuTrigger>
-                                                                                        <DropdownMenuContent align="end" className="w-48">
-                                                                                            <DropdownMenuItem onClick={() => {
-                                                                                                setTargetListId(list.id);
-                                                                                                setIsTaskModalOpen(true);
-                                                                                            }}>
-                                                                                                <CheckSquare className="mr-2 h-4 w-4" />
-                                                                                                Task
-                                                                                            </DropdownMenuItem>
-                                                                                            <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
-                                                                                                <ListIcon className="mr-2 h-4 w-4" />
-                                                                                                List
-                                                                                            </DropdownMenuItem>
-                                                                                            <DropdownMenuSeparator />
-                                                                                            <DropdownMenuItem onClick={() => {
-                                                                                                setDocTargetListId(list.id);
-                                                                                                setDocTargetFolderId(undefined);
-                                                                                                setIsDocModalOpen(true);
-                                                                                            }}>
-                                                                                                <FileText className="mr-2 h-4 w-4" />
-                                                                                                Doc
-                                                                                            </DropdownMenuItem>
-                                                                                        </DropdownMenuContent>
-                                                                                    </DropdownMenu>
-                                                                                </div>
+                                                                                    style={{ backgroundColor: list.color || "#6366f1" }}
+                                                                                >
+                                                                                    {list.icon ? (
+                                                                                        <ListEntityIcon
+                                                                                            icon={list.icon}
+                                                                                            className="text-white"
+                                                                                            size={12}
+                                                                                            fill
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: list.color || '#cbd5e1' }} />
+                                                                                    )}
+                                                                                </span>
+
+                                                                                {/* Hover: Expand / Collapse Triangle button */}
+                                                                                {listDocViews.length > 0 && (
+                                                                                    <div className="hidden group-hover/item:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
+                                                                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", isDocExpanded && "rotate-90")} />
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
-                                                                            {isDocExpanded && listDocViews.length > 0 && (
-                                                                                <div className="ml-4 pl-2 border-l border-slate-200 mt-0.5 space-y-0.5">
-                                                                                    {listDocViews.map((docView) => {
-                                                                                        const isDocActive = activeDocViewId === docView.id;
-                                                                                        return (
-                                                                                            <button
-                                                                                                key={docView.id}
-                                                                                                onClick={() => handleDocViewClick(docView.id)}
-                                                                                                className={cn(
-                                                                                                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
-                                                                                                    "hover:bg-slate-50",
-                                                                                                    isDocActive ? "bg-slate-100 font-medium text-foreground" : "text-muted-foreground"
-                                                                                                )}
-                                                                                            >
-                                                                                                <FileText className={cn("h-3 w-3 shrink-0", isDocActive ? "text-indigo-500" : "text-muted-foreground")} />
-                                                                                                <span className="truncate">{docView.name}</span>
-                                                                                            </button>
-                                                                                        );
-                                                                                    })}
-                                                                                </div>
-                                                                            )}
+                                                                            <button
+                                                                                onClick={() => handleListClick(list.id)}
+                                                                                className="flex min-w-0 flex-1 items-center gap-2 text-left focus:outline-none cursor-pointer"
+                                                                            >
+                                                                                <span className={cn("truncate text-sm", isActive ? "font-normal text-foreground" : "text-zinc-600 group-hover/item:text-foreground")}>
+                                                                                    {list.name}
+                                                                                </span>
+                                                                            </button>
+                                                                            <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center gap-1">
+                                                                                <ListActionsMenu
+                                                                                    workspaceId={workspaceId}
+                                                                                    spaceId={spaceId}
+                                                                                    listId={list.id}
+                                                                                />
+                                                                                <DropdownMenu>
+                                                                                    <Tooltip>
+                                                                                        <TooltipTrigger asChild>
+                                                                                            <DropdownMenuTrigger asChild>
+                                                                                                <button
+                                                                                                    className="h-6 w-6 inline-flex items-center justify-center rounded-sm hover:bg-zinc-200 text-muted-foreground hover:text-foreground cursor-pointer"
+                                                                                                >
+                                                                                                    <Plus className="h-4 w-4" />
+                                                                                                </button>
+                                                                                            </DropdownMenuTrigger>
+                                                                                        </TooltipTrigger>
+                                                                                        <TooltipContent>
+                                                                                            <p>Create Tasks, Lists, Docs and more</p>
+                                                                                        </TooltipContent>
+                                                                                    </Tooltip>
+                                                                                    <DropdownMenuContent align="end" className="w-48">
+                                                                                        <DropdownMenuItem onClick={() => {
+                                                                                            setTargetListId(list.id);
+                                                                                            setIsTaskModalOpen(true);
+                                                                                        }}>
+                                                                                            <CheckSquare className="mr-2 h-4 w-4" />
+                                                                                            Task
+                                                                                        </DropdownMenuItem>
+                                                                                        <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
+                                                                                            <ListIcon className="mr-2 h-4 w-4" />
+                                                                                            List
+                                                                                        </DropdownMenuItem>
+                                                                                        <DropdownMenuSeparator />
+                                                                                        <DropdownMenuItem onClick={() => {
+                                                                                            setDocTargetListId(list.id);
+                                                                                            setDocTargetFolderId(undefined);
+                                                                                            setIsDocModalOpen(true);
+                                                                                        }}>
+                                                                                            <FileText className="mr-2 h-4 w-4" />
+                                                                                            Doc
+                                                                                        </DropdownMenuItem>
+                                                                                    </DropdownMenuContent>
+                                                                                </DropdownMenu>
+                                                                            </div>
                                                                         </div>
-                                                                    );
-                                                                })
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => handleOpenCreateListInFolder(item.id)}
-                                                                    className="flex w-full items-center gap-2 px-2 py-2 text-xs text-muted-foreground hover:text-blue-600 hover:bg-slate-50 rounded-md transition-all group/add"
-                                                                >
-                                                                    <Plus className="h-3 w-3 group-hover/add:scale-110 transition-transform" />
-                                                                    <span>Add item</span>
-                                                                </button>
-                                                            )}
+                                                                        {/* Doc views under list */}
+                                                                        {isDocExpanded && listDocViews.length > 0 && (
+                                                                            <div className="ml-4 pl-2 border-l border-slate-200 mt-0.5 space-y-0.5">
+                                                                                {listDocViews.map((docView) => {
+                                                                                    const isDocActive = activeDocViewId === docView.id;
+                                                                                    return (
+                                                                                        <button
+                                                                                            key={docView.id}
+                                                                                            onClick={() => handleDocViewClick(docView.id)}
+                                                                                            className={cn(
+                                                                                                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+                                                                                                "hover:bg-slate-50",
+                                                                                                isDocActive ? "bg-slate-100 font-normal text-foreground" : "text-muted-foreground"
+                                                                                            )}
+                                                                                        >
+                                                                                            <FileText className={cn("h-3 w-3 shrink-0", isDocActive ? "text-indigo-500" : "text-muted-foreground")} />
+                                                                                            <span className="truncate">{docView.name}</span>
+                                                                                        </button>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
@@ -567,44 +712,70 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                                             isActive && "bg-slate-100"
                                                         )}
                                                     >
+                                                        <div
+                                                            className={cn(
+                                                                "relative h-5 w-5 rounded shrink-0 flex items-center justify-center ml-0.5",
+                                                                listDocViews.length > 0 && "cursor-pointer"
+                                                            )}
+                                                            onClick={(e) => {
+                                                                if (listDocViews.length > 0) {
+                                                                    e.stopPropagation();
+                                                                    setExpandedDocs(prev => ({ ...prev, [list.id]: !prev[list.id] }));
+                                                                }
+                                                            }}
+                                                        >
+                                                            {/* Normal: List Icon */}
+                                                            <span
+                                                                className={cn(
+                                                                    "h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center",
+                                                                    listDocViews.length > 0 && "group-hover/item:hidden"
+                                                                )}
+                                                                style={{ backgroundColor: list.icon ? (list.color || "#6366f1") : "transparent" }}
+                                                            >
+                                                                <ListEntityIcon
+                                                                    icon={list.icon}
+                                                                    className={cn(list.icon ? "text-white" : isActive ? "text-foreground" : "text-muted-foreground")}
+                                                                    size={14}
+                                                                    fill
+                                                                />
+                                                            </span>
+
+                                                            {/* Hover: Expand / Collapse Triangle button */}
+                                                            {listDocViews.length > 0 && (
+                                                                <div className="hidden group-hover/item:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
+                                                                    <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isDocExpanded && "rotate-90")} />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                         <button
                                                             onClick={() => handleListClick(list.id)}
-                                                            className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none"
+                                                            className="flex min-w-0 flex-1 items-center gap-2 text-left focus:outline-none cursor-pointer"
                                                         >
-                                                            <ListIcon
-                                                                className="h-4 w-4 shrink-0 text-muted-foreground"
-                                                                style={{ color: list.color || undefined }}
-                                                            />
-                                                            <div className="flex min-w-0 flex-1 flex-col justify-center">
-                                                                <p className={cn("truncate text-sm font-medium", isActive ? "text-foreground" : "text-zinc-600")}>
-                                                                    {list.name}
-                                                                </p>
-                                                            </div>
+                                                            <span className={cn("truncate text-sm", isActive ? "font-normal text-foreground" : "text-zinc-600 group-hover/item:text-foreground")}>
+                                                                {list.name}
+                                                            </span>
                                                         </button>
                                                         <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center gap-1">
-                                                            {listDocViews.length > 0 && (
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); setExpandedDocs(prev => ({ ...prev, [list.id]: !prev[list.id] })); }}
-                                                                    className="h-4 w-4 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground"
-                                                                    title="Toggle docs"
-                                                                >
-                                                                    <ChevronRight className={cn("h-3 w-3 transition-transform", isDocExpanded && "rotate-90")} />
-                                                                </button>
-                                                            )}
                                                             <ListActionsMenu
                                                                 workspaceId={workspaceId}
                                                                 spaceId={spaceId}
                                                                 listId={list.id}
                                                             />
                                                             <DropdownMenu>
-                                                                <DropdownMenuTrigger asChild>
-                                                                    <button
-                                                                        className="h-5 w-5 inline-flex items-center justify-center rounded-sm hover:bg-slate-200 text-muted-foreground hover:text-foreground"
-                                                                        title="Create"
-                                                                    >
-                                                                        <Plus className="h-3 w-3" />
-                                                                    </button>
-                                                                </DropdownMenuTrigger>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <button
+                                                                                className="h-6 w-6 inline-flex items-center justify-center rounded-sm hover:bg-zinc-200 text-muted-foreground hover:text-foreground cursor-pointer"
+                                                                            >
+                                                                                <Plus className="h-4 w-4" />
+                                                                            </button>
+                                                                        </DropdownMenuTrigger>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>Create Tasks, Lists, Docs and more</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
                                                                 <DropdownMenuContent align="end" className="w-48">
                                                                     <DropdownMenuItem onClick={() => {
                                                                         setTargetListId(list.id);
@@ -633,6 +804,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                                             </DropdownMenu>
                                                         </div>
                                                     </div>
+                                                    {/* Doc views under top-level list */}
                                                     {isDocExpanded && listDocViews.length > 0 && (
                                                         <div className="ml-4 pl-2 border-l border-slate-200 mt-0.5 space-y-0.5">
                                                             {listDocViews.map((docView) => {
@@ -644,7 +816,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                                                         className={cn(
                                                                             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
                                                                             "hover:bg-slate-50",
-                                                                            isDocActive ? "bg-slate-100 font-medium text-foreground" : "text-muted-foreground"
+                                                                            isDocActive ? "bg-slate-100 font-normal text-foreground" : "text-muted-foreground"
                                                                         )}
                                                                     >
                                                                         <FileText className={cn("h-3 w-3 shrink-0", isDocActive ? "text-indigo-500" : "text-muted-foreground")} />
@@ -669,15 +841,21 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
             <div className="flex-1 overflow-hidden relative flex flex-col">
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-2 z-40">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                            onClick={() => setIsSidebarCollapsed(false)}
-                            title="Expand Sidebar"
-                        >
-                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                >
+                                    <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Expand Sidebar</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
                 <div className="flex-1 overflow-hidden">
@@ -687,12 +865,13 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                 <DocView
                                     viewId={activeDocViewId}
                                     spaceId={spaceId}
+                                    workspaceId={workspaceId}
                                     listId={docTargetListId}
                                     folderId={docTargetFolderId}
                                 />
                             </div>
                         ) : activeListId ? (
-                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
+                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_[role=tablist]]:pl-6")}>
                                 <DashboardListView
                                     listId={activeListId}
                                     spaceId={spaceId}
@@ -702,7 +881,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                 />
                             </div>
                         ) : activeFolderId ? (
-                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_.dashboard-tabs-container]:pl-12")}>
+                            <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_[role=tablist]]:pl-6")}>
                                 <DashboardFolderView
                                     folderId={activeFolderId}
                                     spaceId={spaceId}
@@ -712,7 +891,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                 />
                             </div>
                         ) : (
-                            <div className="flex h-full items-center justify-center">
+                            <div className="flex h-full items-center justify-center py-12">
                                 <div className="flex flex-col items-center text-center max-w-sm p-6">
                                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 mb-4">
                                         <ListIcon className="h-6 w-6 text-indigo-500" strokeWidth={1.5} />
@@ -726,20 +905,26 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                         Lists help you organize tasks and workflows. Select one or create a new one.
                                     </p>
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-col sm:flex-row items-center gap-3">
                                         <Button
                                             size="sm"
-                                            className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white"
-                                            onClick={() => setIsListModalOpen(true)}
+                                            className="rounded-lg bg-slate-900 hover:bg-slate-800 text-white w-full sm:w-auto"
+                                            onClick={() => {
+                                                setTargetFolderId(activeFolderId || undefined);
+                                                setIsListModalOpen(true);
+                                            }}
                                         >
                                             <Plus className="mr-1.5 h-4 w-4" />
                                             Create a List
                                         </Button>
-                                       <Button
+                                        <Button
                                             size="sm"
                                             variant="outline"
-                                            className="rounded-lg border-[#2D2D2D] text-[#2D2D2D] hover:bg-[#f5f5f5] hover:border-[#1a1a1a]"
-                                            onClick={() => setIsFolderModalOpen(true)}
+                                            className="rounded-lg border-[#2D2D2D] text-[#2D2D2D] hover:bg-[#f5f5f5] hover:border-[#1a1a1a] w-full sm:w-auto"
+                                            onClick={() => {
+                                                setTargetFolderId(activeFolderId || undefined);
+                                                setIsFolderModalOpen(true);
+                                            }}
                                         >
                                             <Folder className="mr-1.5 h-4 w-4" />
                                             Create a Folder
@@ -778,7 +963,6 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                     if (!open) setTargetFolderId(undefined);
                 }}
                 onFolderCreated={(folder) => {
-                    // Handle folder creation if needed
                     console.log("Folder created:", folder);
                 }}
                 trigger={<span className="hidden" />}
@@ -814,7 +998,11 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                     setIsDocModalOpen(open);
                     if (!open) { setDocTargetListId(undefined); setDocTargetFolderId(undefined); }
                 }}
-                workspaceId={workspaceId || ""}
+                workspaceId={workspaceId}
+                spaceId={spaceId}
+                listId={docTargetListId}
+                folderId={docTargetFolderId}
+                sidebarView={true}
                 onSuccess={handleDocCreated}
             />
         </div>

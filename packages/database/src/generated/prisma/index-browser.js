@@ -770,6 +770,7 @@ exports.Prisma.ViewScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   transferredAt: 'transferredAt',
+  locationType: 'locationType',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
 };
@@ -864,7 +865,6 @@ exports.Prisma.DocumentScalarFieldEnum = {
   transferredAt: 'transferredAt',
   publishedAt: 'publishedAt',
   settings: 'settings',
-  locationType: 'locationType',
   deletedAt: 'deletedAt',
   deletedById: 'deletedById'
 };

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import { Plus, Users, Search, ChevronsLeft, ChevronsRight, X, LayoutGrid, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,8 @@ import { cn } from "@/lib/utils";
 import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
 import { TeamImportModal } from "@/entities/teams/components/TeamImportModal";
 import { TeamActionsMenu } from "@/features/dashboard/components/sidebar/TeamActionsMenu";
-import { TeamCreateMenu } from "@/features/dashboard/components/sidebar/TeamCreateMenu";
+import { TeamIcon } from "@/entities/teams/components/TeamIcon";
+import { TeamSidebarItem } from "@/features/dashboard/components/sidebar/TeamSidebarItem";
 import DashboardTeamView from "@/features/dashboard/views/generic/DashboardTeamView";
 import { SharedManageTeamsView } from "@/features/dashboard/views/shared/SharedManageTeamsView";
 
@@ -73,6 +75,16 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
         setIsManageView(false);
         if (onTeamSelect) {
             onTeamSelect(teamId);
+        } else if (workspaceId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, type: "tm", id: teamId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "teams",
+                entityKey: "tm",
+                entityId: teamId,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
         }
     };
 
@@ -93,14 +105,14 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
             {/* Teams Sidebar */}
             <aside className={cn(
                 "shrink-0 bg-white transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden",
-                isSidebarCollapsed ? "w-0 border-none" : "w-[256px] border-r border-slate-200"
+                isSidebarCollapsed ? "w-0 border-l border-slate-200" : "w-[256px] border-x border-slate-200"
             )}>
                 <div className="flex h-full flex-col overflow-hidden">
                     {/* Header */}
                     {!isSidebarCollapsed && (
-                        <div className="flex flex-col border-b border-slate-200">
+                        <div className="flex flex-col justify-center border-b border-slate-200 h-[57px] shrink-0">
                             {isSearchOpen ? (
-                                <div className="flex items-center gap-2 px-3 py-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="flex items-center gap-2 px-3 h-full animate-in fade-in slide-in-from-top-2 duration-200">
                                     <Search className="h-4 w-4 text-muted-foreground shrink-0" />
                                     <Input
                                         autoFocus
@@ -122,7 +134,7 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="flex items-center justify-between px-4 py-3">
+                                <div className="flex items-center justify-between px-4 h-full">
                                     <h2 className={cn(
                                         "text-sm font-semibold",
                                         isManageView ? "text-indigo-600" : "text-foreground"
@@ -159,47 +171,47 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
                                         </DropdownMenu>
 
                                         <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsSearchOpen(true)}
-                                              >
-                                                  <Search className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Search</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSearchOpen(true)}
+                                                    >
+                                                        <Search className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Search</TooltipContent>
+                                            </Tooltip>
 
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setIsSidebarCollapsed(true)}
-                                              >
-                                                  <ChevronsLeft className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Collapse Sidebar</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setIsSidebarCollapsed(true)}
+                                                    >
+                                                        <ChevronsLeft className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Collapse Sidebar</TooltipContent>
+                                            </Tooltip>
 
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button
-                                                  variant="ghost"
-                                                  size="icon"
-                                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                  onClick={() => setCreateModalOpen(true)}
-                                              >
-                                                  <Plus className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Create Team</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => setCreateModalOpen(true)}
+                                                    >
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Create Team</TooltipContent>
+                                            </Tooltip>
                                         </TooltipProvider>
                                     </div>
                                 </div>
@@ -238,39 +250,13 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
                                     {teams.map((team) => {
                                         const isActive = !isManageView && activeTeamId === team.id;
                                         return (
-                                            <div
+                                            <TeamSidebarItem
                                                 key={team.id}
-                                                className={cn(
-                                                    "group/item flex w-full items-start gap-3 rounded-lg px-3 py-3 transition-colors",
-                                                    "hover:bg-slate-50",
-                                                    isActive && "bg-slate-100"
-                                                )}
-                                            >
-                                                <button
-                                                    onClick={() => handleTeamClick(team.id)}
-                                                    className="flex min-w-0 flex-1 items-center gap-3 text-left focus:outline-none cursor-pointer"
-                                                >
-                                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="truncate text-sm font-semibold text-foreground">
-                                                                {team.name}
-                                                            </p>
-                                                            {!team.isActive && (
-                                                                <Badge variant="secondary" className="shrink-0 text-xs px-1 h-5">
-                                                                    Archived
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                                <div className="opacity-0 group-hover/item:opacity-100 transition-opacity flex-shrink-0 flex items-center gap-1">
-                                                    <TeamActionsMenu workspaceId={workspaceId} teamId={team.id} />
-                                                    <TeamCreateMenu
-                                                        onCreateNew={() => setCreateModalOpen(true)}
-                                                        onImport={() => setImportModalOpen(true)}
-                                                    />
-                                                </div>
-                                            </div>
+                                                workspaceId={workspaceId}
+                                                team={team}
+                                                isActive={isActive}
+                                                onSelectTeam={handleTeamClick}
+                                            />
                                         );
                                     })}
                                 </div>
@@ -284,21 +270,27 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
             <div className="flex-1 overflow-hidden relative">
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-3 z-30">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                            onClick={() => setIsSidebarCollapsed(false)}
-                            title="Expand Sidebar"
-                        >
-                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                >
+                                    <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Expand Sidebar</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
                 {isManageView ? (
                     <SharedManageTeamsView workspaceId={workspaceId} onTeamCreated={handleTeamCreated} />
                 ) : activeTeamId ? (
-                    <div className="flex h-full flex-col">
+                    <div className={cn("flex h-full flex-col", isSidebarCollapsed && "[&_[role=tablist]]:pl-6")}>
                         <DashboardTeamView teamId={activeTeamId} workspaceId={workspaceId} />
                     </div>
                 ) : (

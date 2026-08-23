@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { MoreVertical, Calendar, ArrowRight, Eye, Trash2, FileText, PenSquare } from "lucide-react";
+import { MoreVertical, Calendar, ArrowRight, Eye, Trash2, FileText, PenSquare, Folder } from "lucide-react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -22,6 +22,20 @@ type Props = {
 
 export function DocumentCard({ item, className, isSelected, onSelect, onDelete }: Props) {
 	const router = useRouter();
+
+	const locationText =
+		item.locationPath ||
+		[
+			item.workspace?.name || item.workspaceName,
+			item.space?.name || item.spaceName,
+			item.project?.name || item.projectName,
+			item.team?.name || item.teamName,
+			item.folder?.name || item.folderName,
+			item.list?.name || item.listName,
+		]
+			.filter(Boolean)
+			.join(" / ") ||
+		null;
 
 	return (
 		<div
@@ -74,6 +88,15 @@ export function DocumentCard({ item, className, isSelected, onSelect, onDelete }
 			<div className="p-3 flex flex-col gap-4 flex-1 pt-12 relative z-0">
 				<div className="flex items-start justify-between gap-4">
 					<div className="min-w-0 space-y-2.5 flex-1">
+						{locationText && (
+							<div
+								className="flex items-center gap-1.5 text-xs text-slate-500 font-normal truncate min-w-0 max-w-full"
+								title={locationText}
+							>
+								<Folder className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+								<span className="truncate">{locationText}</span>
+							</div>
+						)}
 						<div className="flex items-start justify-between gap-3">
 							<div className="flex items-center gap-2">
 								<span className="flex-shrink-0 text-lg leading-none">

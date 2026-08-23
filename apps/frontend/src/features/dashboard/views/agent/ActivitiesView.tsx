@@ -3,6 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EntityStatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -141,13 +142,7 @@ export function ActivitiesView({ agentId }: ActivitiesViewProps) {
                     {getStatusIcon(execution.status)}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <Badge variant={
-                        execution.status === 'COMPLETED' ? 'default' :
-                        execution.status === 'FAILED' ? 'destructive' :
-                        'secondary'
-                      }>
-                      {execution.status}
-                    </Badge>
+                      <EntityStatusBadge status={execution.status} />
                       <span className="text-sm text-muted-foreground">
                         {execution.startedAt ? formatTimeAgo(execution.startedAt) : 'Unknown time'}
                       </span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
 	Dialog,
 	DialogContent,
@@ -18,7 +19,7 @@ import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
 import { useUsageCapModal } from "@/features/usage/hooks/useUsageCapModal";
 import { UsageRemainingHint } from "@/features/usage/components/UsageRemainingHint";
-import { Loader2, Rocket, Layers, Sparkles } from "lucide-react";
+import { Loader2, Rocket, Layers, Sparkles, Building, Search, Check, ChevronDown } from "lucide-react";
 import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { cn } from "@/lib/utils";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
@@ -62,12 +63,28 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 	const [hasManualIcon, setHasManualIcon] = useState(false);
 	const [color, setColor] = useState("#3B82F6");
 	const [visibility, setVisibility] = useState<"PRIVATE" | "ADMINS" | "MEMBERS" | "EVERYONE" | "PUBLIC">("ADMINS");
+	const [locationOpen, setLocationOpen] = useState(false);
+	const [locationSearch, setLocationSearch] = useState("");
 	const [focusedField, setFocusedField] = useState<"name" | "description" | null>(null);
 	const router = useRouter();
 	const { toast } = useToast();
 	const { handleError } = useUsageCapModal();
 	const utils = trpc.useUtils();
 	const queryClient = useQueryClient();
+
+	// Fetch workspaces
+	const { data: workspacesData } = trpc.workspace.list.useQuery(
+		{ scope: "editable" as any, pageSize: 100 },
+		{ enabled: open }
+	);
+
+	const workspaces = workspacesData?.items ?? [];
+
+	// Fetch single workspace if workspaceId passed
+	const workspaceQuery = trpc.workspace.get.useQuery(
+		{ id: workspaceId || selectedWorkspaceId },
+		{ enabled: open && !!(workspaceId || selectedWorkspaceId) }
+	);
 
 	// Reset form when modal opens
 	useEffect(() => {
@@ -79,16 +96,9 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 			setHasManualIcon(false);
 			setColor("#3B82F6");
 			setVisibility("ADMINS");
+			setLocationSearch("");
 		}
 	}, [open, initialName, workspaceId]);
-
-	// Fetch workspaces if no workspaceId is provided
-	const { data: workspacesData } = trpc.workspace.list.useQuery(
-		{ scope: "editable" as any, pageSize: 100 },
-		{ enabled: open && !workspaceId }
-	);
-
-	const workspaces = workspacesData?.items ?? [];
 
 	const createMutation = trpc.space.create.useMutation({
 		onSuccess: (data, variables) => {
@@ -116,11 +126,9 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 			const targetWorkspaceId = variables.workspaceId || data.workspaceId;
 
 			if (targetWorkspaceId) {
-				// Optimistically update workspace cache
 				utils.workspace.get.setData({ id: targetWorkspaceId }, (oldData: any) => {
 					if (!oldData) return undefined;
 
-					// Check if space already exists to avoid duplicates
 					const existingSpaces = oldData.spaces || [];
 					if (existingSpaces.some((s: any) => s.id === data.id)) return oldData;
 
@@ -130,7 +138,6 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 					};
 				});
 
-				// Defer invalidation to allow UI to settle with optimistic data
 				setTimeout(() => {
 					utils.workspace.get.invalidate({ id: targetWorkspaceId });
 				}, 1000);
@@ -140,7 +147,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 				utils.space.list.invalidate();
 				utils.space.listInfinite.invalidate();
 			}, 1000);
-			// Reset form
+
 			setName("");
 			setDescription("");
 			setIcon("");
@@ -186,6 +193,16 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 		});
 	};
 
+	const currentWorkspaceName = useMemo(() => {
+		if (selectedWorkspaceId) {
+			const found = workspaces.find(w => w.id === selectedWorkspaceId);
+			if (found) return found.name;
+			if (workspaceQuery.data?.name) return workspaceQuery.data.name;
+		}
+		if (workspaceId && workspaceQuery.data?.name) return workspaceQuery.data.name;
+		return undefined;
+	}, [selectedWorkspaceId, workspaces, workspaceQuery.data, workspaceId]);
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-xl p-0 overflow-hidden gap-0 border-border/50 shadow-2xl bg-background/95 backdrop-blur-xl transition-all duration-300">
@@ -212,32 +229,100 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 
 				<form onSubmit={handleSubmit} className="flex flex-col">
 					<div className="px-6 py-6 space-y-6">
-						{/* Workspace Selection (Only if no workspaceId prop provided) */}
-						{!workspaceId && (
-							<div className="space-y-2.5">
-								<Label className="text-sm font-medium text-slate-700">
-									Workspace <span className="text-[10px] font-normal lowercase">(optional)</span>
+						{/* Location & Visibility Row */}
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							<div className="space-y-2">
+								<Label className="text-sm font-medium text-zinc-700">
+									Location <span className="text-destructive">*</span>
 								</Label>
-								<Select value={selectedWorkspaceId} onValueChange={setSelectedWorkspaceId}>
-									<SelectTrigger className="h-11 bg-muted/30 border-input/60">
-										<SelectValue placeholder="Select a workspace..." />
+								<Popover open={locationOpen} onOpenChange={setLocationOpen}>
+									<PopoverTrigger asChild>
+										<button
+											type="button"
+											className="h-9 w-full border border-slate-200 hover:bg-zinc-50 hover:border-slate-300 bg-white text-[14px] text-zinc-700 rounded-md px-3 flex items-center justify-between cursor-pointer focus:outline-none"
+										>
+											<span className={cn("truncate text-left", !currentWorkspaceName && "text-zinc-400")}>
+												{currentWorkspaceName || "Select Workspace"}
+											</span>
+											<ChevronDown className="size-4 opacity-50" />
+										</button>
+									</PopoverTrigger>
+									<PopoverContent align="start" className="w-[340px] p-0 rounded-xl shadow-xl border-zinc-200 bg-white overflow-hidden max-h-[380px] flex flex-col z-50">
+										<div className="flex h-8 items-center rounded-md border border-zinc-200 bg-white px-2.5 mx-2.5 mt-2.5 mb-1.5 shrink-0 focus-within:border-zinc-400">
+											<Search className="h-3.5 w-3.5 text-zinc-400 shrink-0 mr-2" />
+											<input
+												type="text"
+												value={locationSearch}
+												onChange={(e) => setLocationSearch(e.target.value)}
+												placeholder="Search workspaces..."
+												className="w-full bg-transparent border-0 p-0 text-xs outline-none placeholder:text-zinc-400"
+												autoFocus
+											/>
+										</div>
+										<div className="overflow-y-auto flex-1 py-1 max-h-[300px] px-1">
+											{workspaces
+												.filter((ws: any) => !locationSearch.trim() || ws.name.toLowerCase().includes(locationSearch.toLowerCase()))
+												.map((ws: any) => {
+													const isSelected = selectedWorkspaceId === ws.id;
+													return (
+														<button
+															type="button"
+															key={ws.id}
+															onClick={() => {
+																setSelectedWorkspaceId(ws.id);
+																setLocationOpen(false);
+															}}
+															className={cn(
+																"w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer group/ws",
+																isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
+															)}
+														>
+															<div className="flex items-center gap-2 truncate">
+																<div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 shrink-0 flex items-center justify-center">
+																	<Building className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+																</div>
+																<span className="truncate">{ws.name}</span>
+															</div>
+															{isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
+														</button>
+													);
+												})}
+											{workspaces.length === 0 && (
+												<div className="py-4 text-center text-xs text-muted-foreground">
+													No workspaces found
+												</div>
+											)}
+										</div>
+									</PopoverContent>
+								</Popover>
+							</div>
+
+							<div className="space-y-2">
+								<Label htmlFor="space-visibility" className="text-sm font-medium text-zinc-700">
+									Visibility
+								</Label>
+								<Select value={visibility} onValueChange={(v: any) => setVisibility(v)}>
+									<SelectTrigger id="space-visibility" className="w-full rounded-md shadow-none bg-white border-slate-200 hover:border-slate-300 hover:bg-zinc-50">
+										<SelectValue placeholder="Select visibility">
+											{visibilityOptions.find((o) => o.value === visibility)?.label}
+										</SelectValue>
 									</SelectTrigger>
 									<SelectContent>
-										{workspaces.map((ws) => (
-											<SelectItem key={ws.id} value={ws.id}>
-												{ws.name}
+										{visibilityOptions.map(({ value, label, description }) => (
+											<SelectItem key={value} value={value} description={description}>
+												{label}
 											</SelectItem>
 										))}
 									</SelectContent>
 								</Select>
 							</div>
-						)}
+						</div>
 
 						{/* Icon & Name Field */}
-						<div className="space-y-2.5">
+						<div className="space-y-2">
 							<Label
 								htmlFor="name"
-								className="text-sm font-medium text-slate-700"
+								className="text-sm font-medium text-zinc-700"
 							>
 								Icon & name <span className="text-destructive">*</span>
 							</Label>
@@ -265,6 +350,7 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 									id="name"
 									placeholder="e.g. Marketing, Engineering, HR"
 									value={name}
+									variant="ghost"
 									onChange={(e) => {
 										const newName = e.target.value;
 										setName(newName);
@@ -278,19 +364,22 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 									onBlur={() => setFocusedField(null)}
 									disabled={createMutation.isPending}
 									autoFocus
-									className="flex-1 h-11 bg-muted/30 border-input/60 hover:bg-muted/50 focus:bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20 shadow-sm"
+									required
+									className="flex-1 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-normal text-zinc-900 shadow-none placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 focus:outline-none"
 								/>
 							</div>
 						</div>
 
 						{/* Description Field */}
-						<div className="space-y-2.5">
-							<Label
-								htmlFor="description"
-								className="text-sm font-medium text-slate-700"
-							>
-								Description <span className="text-[10px] font-normal lowercase">(optional)</span>
-							</Label>
+						<div className="space-y-0">
+							<div className="flex items-center justify-between">
+								<Label
+									htmlFor="description"
+									className="text-sm font-medium text-zinc-700"
+								>
+									Description <span className="text-[10px] font-normal lowercase">(optional)</span>
+								</Label>
+							</div>
 							<div className="relative">
 								<Textarea
 									id="description"
@@ -301,33 +390,12 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 									onBlur={() => setFocusedField(null)}
 									maxLength={500}
 									disabled={createMutation.isPending}
-									className="min-h-[100px] resize-none bg-muted/30 border-input/60 hover:bg-muted/50 focus:bg-background transition-all duration-200 focus:ring-2 focus:ring-primary/20 text-sm leading-relaxed shadow-sm py-3 rounded-md"
+									className="min-h-[100px] rounded-md px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 focus-visible:ring-none resize-none"
 								/>
 								<div className="absolute bottom-2 right-2 text-xs text-muted-foreground/50 pointer-events-none">
 									{description.length}/500
 								</div>
 							</div>
-						</div>
-
-						{/* Visibility Field */}
-						<div className="space-y-2.5">
-							<Label className="text-sm font-medium text-slate-700">
-								Visibility
-							</Label>
-							<Select value={visibility} onValueChange={(v: any) => setVisibility(v)}>
-								<SelectTrigger className="h-11 bg-muted/30 border-input/60">
-									<SelectValue placeholder="Select visibility">
-										{visibilityOptions.find((o) => o.value === visibility)?.label}
-									</SelectValue>
-								</SelectTrigger>
-								<SelectContent>
-									{visibilityOptions.map(({ value, label, description }) => (
-										<SelectItem key={value} value={value} description={description}>
-											{label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
 						</div>
 					</div>
 
@@ -339,13 +407,13 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 							variant="ghost"
 							onClick={() => onOpenChange(false)}
 							disabled={createMutation.isPending}
-							className="w-full rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:w-auto"
+							className="w-full rounded-xl border border-slate-200 bg-white text-zinc-600 hover:bg-slate-50 sm:w-auto"
 						>
 							Cancel
 						</Button>
 						<Button
 							type="submit"
-							disabled={createMutation.isPending}
+							disabled={createMutation.isPending || !name.trim()}
 							className={cn(
 								"w-full rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/40 sm:w-auto",
 								createMutation.isPending && "opacity-90"
@@ -363,6 +431,8 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 					</div>
 				</form>
 			</DialogContent>
-		</Dialog >
+		</Dialog>
 	);
 }
+
+export default SpaceCreationModal;

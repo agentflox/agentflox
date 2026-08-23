@@ -52,13 +52,26 @@ export const taskStatusRouter = router({
         spaceId:     z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const { listId, workspaceId } = input;
+      const userId = ctx.session!.user!.id;
 
       // 1. List-scoped
       if (listId) {
+        let targetListId = listId;
+        if (listId === "personal") {
+          const personalList = await prisma.list.findFirst({
+            where: {
+              locationType: "PERSONAL",
+              ownerId: userId,
+            },
+            select: { id: true },
+          });
+          if (personalList) targetListId = personalList.id;
+        }
+
         const statuses = await prisma.taskStatus.findMany({
-          where: { listId },
+          where: { listId: targetListId },
           orderBy: { position: "asc" },
           select: { id: true, name: true, color: true, position: true, type: true, isSystem: true },
         });

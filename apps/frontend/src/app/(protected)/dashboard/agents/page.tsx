@@ -43,9 +43,15 @@ import {
   DropdownMenuPortal,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash, Eye, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2, X, MoreVertical, PenSquare } from "lucide-react";
+import { MoreHorizontal, Edit, Trash, Eye, ArrowUpDown, ChevronUp, ChevronDown, Check, Settings2, X, MoreVertical, PenSquare, Circle } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import {
+  LocationTypeFilterSubmenu,
+  NestedLocationFilterSubmenu,
+  DashboardSortPopover,
+  LocationSelection,
+} from "@/features/dashboard/components/shared/DashboardFilterSubmenus";
 
 export default function AgentsPage() {
   const router = useRouter();
@@ -125,6 +131,10 @@ export default function AgentsPage() {
     }
   });
 
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { formatDistanceToNow } from "date-fns";
+import { EntityStatusBadge } from "@/components/ui/status-badge";
+
   const columns: ColumnDef<any>[] = [
     {
       id: "select",
@@ -143,23 +153,63 @@ export default function AgentsPage() {
       cell: ({ row }) => {
         const agent = row.original;
         return (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <div className="flex flex-col">
-              <span className="font-medium text-foreground hover:underline cursor-pointer" onClick={() => router.push(`/dashboard/agents/${agent.id}`)}>{agent.name}</span>
-              <span className="text-xs text-muted-foreground truncate max-w-[200px]">{agent.description || "No description"}</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer" onClick={() => router.push(`/dashboard/agents/${agent.id}`)}>{agent.name}</span>
+              <span className="text-xs text-zinc-400">{agent.agentType || "Standard"}</span>
             </div>
           </div>
         );
       },
     },
     {
+      accessorKey: "description",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+      cell: ({ row }) => {
+        const desc = row.original.description;
+        return (
+          <span className="text-xs text-zinc-500 line-clamp-1 max-w-[240px]" title={desc}>
+            {desc || "-"}
+          </span>
+        );
+      },
+    },
+    {
       accessorKey: "status",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      cell: ({ row }) => (
-        <Badge variant={row.original.status === "ACTIVE" ? "default" : row.original.status === "DRAFT" ? "secondary" : "destructive"}>
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => <EntityStatusBadge status={row.original.status} />,
+    },
+    {
+      id: "owner",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Owner" />,
+      cell: ({ row }) => {
+        const owner = row.original.user?.name || row.original.owner?.name || row.original.creator?.name || "You";
+        return <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">{owner}</span>;
+      },
+    },
+    {
+      accessorKey: "createdAt",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Date Created" />,
+      cell: ({ row }) => {
+        const date = row.original.createdAt;
+        return (
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
+            {date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "updatedAt",
+      header: ({ column }) => <DataTableColumnHeader column={column} title="Last Modified" />,
+      cell: ({ row }) => {
+        const date = row.original.updatedAt;
+        return (
+          <span className="text-xs text-zinc-500 whitespace-nowrap">
+            {date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+          </span>
+        );
+      },
     },
     {
       id: "executions",
@@ -178,7 +228,7 @@ export default function AgentsPage() {
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
+              <Button variant="ghost" className="h-8 w-8 p-0 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 hover:font-medium transition-colors cursor-pointer">
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
@@ -197,9 +247,30 @@ export default function AgentsPage() {
     },
   ];
 
+  const renderRowContextMenu = (agent: any) => (
+    <>
+      <ContextMenuItem onClick={() => router.push(`/dashboard/agents/${agent.id}`)} className="cursor-pointer">
+        <PenSquare className="mr-2 h-4 w-4" /> Edit Agent
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem className="text-red-600 focus:text-red-600 cursor-pointer" onClick={() => handleDelete(agent.id)}>
+        <Trash className="mr-2 h-4 w-4" /> Delete Agent
+      </ContextMenuItem>
+    </>
+  );
+
   const handleBulkDelete = (rows: any[]) => handleBulkDeleteModal(rows);
 
-  const hasFilters = searchQuery || statusFilter !== "all" || typeFilter !== "all";
+  const [locationTypeFilter, setLocationTypeFilter] = useState<string>("all");
+  const [locationFilter, setLocationFilter] = useState<any>(null);
+
+  const activeFiltersCount =
+    (statusFilter !== "all" ? 1 : 0) +
+    (typeFilter !== "all" ? 1 : 0) +
+    (locationTypeFilter !== "all" ? 1 : 0) +
+    (locationFilter ? 1 : 0);
+
+  const hasFilters = searchQuery || activeFiltersCount > 0;
 
   return (
     <Shell>
@@ -239,25 +310,54 @@ export default function AgentsPage() {
               <Button variant="ghost" className="h-9 px-3 gap-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all">
                 <Filter className="h-4 w-4" />
                 <span>Filter</span>
-                {(statusFilter !== "all" || typeFilter !== "all") && (
+                {activeFiltersCount > 0 && (
                   <span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-                    {(statusFilter !== "all" ? 1 : 0) + (typeFilter !== "all" ? 1 : 0)}
+                    {activeFiltersCount}
                   </span>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[180px]">
+            <DropdownMenuContent align="end" className="w-[200px]">
               <div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Filter by</div>
               <DropdownMenuSeparator />
+
+              <LocationTypeFilterSubmenu
+                selectedType={locationTypeFilter}
+                onSelectType={setLocationTypeFilter}
+              />
+
+              <NestedLocationFilterSubmenu
+                selectedLocation={locationFilter}
+                onSelectLocation={setLocationFilter}
+              />
+
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+                <DropdownMenuSubTrigger className="flex items-center gap-2">
+                  <Circle className="h-4 w-4 text-zinc-500" />
+                  <span>Status</span>
+                </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent>
-                    <DropdownMenuCheckboxItem checked={statusFilter === "all"} onCheckedChange={() => handleStatusFilterChange("all")}>All Status</DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem checked={statusFilter === "DRAFT"} onCheckedChange={() => handleStatusFilterChange("DRAFT")}>Draft</DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem checked={statusFilter === "ACTIVE"} onCheckedChange={() => handleStatusFilterChange("ACTIVE")}>Active</DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem checked={statusFilter === "PAUSED"} onCheckedChange={() => handleStatusFilterChange("PAUSED")}>Paused</DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem checked={statusFilter === "DISABLED"} onCheckedChange={() => handleStatusFilterChange("DISABLED")}>Disabled</DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem checked={statusFilter === "all"} onCheckedChange={() => handleStatusFilterChange("all")} className="flex items-center gap-2">
+                      <Circle className="h-3.5 w-3.5 text-zinc-400" />
+                      <span>All Status</span>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem checked={statusFilter === "DRAFT"} onCheckedChange={() => handleStatusFilterChange("DRAFT")} className="flex items-center gap-2">
+                      <Circle className="h-3.5 w-3.5 text-zinc-400 fill-zinc-400" />
+                      <span>Draft</span>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem checked={statusFilter === "ACTIVE"} onCheckedChange={() => handleStatusFilterChange("ACTIVE")} className="flex items-center gap-2">
+                      <Circle className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500" />
+                      <span>Active</span>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem checked={statusFilter === "PAUSED"} onCheckedChange={() => handleStatusFilterChange("PAUSED")} className="flex items-center gap-2">
+                      <Circle className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                      <span>Paused</span>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem checked={statusFilter === "DISABLED"} onCheckedChange={() => handleStatusFilterChange("DISABLED")} className="flex items-center gap-2">
+                      <Circle className="h-3.5 w-3.5 text-zinc-300 fill-zinc-300" />
+                      <span>Disabled</span>
+                    </DropdownMenuCheckboxItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
@@ -291,51 +391,14 @@ export default function AgentsPage() {
           })()}
 
           {/* Sort Popover */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" className="h-9 gap-1.5 px-3 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all cursor-pointer rounded-md outline-hidden focus:ring-0 focus-visible:ring-0">
-                <ArrowUpDown className="h-4 w-4" />
-                <span>Sort</span>
-                {sort.length > 0 && (
-                  <span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">{sort.length}</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200" sideOffset={8}>
-              <div className="px-2 py-1.5 mb-1">
-                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Sort By</span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-zinc-50 transition-colors text-zinc-600" onClick={() => setSort([])}>
-                  <span className="flex-1">None (default)</span>
-                  {sort.length === 0 && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-                </div>
-                {[{ id: "status", label: "Status" }, { id: "name", label: "Agent Name" }].map((opt) => {
-                  const currentSortIndex = sort.findIndex(s => s.id === opt.id);
-                  const isSelected = currentSortIndex >= 0;
-                  const currentSort = isSelected ? sort[currentSortIndex] : null;
-                  return (
-                    <div
-                      key={opt.id}
-                      className={cn("flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors", isSelected ? "bg-zinc-50 text-zinc-900" : "text-zinc-600 hover:bg-zinc-100")}
-                      onClick={() => { if (isSelected) setSort(s => s.filter(i => i.id !== opt.id)); else setSort(s => [...s, { id: opt.id, desc: false }]); }}
-                    >
-                      <div className="h-5 w-5 flex items-center justify-center rounded hover:bg-zinc-200 transition-colors" onClick={(e) => { e.stopPropagation(); if (isSelected) setSort(s => s.map(i => i.id === opt.id ? { ...i, desc: !i.desc } : i)); else setSort(s => [...s, { id: opt.id, desc: false }]); }}>
-                        {isSelected && (
-                          <div className="flex flex-col items-center -space-y-1">
-                            <ChevronUp className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-800' : 'text-zinc-300'}`} />
-                            <ChevronDown className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-300' : 'text-zinc-800'}`} />
-                          </div>
-                        )}
-                      </div>
-                      <span className="flex-1">{opt.label}</span>
-                      {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-                    </div>
-                  );
-                })}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <DashboardSortPopover
+            sort={sort}
+            onSortChange={setSort}
+            options={[
+              { id: "status", label: "Status" },
+              { id: "name", label: "Agent Name" },
+            ]}
+          />
         </SearchSection>
 
         {/* Filter Chips */}
@@ -348,7 +411,7 @@ export default function AgentsPage() {
                 <span>Search: {searchQuery}</span>
                 <button
                   type="button"
-                  onClick={() => handleSearchChange("")}
+                  onClick={() => setSearchQuery("")}
                   className="rounded-full p-0.5 transition-all hover:bg-zinc-200 dark:hover:bg-zinc-800 cursor-pointer"
                   aria-label="Remove search filter"
                 >
@@ -480,7 +543,16 @@ export default function AgentsPage() {
             )}
           </>
         ) : (
-          <DataTable columns={columns} data={data?.items || []} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
+          <DataTable
+            columns={columns}
+            data={data?.items || []}
+            onDeleteSelected={handleBulkDelete}
+            onTableReady={setTable}
+            renderRowContextMenu={renderRowContextMenu}
+            hideToolbar
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
+          />
         )}
 
         {/* Pagination */}

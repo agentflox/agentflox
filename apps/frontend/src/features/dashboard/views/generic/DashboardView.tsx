@@ -114,8 +114,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./listViewConstants";
-import type { FilterCondition, FilterGroup, FilterOperator } from "./listViewTypes";
+import { FILTER_OPTIONS, FIELD_OPERATORS, STANDARD_FIELD_CONFIG } from "./viewConstants";
+import type { FilterCondition, FilterGroup, FilterOperator } from "./viewTypes";
 import { evaluateGroup, hasAnyValueInGroup, hasFilterValue } from "./filterUtils";
 import { useGenericTaskViewData } from "@/features/dashboard/hooks/useGenericTaskViewData";
 import { format } from "date-fns";
@@ -598,7 +598,8 @@ export function DashboardView({
         }).length;
     }, [filterGroups]);
 
-    const addFilterCondition = (groupId: string = "root") => {
+    const addFilterCondition = (groupId?: string) => {
+        const targetId = groupId || "root";
         const newCond: FilterCondition = {
             id: Math.random().toString(36).substring(7),
             field: "",
@@ -606,7 +607,7 @@ export function DashboardView({
             value: [],
         };
         const update = (group: FilterGroup): FilterGroup => {
-            if (group.id === groupId) return { ...group, conditions: [...group.conditions, newCond] };
+            if (group.id === targetId) return { ...group, conditions: [...group.conditions, newCond] };
             return { ...group, conditions: group.conditions.map(c => "conditions" in c ? update(c as FilterGroup) : c) };
         };
         setFilterGroups(update(filterGroups));
@@ -1656,476 +1657,476 @@ export function DashboardView({
 
     return (
         <TooltipProvider delayDuration={200}>
-        <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-zinc-50 overflow-y-auto relative">
-            {/* Header */}
-            <div className="sticky top-0 z-10 bg-white border-b border-zinc-200 shadow-sm">
-                <div className="px-6 py-4">
-                    <div className="flex items-center justify-between gap-3 overflow-x-auto">
-                        <div className="flex items-center gap-2 shrink-0">
-                            <Popover open={filtersPanelOpen} onOpenChange={(open) => {
-                                setFiltersPanelOpen(open);
-                                if (open === false) setSavedFiltersPanelOpen(false);
-                            }}>
-                                <PopoverTrigger asChild>
-                                    <div className="relative group/filter inline-flex">
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
+            <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 to-zinc-50 overflow-y-auto relative">
+                {/* Header */}
+                <div className="sticky top-0 z-10 bg-white border-b border-zinc-200">
+                    <div className="px-6 py-2">
+                        <div className="flex items-center justify-between gap-3 overflow-x-auto">
+                            <div className="flex items-center gap-2 shrink-0">
+                                <Popover open={filtersPanelOpen} onOpenChange={(open) => {
+                                    setFiltersPanelOpen(open);
+                                    if (open === false) setSavedFiltersPanelOpen(false);
+                                }}>
+                                    <PopoverTrigger asChild>
+                                        <div className="relative group/filter inline-flex">
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className={cn(
+                                                            "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
+                                                            filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
+                                                            appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                                        )}
+                                                        onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                                    >
+                                                        <Filter className="h-3.5 w-3.5" />
+                                                        <span className="hidden sm:inline ml-1">
+                                                            {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
+                                                        </span>
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent side="bottom">Filter dashboard</TooltipContent>
+                                            </Tooltip>
+                                            {(appliedFilterCount > 0 || filtersPanelOpen) && (
+                                                <div
                                                     className={cn(
-                                                        "h-8 text-xs font-medium pr-7 bg-white hover:bg-zinc-100 shadow-none",
-                                                        filtersPanelOpen ? "text-violet-700 border-violet-200" : "text-zinc-700 border-zinc-200",
-                                                        appliedFilterCount > 0 && "border-violet-200 text-violet-700"
+                                                        "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-md hover:bg-violet-100 cursor-pointer z-10",
+                                                        filtersPanelOpen ? "text-violet-700" : "text-zinc-400"
                                                     )}
-                                                    onClick={() => { if (!filtersPanelOpen && filterGroups.conditions.length === 0) { addFilterGroup(); } }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (appliedFilterCount > 0) {
+                                                            setFilterGroups({ id: "root", operator: "AND", conditions: [] });
+                                                        } else {
+                                                            setFiltersPanelOpen(false);
+                                                        }
+                                                    }}
                                                 >
-                                                    <Filter className="h-3.5 w-3.5" />
-                                                    <span className="hidden sm:inline ml-1">
-                                                        {appliedFilterCount > 0 ? `${appliedFilterCount} Filter${appliedFilterCount !== 1 ? "s" : ""}` : "Filter"}
-                                                    </span>
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="bottom">Filter dashboard</TooltipContent>
-                                        </Tooltip>
-                                        {(appliedFilterCount > 0 || filtersPanelOpen) && (
-                                            <div
-                                                className={cn(
-                                                    "absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-md hover:bg-violet-100 cursor-pointer z-10",
-                                                    filtersPanelOpen ? "text-violet-700" : "text-zinc-400"
-                                                )}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (appliedFilterCount > 0) {
-                                                        setFilterGroups({ id: "root", operator: "AND", conditions: [] });
-                                                    } else {
-                                                        setFiltersPanelOpen(false);
-                                                    }
-                                                }}
-                                            >
-                                                <X className="h-3.5 w-3.5" />
-                                            </div>
-                                        )}
-                                    </div>
-                                </PopoverTrigger>
-                                <PopoverContent align="end" className="w-[600px] max-w-[95vw] p-0 overflow-hidden rounded-2xl border border-zinc-200/80 shadow-2xl" sideOffset={8}>
-                                    {renderFilterContent({ onClose: () => setFiltersPanelOpen(false) })}
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
-                                        onClick={handleToolbarRefresh}
-                                    >
-                                        <RefreshCw className="h-3.5 w-3.5" />
-                                        Refreshed: {refreshedAgo}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom">Refresh dashboard</TooltipContent>
-                            </Tooltip>
-
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
-                                        onClick={() => setAutoRefresh((v) => !v)}
-                                    >
-                                        <Clock className="h-3.5 w-3.5" />
-                                        Auto refresh: {autoRefresh ? "On" : "Off"}
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom">Toggle auto refresh</TooltipContent>
-                            </Tooltip>
-
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
-                                    >
-                                        <Zap className="h-3.5 w-3.5" />
-                                        Schedule report
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom">Schedule a report</TooltipContent>
-                            </Tooltip>
-
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
-                                        onClick={() => setCustomizePanelOpen(true)}
-                                    >
-                                        <Settings className="h-3.5 w-3.5" />
-                                        <span className="hidden sm:inline ml-1">Customize</span>
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom">Customize view</TooltipContent>
-                            </Tooltip>
-
-                            {/* Add Widget */}
-                            <Dialog open={isAddWidgetOpen} onOpenChange={setIsAddWidgetOpen}>
-                                <DialogTrigger asChild>
-                                    <Button className="h-8 gap-1.5 px-3 text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-white border-0 shadow-sm">
-                                        <Plus className="h-3.5 w-3.5" />
-                                        Add card
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[1200px] w-[95vw] max-h-[85vh] h-[85vh] p-0 overflow-hidden flex flex-col md:flex-row gap-0 bg-zinc-50 border border-zinc-200/60 shadow-2xl [&>button]:right-6 [&>button]:top-4 [&>button]:cursor-pointer [&>button]:z-[60]">
-                                    <Tabs defaultValue="featured" className="flex flex-row h-full w-full gap-0">
-                                        {/* Left Sidebar */}
-                                        <div className="w-[280px] flex shrink-0 flex-col border-r border-zinc-200/70 bg-zinc-50/50">
-                                            <div className="h-14 flex items-center px-5 gap-2 text-base font-bold border-b border-zinc-200/70 shrink-0">
-                                                <LayoutDashboard className="h-5 w-5 text-zinc-500" />
-                                                Add Card
-                                            </div>
-                                            <ScrollArea className="flex-1">
-                                                <TabsList className="flex flex-col w-full h-auto bg-transparent items-stretch p-3 gap-1 space-y-0">
-                                                    <TabsTrigger value="featured" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <Star className="h-4 w-4 mr-3 text-zinc-500" /> Featured
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="ai" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <Sparkles className="h-4 w-4 mr-3 text-fuchsia-500" /> AI Cards
-                                                    </TabsTrigger>
-                                                    <div className="pt-4 pb-2 px-3 text-xs uppercase font-bold text-zinc-400 tracking-wider">Views</div>
-                                                    <TabsTrigger value="custom" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <LayoutList className="h-4 w-4 mr-3 text-zinc-500" /> Custom
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="sprints" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <RefreshCw className="h-4 w-4 mr-3 text-zinc-500" /> Sprints
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="statuses" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <CheckCircle2 className="h-4 w-4 mr-3 text-zinc-500" /> Statuses
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="tags" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <Tag className="h-4 w-4 mr-3 text-zinc-500" /> Tags
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="assignees" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <User className="h-4 w-4 mr-3 text-zinc-500" /> Assignees
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="priorities" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <Flag className="h-4 w-4 mr-3 text-zinc-500" /> Priorities
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="time" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <Timer className="h-4 w-4 mr-3 text-zinc-500" /> Time Tracking
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="tables" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <Grid className="h-4 w-4 mr-3 text-zinc-500" /> Tables
-                                                    </TabsTrigger>
-                                                    <TabsTrigger value="embeds" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
-                                                        <Globe className="h-4 w-4 mr-3 text-zinc-500" /> Embeds and Apps
-                                                    </TabsTrigger>
-                                                </TabsList>
-                                            </ScrollArea>
+                                                    <X className="h-3.5 w-3.5" />
+                                                </div>
+                                            )}
                                         </div>
+                                    </PopoverTrigger>
+                                    <PopoverContent align="end" className="w-[600px] max-w-[95vw] p-0 overflow-hidden rounded-2xl border border-zinc-200/80 shadow-2xl" sideOffset={8}>
+                                        {renderFilterContent({ onClose: () => setFiltersPanelOpen(false) })}
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
 
-                                        {/* Right Main Content */}
-                                        <div className="flex-1 flex flex-col min-w-0 bg-white">
-                                            <div className="h-12 flex items-center justify-between px-6 border-b border-zinc-100 shrink-0 pr-12">
-                                                <div className="flex items-center gap-2">
-                                                    <Star className="h-4 w-4 text-zinc-400" />
-                                                    <span className="font-semibold text-sm">Featured</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                            onClick={handleToolbarRefresh}
+                                        >
+                                            <RefreshCw className="h-3.5 w-3.5" />
+                                            Refreshed: {refreshedAgo}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Refresh dashboard</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                            onClick={() => setAutoRefresh((v) => !v)}
+                                        >
+                                            <Clock className="h-3.5 w-3.5" />
+                                            Auto refresh: {autoRefresh ? "On" : "Off"}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Toggle auto refresh</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 gap-1.5 px-2.5 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                        >
+                                            <Zap className="h-3.5 w-3.5" />
+                                            Schedule report
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Schedule a report</TooltipContent>
+                                </Tooltip>
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 text-xs font-medium text-zinc-700 bg-white hover:bg-zinc-100 border-zinc-200 shadow-none"
+                                            onClick={() => setCustomizePanelOpen(true)}
+                                        >
+                                            <Settings className="h-3.5 w-3.5" />
+                                            <span className="hidden sm:inline ml-1">Customize</span>
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Customize view</TooltipContent>
+                                </Tooltip>
+
+                                {/* Add Widget */}
+                                <Dialog open={isAddWidgetOpen} onOpenChange={setIsAddWidgetOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button className="h-8 gap-1.5 px-3 text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-white border-0 shadow-sm">
+                                            <Plus className="h-3.5 w-3.5" />
+                                            Add card
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[1200px] w-[95vw] max-h-[85vh] h-[85vh] p-0 overflow-hidden flex flex-col md:flex-row gap-0 bg-zinc-50 border border-zinc-200/60 shadow-2xl [&>button]:right-6 [&>button]:top-4 [&>button]:cursor-pointer [&>button]:z-[60]">
+                                        <Tabs defaultValue="featured" className="flex flex-row h-full w-full gap-0">
+                                            {/* Left Sidebar */}
+                                            <div className="w-[280px] flex shrink-0 flex-col border-r border-zinc-200/70 bg-zinc-50/50">
+                                                <div className="h-14 flex items-center px-5 gap-2 text-base font-bold border-b border-zinc-200/70 shrink-0">
+                                                    <LayoutDashboard className="h-5 w-5 text-zinc-500" />
+                                                    Add Card
                                                 </div>
-                                                <div className="flex items-center gap-2 h-8 w-56 px-2.5 bg-zinc-50/50 border border-zinc-200 rounded-md">
-                                                    <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                                    <Input variant="ghost" placeholder="Search..." className="flex-1 h-full min-w-0 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent rounded-none outline-none focus:outline-none" />
-                                                </div>
+                                                <ScrollArea className="flex-1">
+                                                    <TabsList className="flex flex-col w-full h-auto bg-transparent items-stretch p-3 gap-1 space-y-0">
+                                                        <TabsTrigger value="featured" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <Star className="h-4 w-4 mr-3 text-zinc-500" /> Featured
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="ai" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <Sparkles className="h-4 w-4 mr-3 text-fuchsia-500" /> AI Cards
+                                                        </TabsTrigger>
+                                                        <div className="pt-4 pb-2 px-3 text-xs uppercase font-bold text-zinc-400 tracking-wider">Views</div>
+                                                        <TabsTrigger value="custom" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <LayoutList className="h-4 w-4 mr-3 text-zinc-500" /> Custom
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="sprints" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <RefreshCw className="h-4 w-4 mr-3 text-zinc-500" /> Sprints
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="statuses" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <CheckCircle2 className="h-4 w-4 mr-3 text-zinc-500" /> Statuses
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="tags" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <Tag className="h-4 w-4 mr-3 text-zinc-500" /> Tags
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="assignees" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <User className="h-4 w-4 mr-3 text-zinc-500" /> Assignees
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="priorities" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <Flag className="h-4 w-4 mr-3 text-zinc-500" /> Priorities
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="time" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <Timer className="h-4 w-4 mr-3 text-zinc-500" /> Time Tracking
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="tables" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <Grid className="h-4 w-4 mr-3 text-zinc-500" /> Tables
+                                                        </TabsTrigger>
+                                                        <TabsTrigger value="embeds" className="justify-start px-3 py-2.5 text-sm font-semibold w-full cursor-pointer h-10 rounded-md data-[state=active]:bg-zinc-200/50 data-[state=active]:shadow-none hover:bg-zinc-100 transition-colors">
+                                                            <Globe className="h-4 w-4 mr-3 text-zinc-500" /> Embeds and Apps
+                                                        </TabsTrigger>
+                                                    </TabsList>
+                                                </ScrollArea>
                                             </div>
-                                            
-                                            <ScrollArea className="flex-1">
-                                                <div className="p-8 pb-24">
-                                                    <TabsContent value="featured" className="m-0 space-y-6 outline-none">
-                                                        <h2 className="text-xl font-bold text-zinc-900">Featured</h2>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                            
-                                                            {/* Card 1 */}
-                                                            <div className="group flex flex-col bg-white border border-zinc-200 hover:border-violet-300 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('activity', 'AI Brain', {}); setIsAddWidgetOpen(false); }}>
-                                                                <div className="h-[140px] bg-gradient-to-br from-pink-50 to-purple-50 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
-                                                                     <div className="absolute top-3 left-3 bg-white rounded-full p-1.5 shadow-sm">
-                                                                         <Sparkles className="h-4 w-4 text-fuchsia-500" />
-                                                                     </div>
-                                                                     <div className="w-[85%] h-14 bg-white border border-purple-100/50 rounded-lg shadow-sm flex items-center px-4 gap-3 opacity-90 group-hover:scale-105 transition-transform">
-                                                                         <div className="h-6 w-6 rounded-full bg-purple-100" />
-                                                                         <div className="flex-1 space-y-1.5">
-                                                                             <div className="h-1.5 w-full bg-zinc-100 rounded-full" />
-                                                                             <div className="h-1.5 w-2/3 bg-zinc-100 rounded-full" />
-                                                                         </div>
-                                                                     </div>
-                                                                </div>
-                                                                <div className="p-5 flex-1 flex flex-col">
-                                                                    <h3 className="font-bold text-zinc-900 mb-1.5">AI Brain</h3>
-                                                                    <p className="text-zinc-500 text-[13px] leading-snug">Generate ideas and content with a custom prompt</p>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            {/* Card 2 */}
-                                                            <div className="group flex flex-col bg-white border border-zinc-200 hover:border-green-300 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('task-list', 'Task List', {}); setIsAddWidgetOpen(false); }}>
-                                                                <div className="h-[140px] bg-gradient-to-br from-green-50 to-emerald-50/50 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
-                                                                    <div className="w-[75%] bg-white border border-green-100/50 rounded-lg shadow-sm p-3 group-hover:scale-105 transition-transform flex flex-col gap-2.5">
-                                                                        <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 bg-green-500 rounded-full"/><div className="h-1.5 w-24 bg-zinc-100 rounded-sm"/></div>
-                                                                        <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 bg-red-400 rounded-full"/><div className="h-1.5 w-16 bg-zinc-100 rounded-sm"/></div>
-                                                                        <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 bg-blue-400 rounded-full"/><div className="h-1.5 w-20 bg-zinc-100 rounded-sm"/></div>
+
+                                            {/* Right Main Content */}
+                                            <div className="flex-1 flex flex-col min-w-0 bg-white">
+                                                <div className="h-12 flex items-center justify-between px-6 border-b border-zinc-100 shrink-0 pr-12">
+                                                    <div className="flex items-center gap-2">
+                                                        <Star className="h-4 w-4 text-zinc-400" />
+                                                        <span className="font-semibold text-sm">Featured</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 h-8 w-56 px-2.5 bg-zinc-50/50 border border-zinc-200 rounded-md">
+                                                        <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                                                        <Input variant="ghost" placeholder="Search..." className="flex-1 h-full min-w-0 border-0 bg-transparent p-0 text-xs shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-transparent rounded-none outline-none focus:outline-none" />
+                                                    </div>
+                                                </div>
+
+                                                <ScrollArea className="flex-1">
+                                                    <div className="p-8 pb-24">
+                                                        <TabsContent value="featured" className="m-0 space-y-6 outline-none">
+                                                            <h2 className="text-xl font-bold text-zinc-900">Featured</h2>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                                                                {/* Card 1 */}
+                                                                <div className="group flex flex-col bg-white border border-zinc-200 hover:border-violet-300 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('activity', 'AI Brain', {}); setIsAddWidgetOpen(false); }}>
+                                                                    <div className="h-[140px] bg-gradient-to-br from-pink-50 to-purple-50 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
+                                                                        <div className="absolute top-3 left-3 bg-white rounded-full p-1.5 shadow-sm">
+                                                                            <Sparkles className="h-4 w-4 text-fuchsia-500" />
+                                                                        </div>
+                                                                        <div className="w-[85%] h-14 bg-white border border-purple-100/50 rounded-lg shadow-sm flex items-center px-4 gap-3 opacity-90 group-hover:scale-105 transition-transform">
+                                                                            <div className="h-6 w-6 rounded-full bg-purple-100" />
+                                                                            <div className="flex-1 space-y-1.5">
+                                                                                <div className="h-1.5 w-full bg-zinc-100 rounded-full" />
+                                                                                <div className="h-1.5 w-2/3 bg-zinc-100 rounded-full" />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="p-5 flex-1 flex flex-col">
+                                                                        <h3 className="font-bold text-zinc-900 mb-1.5">AI Brain</h3>
+                                                                        <p className="text-zinc-500 text-[13px] leading-snug">Generate ideas and content with a custom prompt</p>
                                                                     </div>
                                                                 </div>
-                                                                <div className="p-5 flex-1 flex flex-col">
-                                                                    <h3 className="font-bold text-zinc-900 mb-1.5">Task List</h3>
-                                                                    <p className="text-zinc-500 text-[13px] leading-snug">Create a List view using tasks from any location</p>
-                                                                </div>
-                                                            </div>
 
-                                                            {/* Card 3 */}
-                                                            <div className="group flex flex-col bg-white border border-zinc-200 hover:border-emerald-300 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('pie-chart', 'Workload by Status', { groupBy: 'status' }); setIsAddWidgetOpen(false); }}>
-                                                                <div className="h-[140px] bg-gradient-to-br from-emerald-500 to-teal-600 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
-                                                                     <div className="w-20 h-20 rounded-full border-[10px] border-white/90 border-r-white/50 border-t-white/30 group-hover:rotate-12 transition-transform scale-110" />
+                                                                {/* Card 2 */}
+                                                                <div className="group flex flex-col bg-white border border-zinc-200 hover:border-green-300 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('task-list', 'Task List', {}); setIsAddWidgetOpen(false); }}>
+                                                                    <div className="h-[140px] bg-gradient-to-br from-green-50 to-emerald-50/50 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
+                                                                        <div className="w-[75%] bg-white border border-green-100/50 rounded-lg shadow-sm p-3 group-hover:scale-105 transition-transform flex flex-col gap-2.5">
+                                                                            <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 bg-green-500 rounded-full" /><div className="h-1.5 w-24 bg-zinc-100 rounded-sm" /></div>
+                                                                            <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 bg-red-400 rounded-full" /><div className="h-1.5 w-16 bg-zinc-100 rounded-sm" /></div>
+                                                                            <div className="flex items-center gap-1.5"><div className="h-1.5 w-1.5 bg-blue-400 rounded-full" /><div className="h-1.5 w-20 bg-zinc-100 rounded-sm" /></div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="p-5 flex-1 flex flex-col">
+                                                                        <h3 className="font-bold text-zinc-900 mb-1.5">Task List</h3>
+                                                                        <p className="text-zinc-500 text-[13px] leading-snug">Create a List view using tasks from any location</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="p-5 flex-1 flex flex-col">
-                                                                    <h3 className="font-bold text-zinc-900 mb-1.5">Workload by Status</h3>
-                                                                    <p className="text-zinc-500 text-[13px] leading-snug">Display a pie chart of your statuses usage across locations</p>
-                                                                </div>
-                                                            </div>
 
-                                                            {/* Card 4 */}
-                                                            <div className="group flex flex-col bg-white border border-zinc-200 hover:border-violet-500 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('calculation', 'Calculation', {}); setIsAddWidgetOpen(false); }}>
-                                                                <div className="h-[140px] bg-gradient-to-br from-purple-500 to-violet-600 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
-                                                                     <div className="bg-white/95 px-6 py-4 rounded-xl shadow-lg group-hover:scale-105 transition-transform text-center min-w-[120px]">
-                                                                         <div className="text-3xl font-black text-zinc-900">1,380</div>
-                                                                         <div className="text-[10px] font-semibold text-zinc-500 mt-1 uppercase tracking-wider">Total tasks</div>
-                                                                     </div>
+                                                                {/* Card 3 */}
+                                                                <div className="group flex flex-col bg-white border border-zinc-200 hover:border-emerald-300 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('pie-chart', 'Workload by Status', { groupBy: 'status' }); setIsAddWidgetOpen(false); }}>
+                                                                    <div className="h-[140px] bg-gradient-to-br from-emerald-500 to-teal-600 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
+                                                                        <div className="w-20 h-20 rounded-full border-[10px] border-white/90 border-r-white/50 border-t-white/30 group-hover:rotate-12 transition-transform scale-110" />
+                                                                    </div>
+                                                                    <div className="p-5 flex-1 flex flex-col">
+                                                                        <h3 className="font-bold text-zinc-900 mb-1.5">Workload by Status</h3>
+                                                                        <p className="text-zinc-500 text-[13px] leading-snug">Display a pie chart of your statuses usage across locations</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="p-5 flex-1 flex flex-col">
-                                                                    <h3 className="font-bold text-zinc-900 mb-1.5">Calculation</h3>
-                                                                    <p className="text-zinc-500 text-[13px] leading-snug">Calculate sums, averages, and so much more for your tasks</p>
-                                                                </div>
-                                                            </div>
 
-                                                            {/* Card 5 */}
-                                                            <div className="group flex flex-col bg-white border border-zinc-200 hover:border-blue-500 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('bar-chart', 'Portfolio', { groupBy: 'priority' }); setIsAddWidgetOpen(false); }}>
-                                                                <div className="h-[140px] bg-gradient-to-br from-blue-500 to-indigo-600 p-6 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
-                                                                     <div className="w-[85%] bg-white/95 rounded-lg shadow-lg group-hover:scale-105 transition-transform p-3">
-                                                                         <div className="space-y-2.5">
-                                                                             <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-2/3 bg-blue-500 rounded-full" /></div>
-                                                                             <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-1/3 bg-orange-500 rounded-full" /></div>
-                                                                             <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-4/5 bg-green-500 rounded-full" /></div>
-                                                                         </div>
-                                                                     </div>
+                                                                {/* Card 4 */}
+                                                                <div className="group flex flex-col bg-white border border-zinc-200 hover:border-violet-500 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('calculation', 'Calculation', {}); setIsAddWidgetOpen(false); }}>
+                                                                    <div className="h-[140px] bg-gradient-to-br from-purple-500 to-violet-600 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
+                                                                        <div className="bg-white/95 px-6 py-4 rounded-xl shadow-lg group-hover:scale-105 transition-transform text-center min-w-[120px]">
+                                                                            <div className="text-3xl font-black text-zinc-900">1,380</div>
+                                                                            <div className="text-[10px] font-semibold text-zinc-500 mt-1 uppercase tracking-wider">Total tasks</div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="p-5 flex-1 flex flex-col">
+                                                                        <h3 className="font-bold text-zinc-900 mb-1.5">Calculation</h3>
+                                                                        <p className="text-zinc-500 text-[13px] leading-snug">Calculate sums, averages, and so much more for your tasks</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="p-5 flex-1 flex flex-col">
-                                                                    <h3 className="font-bold text-zinc-900 mb-1.5">Portfolio</h3>
-                                                                    <p className="text-zinc-500 text-[13px] leading-snug">Categorize and track progress of Lists & Folders</p>
-                                                                </div>
-                                                            </div>
 
-                                                            {/* Card 6 */}
-                                                            <div className="group flex flex-col bg-white border border-zinc-200 hover:border-sky-500 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('pie-chart', 'Tasks by Assignee', { groupBy: 'assignee' }); setIsAddWidgetOpen(false); }}>
-                                                                <div className="h-[140px] bg-gradient-to-br from-sky-400 to-blue-500 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
-                                                                     <div className="w-20 h-20 rounded-full border-[10px] border-white/90 border-r-white/70 border-b-white/40 group-hover:-rotate-12 transition-transform scale-110" />
+                                                                {/* Card 5 */}
+                                                                <div className="group flex flex-col bg-white border border-zinc-200 hover:border-blue-500 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('bar-chart', 'Portfolio', { groupBy: 'priority' }); setIsAddWidgetOpen(false); }}>
+                                                                    <div className="h-[140px] bg-gradient-to-br from-blue-500 to-indigo-600 p-6 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
+                                                                        <div className="w-[85%] bg-white/95 rounded-lg shadow-lg group-hover:scale-105 transition-transform p-3">
+                                                                            <div className="space-y-2.5">
+                                                                                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-2/3 bg-blue-500 rounded-full" /></div>
+                                                                                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-1/3 bg-orange-500 rounded-full" /></div>
+                                                                                <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden"><div className="h-full w-4/5 bg-green-500 rounded-full" /></div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="p-5 flex-1 flex flex-col">
+                                                                        <h3 className="font-bold text-zinc-900 mb-1.5">Portfolio</h3>
+                                                                        <p className="text-zinc-500 text-[13px] leading-snug">Categorize and track progress of Lists & Folders</p>
+                                                                    </div>
                                                                 </div>
-                                                                <div className="p-5 flex-1 flex flex-col">
-                                                                    <h3 className="font-bold text-zinc-900 mb-1.5">Tasks by Assignee</h3>
-                                                                    <p className="text-zinc-500 text-[13px] leading-snug">Display a pie chart of your total tasks by Assignee</p>
+
+                                                                {/* Card 6 */}
+                                                                <div className="group flex flex-col bg-white border border-zinc-200 hover:border-sky-500 hover:shadow-lg transition-all rounded-xl overflow-hidden cursor-pointer h-[260px]" onClick={() => { addWidget('pie-chart', 'Tasks by Assignee', { groupBy: 'assignee' }); setIsAddWidgetOpen(false); }}>
+                                                                    <div className="h-[140px] bg-gradient-to-br from-sky-400 to-blue-500 p-4 border-b border-zinc-100 flex items-center justify-center relative overflow-hidden">
+                                                                        <div className="w-20 h-20 rounded-full border-[10px] border-white/90 border-r-white/70 border-b-white/40 group-hover:-rotate-12 transition-transform scale-110" />
+                                                                    </div>
+                                                                    <div className="p-5 flex-1 flex flex-col">
+                                                                        <h3 className="font-bold text-zinc-900 mb-1.5">Tasks by Assignee</h3>
+                                                                        <p className="text-zinc-500 text-[13px] leading-snug">Display a pie chart of your total tasks by Assignee</p>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                    </TabsContent>
-                                                    
-                                                    {/* Placeholder for other tabs so they don't crash if switched */}
-                                                    {['ai', 'custom', 'sprints', 'statuses', 'tags', 'assignees', 'priorities', 'time', 'tables', 'embeds'].map(tab => (
-                                                        <TabsContent key={tab} value={tab} className="m-0 outline-none h-full">
-                                                            <div className="py-24 flex flex-col items-center justify-center text-center">
-                                                                <Activity className="h-12 w-12 text-zinc-200 mb-4" />
-                                                                <h2 className="text-xl font-bold text-zinc-900 mb-2 capitalize">{tab.replace('-', ' ')}</h2>
-                                                                <p className="text-zinc-500 text-sm">Cards for this category will be available soon.</p>
                                                             </div>
                                                         </TabsContent>
-                                                    ))}
-                                                </div>
-                                            </ScrollArea>
-                                        </div>
-                                    </Tabs>
-                                </DialogContent>
-                            </Dialog>
+
+                                                        {/* Placeholder for other tabs so they don't crash if switched */}
+                                                        {['ai', 'custom', 'sprints', 'statuses', 'tags', 'assignees', 'priorities', 'time', 'tables', 'embeds'].map(tab => (
+                                                            <TabsContent key={tab} value={tab} className="m-0 outline-none h-full">
+                                                                <div className="py-24 flex flex-col items-center justify-center text-center">
+                                                                    <Activity className="h-12 w-12 text-zinc-200 mb-4" />
+                                                                    <h2 className="text-xl font-bold text-zinc-900 mb-2 capitalize">{tab.replace('-', ' ')}</h2>
+                                                                    <p className="text-zinc-500 text-sm">Cards for this category will be available soon.</p>
+                                                                </div>
+                                                            </TabsContent>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                        </Tabs>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Dashboard content: single scroll region; lock scroll when customize overlay is open */}
-            <div
-                className={cn(
-                    "flex-1 min-h-0 overflow-y-auto p-6 relative",
-                    customizeOverlayOpen && "overflow-hidden"
-                )}
-            >
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
+                {/* Dashboard content: single scroll region; lock scroll when customize overlay is open */}
+                <div
+                    className={cn(
+                        "flex-1 min-h-0 overflow-y-auto p-6 relative",
+                        customizeOverlayOpen && "overflow-hidden"
+                    )}
                 >
-                    <SortableContext
-                        items={widgets.map(w => w.id)}
-                        strategy={rectSortingStrategy}
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
                     >
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
-                            {widgets.map(widget => (
-                                <SortableWidget
-                                    key={widget.id}
-                                    widget={widget}
-                                    onEdit={() => editWidget(widget.id)}
-                                    onDuplicate={() => duplicateWidget(widget.id)}
-                                    onDelete={() => deleteWidget(widget.id)}
-                                    onRefresh={() => refreshWidget(widget.id)}
-                                >
-                                    {renderWidget(widget)}
-                                </SortableWidget>
-                            ))}
-                        </div>
-                    </SortableContext>
-                </DndContext>
-
-                {widgets.length === 0 && (
-                    <div className="flex flex-col items-center justify-center h-96 text-center">
-                        <LayoutDashboard className="h-16 w-16 text-zinc-300 mb-4" />
-                        <h3 className="text-lg font-semibold text-zinc-700 mb-2">
-                            Your dashboard is empty
-                        </h3>
-                        <p className="text-sm text-zinc-500 mb-6 max-w-md">
-                            Add cards to visualize your data and track progress. Choose from charts, task lists, time tracking, and more.
-                        </p>
-                        <Button
-                            onClick={() => setIsAddWidgetOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700"
+                        <SortableContext
+                            items={widgets.map(w => w.id)}
+                            strategy={rectSortingStrategy}
                         >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Your First Card
-                        </Button>
-                    </div>
-                )}
-                {customizePanelOpen && !layoutOptionsOpen && (
-                    <>
-                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
-                        <div className="absolute top-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col min-h-0">
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100">
-                                <h3 className="font-semibold text-zinc-900">Customize view</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+                                {widgets.map(widget => (
+                                    <SortableWidget
+                                        key={widget.id}
+                                        widget={widget}
+                                        onEdit={() => editWidget(widget.id)}
+                                        onDuplicate={() => duplicateWidget(widget.id)}
+                                        onDelete={() => deleteWidget(widget.id)}
+                                        onRefresh={() => refreshWidget(widget.id)}
+                                    >
+                                        {renderWidget(widget)}
+                                    </SortableWidget>
+                                ))}
                             </div>
-                            <div className="flex-1 min-h-0 overflow-y-auto">
-                                <div className="p-3 space-y-2 pb-24">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
-                                            <LayoutList className="h-5 w-5 text-zinc-600" />
-                                        </div>
-                                        <Input
-                                            value={dashboardName}
-                                            onChange={(e) => setDashboardName(e.target.value)}
-                                            className="h-10 text-sm font-medium border-zinc-200"
-                                            placeholder="View name"
-                                        />
-                                    </div>
+                        </SortableContext>
+                    </DndContext>
 
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
-                                            <span className="text-sm text-zinc-800">Compact cards</span>
-                                            <Switch checked={showCompactCards} onCheckedChange={setShowCompactCards} />
+                    {widgets.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-96 text-center">
+                            <LayoutDashboard className="h-16 w-16 text-zinc-300 mb-4" />
+                            <h3 className="text-lg font-semibold text-zinc-700 mb-2">
+                                Your dashboard is empty
+                            </h3>
+                            <p className="text-sm text-zinc-500 mb-6 max-w-md">
+                                Add cards to visualize your data and track progress. Choose from charts, task lists, time tracking, and more.
+                            </p>
+                            <Button
+                                onClick={() => setIsAddWidgetOpen(true)}
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                            >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Your First Card
+                            </Button>
+                        </div>
+                    )}
+                    {customizePanelOpen && !layoutOptionsOpen && (
+                        <>
+                            <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setCustomizePanelOpen(false)} aria-hidden />
+                            <div className="absolute top-0 right-0 h-full w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col min-h-0">
+                                <div className="flex items-center justify-between p-4 border-b border-zinc-100">
+                                    <h3 className="font-semibold text-zinc-900">Customize view</h3>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCustomizePanelOpen(false)}><X className="h-4 w-4" /></Button>
+                                </div>
+                                <div className="flex-1 min-h-0 overflow-y-auto">
+                                    <div className="p-3 space-y-2 pb-24">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="flex items-center justify-center h-10 w-10 rounded-lg border border-zinc-200 bg-zinc-50 shrink-0">
+                                                <LayoutList className="h-5 w-5 text-zinc-600" />
+                                            </div>
+                                            <Input
+                                                value={dashboardName}
+                                                onChange={(e) => setDashboardName(e.target.value)}
+                                                className="h-10 text-sm font-medium border-zinc-200"
+                                                placeholder="View name"
+                                            />
                                         </div>
-                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
-                                            <span className="text-sm text-zinc-800">Show widget borders</span>
-                                            <Switch checked={showWidgetBorders} onCheckedChange={setShowWidgetBorders} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
-                                            <span className="text-sm text-zinc-800">Show card footers</span>
-                                            <Switch checked={showCardFooters} onCheckedChange={setShowCardFooters} />
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
-                                            onClick={() => { setLayoutOptionsOpen(true); }}
-                                        >
-                                            <span className="flex items-center gap-2">More options</span>
-                                            <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
-                                        </button>
-                                    </div>
 
-                                    <div className="h-px bg-zinc-100 my-2" />
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
+                                                <span className="text-sm text-zinc-800">Compact cards</span>
+                                                <Switch checked={showCompactCards} onCheckedChange={setShowCompactCards} />
+                                            </div>
+                                            <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
+                                                <span className="text-sm text-zinc-800">Show widget borders</span>
+                                                <Switch checked={showWidgetBorders} onCheckedChange={setShowWidgetBorders} />
+                                            </div>
+                                            <div className="flex items-center justify-between py-1 px-2 cursor-pointer">
+                                                <span className="text-sm text-zinc-800">Show card footers</span>
+                                                <Switch checked={showCardFooters} onCheckedChange={setShowCardFooters} />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                                onClick={() => { setLayoutOptionsOpen(true); }}
+                                            >
+                                                <span className="flex items-center gap-2">More options</span>
+                                                <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                            </button>
+                                        </div>
 
-                                    <div className="space-y-1">
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
-                                            <div className="flex items-center gap-2">
-                                                <Pin className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Pin view</span>
+                                        <div className="h-px bg-zinc-100 my-2" />
+
+                                        <div className="space-y-1">
+                                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                                <div className="flex items-center gap-2">
+                                                    <Pin className="h-4 w-4 text-zinc-400" />
+                                                    <span className="text-sm text-zinc-800">Pin view</span>
+                                                </div>
+                                                <Switch checked={pinDashboard} onCheckedChange={setPinDashboard} />
                                             </div>
-                                            <Switch checked={pinDashboard} onCheckedChange={setPinDashboard} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
-                                            <div className="flex items-center gap-2">
-                                                <Lock className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Private view</span>
+                                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                                <div className="flex items-center gap-2">
+                                                    <Lock className="h-4 w-4 text-zinc-400" />
+                                                    <span className="text-sm text-zinc-800">Private view</span>
+                                                </div>
+                                                <Switch checked={privateDashboard} onCheckedChange={setPrivateDashboard} />
                                             </div>
-                                            <Switch checked={privateDashboard} onCheckedChange={setPrivateDashboard} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
-                                            <div className="flex items-center gap-2">
-                                                <ShieldCheck className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Protect view</span>
+                                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                                <div className="flex items-center gap-2">
+                                                    <ShieldCheck className="h-4 w-4 text-zinc-400" />
+                                                    <span className="text-sm text-zinc-800">Protect view</span>
+                                                </div>
+                                                <Switch checked={protectDashboard} onCheckedChange={setProtectDashboard} />
                                             </div>
-                                            <Switch checked={protectDashboard} onCheckedChange={setProtectDashboard} />
-                                        </div>
-                                        <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
-                                            <div className="flex items-center gap-2">
-                                                <Home className="h-4 w-4 text-zinc-400" />
-                                                <span className="text-sm text-zinc-800">Set as default view</span>
+                                            <div className="flex items-center justify-between py-2.5 px-2 hover:bg-zinc-50 rounded-md transition-colors cursor-pointer">
+                                                <div className="flex items-center gap-2">
+                                                    <Home className="h-4 w-4 text-zinc-400" />
+                                                    <span className="text-sm text-zinc-800">Set as default view</span>
+                                                </div>
+                                                <Switch checked={defaultDashboard} onCheckedChange={setDefaultDashboard} />
                                             </div>
-                                            <Switch checked={defaultDashboard} onCheckedChange={setDefaultDashboard} />
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </>
-                )}
+                        </>
+                    )}
 
-                {layoutOptionsOpen && (
-                    <>
-                        <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setLayoutOptionsOpen(false)} aria-hidden />
-                        <div className="absolute inset-y-0 right-0 w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col min-h-0 overflow-y-auto">
-                            <div className="flex items-center justify-between p-4 border-b border-zinc-100 shrink-0">
-                                <h3 className="font-semibold text-zinc-900">More options</h3>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLayoutOptionsOpen(false)}><X className="h-4 w-4" /></Button>
-                            </div>
-                            <div className="p-4 space-y-3">
-                                <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wide text-zinc-500">Refresh interval</Label>
-                                    <Select value={refreshInterval.toString()} onValueChange={(v) => setRefreshInterval(Number(v))}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="5">5 minutes</SelectItem>
-                                            <SelectItem value="15">15 minutes</SelectItem>
-                                            <SelectItem value="30">30 minutes</SelectItem>
-                                            <SelectItem value="60">1 hour</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                    {layoutOptionsOpen && (
+                        <>
+                            <div className="absolute inset-0 bg-black/20 z-40" onClick={() => setLayoutOptionsOpen(false)} aria-hidden />
+                            <div className="absolute inset-y-0 right-0 w-[380px] max-w-[90vw] bg-white border-l border-zinc-200 shadow-xl z-50 flex flex-col min-h-0 overflow-y-auto">
+                                <div className="flex items-center justify-between p-4 border-b border-zinc-100 shrink-0">
+                                    <h3 className="font-semibold text-zinc-900">More options</h3>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setLayoutOptionsOpen(false)}><X className="h-4 w-4" /></Button>
                                 </div>
-                                <Button variant="outline" className="h-9 w-full rounded-lg border-zinc-200" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
-                                    Back to customize
-                                </Button>
+                                <div className="p-4 space-y-3">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs uppercase tracking-wide text-zinc-500">Refresh interval</Label>
+                                        <Select value={refreshInterval.toString()} onValueChange={(v) => setRefreshInterval(Number(v))}>
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="5">5 minutes</SelectItem>
+                                                <SelectItem value="15">15 minutes</SelectItem>
+                                                <SelectItem value="30">30 minutes</SelectItem>
+                                                <SelectItem value="60">1 hour</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <Button variant="outline" className="h-9 w-full rounded-lg border-zinc-200" onClick={() => { setLayoutOptionsOpen(false); setCustomizePanelOpen(true); }}>
+                                        Back to customize
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </>
-                )}
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
         </TooltipProvider>
     );
 }

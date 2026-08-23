@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Briefcase, ChevronDown, ChevronRight, Filter, Folder, Layers, List, Plus, Search, Settings2, Sparkles, User, X, Info, Trash2, Check, MoreHorizontal, PlusCircle, Pencil, Copy, RefreshCw, Layout, CopyPlus } from "lucide-react";
+import { Play, Briefcase, ChevronDown, ChevronRight, Filter, Folder, Layers, List, Plus, Search, Settings2, Sparkles, User, X, Info, Trash2, Check, MoreHorizontal, PlusCircle, Pencil, Copy, RefreshCw, Layout, CopyPlus, Building } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -1145,26 +1145,24 @@ export function CustomFieldsManagerModal({
                                                         >
                                                             <div className="flex items-center gap-2 flex-1 min-w-0">
                                                                 <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
+                                                                    <span className={cn("h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center bg-zinc-100 border border-zinc-200/60 ml-0.5", hasChildren && "group-hover:hidden")}>
+                                                                        <WorkspaceIcon icon={ws.avatar ?? null} size={14} className="text-zinc-700" />
+                                                                    </span>
                                                                     {hasChildren && (
                                                                         <div
-                                                                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all bg-white shadow-sm border border-zinc-200 rounded-md cursor-pointer z-10 hover:bg-zinc-50 hover:scale-105 active:scale-95"
+                                                                            className="hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors cursor-pointer"
                                                                             onClick={(e) => toggleLocation(ws.id, e)}
                                                                         >
-                                                                            {isExpanded ? (
-                                                                                <ChevronDown className="h-3.5 w-3.5 text-zinc-600" />
-                                                                            ) : (
-                                                                                <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />
-                                                                            )}
+                                                                            <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
                                                                         </div>
                                                                     )}
-                                                                    <WorkspaceIcon icon={ws.avatar ?? null} size={18} className="text-indigo-500" />
                                                                 </div>
-                                                                <span className="truncate">{ws.name}</span>
+                                                                <span className="truncate font-medium">{ws.name}</span>
                                                             </div>
                                                         </button>
 
                                                         {(isExpanded || isSearchingLocation) && (
-                                                            <div className="space-y-0.5">
+                                                            <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
                                                                 {wsSpaces.map((space) => (
                                                                     <button
                                                                         key={space.id}
@@ -1172,7 +1170,7 @@ export function CustomFieldsManagerModal({
                                                                         className={leftItemClass(selectedView === `space:${space.id}`, true)}
                                                                         onClick={() => setSelectedView(`space:${space.id}`)}
                                                                     >
-                                                                        <SpaceIcon icon={space.icon} size={16} className="text-violet-500" />
+                                                                        <SpaceIcon icon={space.icon} size={14} className="text-indigo-500 shrink-0" />
                                                                         <span className="truncate">{space.name}</span>
                                                                     </button>
                                                                 ))}
@@ -1183,7 +1181,9 @@ export function CustomFieldsManagerModal({
                                                                         className={leftItemClass(selectedView === `project:${project.id}`, true)}
                                                                         onClick={() => setSelectedView(`project:${project.id}`)}
                                                                     >
-                                                                        <ProjectIcon icon={project.logo ?? null} size={16} className="text-indigo-500" />
+                                                                        <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                                                            <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                                                                        </div>
                                                                         <span className="truncate">{project.name}</span>
                                                                     </button>
                                                                 ))}
@@ -1203,8 +1203,10 @@ export function CustomFieldsManagerModal({
                                                         className={leftItemClass(selectedView === `project:${project.id}`)}
                                                         onClick={() => setSelectedView(`project:${project.id}`)}
                                                     >
-                                                        <ProjectIcon icon={project.logo ?? null} size={16} className="text-indigo-500" />
-                                                        {project.name}
+                                                        <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                                                            <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                                                        </div>
+                                                        <span className="truncate">{project.name}</span>
                                                     </button>
                                                 ))}
                                         </div>

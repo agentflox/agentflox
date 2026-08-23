@@ -5,8 +5,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { EnhancedIconPicker } from "@/components/ui/enhanced-icon-picker";
 
 interface IconColorSelectorProps {
-  icon: string;
-  color: string;
+  icon?: string | null;
+  color?: string | null;
   onIconChange: (icon: string) => void;
   onColorChange: (color: string) => void;
   spaceId?: string;
@@ -24,8 +24,8 @@ export function IconColorSelector({ icon, color, onIconChange, onColorChange, sp
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 border-none shadow-none bg-transparent" align="start" sideOffset={8}>
         <EnhancedIconPicker
-          icon={icon}
-          color={color}
+          icon={icon || undefined}
+          color={color || "#6366f1"}
           spaceId={spaceId}
           entityName={entityName}
           onIconChange={(newIcon) => {

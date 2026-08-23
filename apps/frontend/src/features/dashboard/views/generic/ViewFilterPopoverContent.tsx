@@ -21,8 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Plus, Trash2, X, Info, ChevronDown, Box, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import type { FilterCondition, FilterGroup, FilterOperator } from "./listViewTypes";
-import { FILTER_OPTIONS, FIELD_OPERATORS } from "./listViewConstants";
+import type { FilterCondition, FilterGroup, FilterOperator } from "./viewTypes";
+import { FILTER_OPTIONS, FIELD_OPERATORS } from "./viewConstants";
 import { hasFilterValue, hasAnyValueInGroup } from "./filterUtils";
 import { parseEncodedTag } from "@/entities/task/utils/tags";
 import { TaskTypeIcon } from "@/entities/task/components/TaskTypeIcon";
@@ -36,7 +36,7 @@ function getPriorityStyles(p: string) {
     return { badge: "text-slate-600 bg-slate-50 border-slate-200", icon: "text-slate-400" };
 }
 
-export type ListViewFilterPopoverContentProps = {
+export type ViewFilterPopoverContentProps = {
     onClose?: () => void;
     savedFiltersPanelOpen: boolean;
     setSavedFiltersPanelOpen: (open: boolean) => void;
@@ -67,7 +67,7 @@ export type ListViewFilterPopoverContentProps = {
     resolvedWorkspaceId: string | undefined;
 };
 
-export function ListViewFilterPopoverContent(props: ListViewFilterPopoverContentProps) {
+export function ViewFilterPopoverContent(props: ViewFilterPopoverContentProps) {
     const {
         onClose,
         savedFiltersPanelOpen,

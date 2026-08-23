@@ -501,12 +501,12 @@ export const documentRouter = router({
   create: protectedProcedure
     .input(
       z.object({
-        workspaceId: z.string().optional().nullable(),
+        viewId: z.string().min(1, "View ID is required"),
         title: z.string().min(1, "Title is required"),
         description: z.string().optional().nullable(),
         content: z.string().optional().default(""),
         parentId: z.string().optional().nullable(),
-        viewId: z.string().optional().nullable(),
+        workspaceId: z.string().optional().nullable(),
         spaceId: z.string().optional().nullable(),
         projectId: z.string().optional().nullable(),
         listId: z.string().optional().nullable(),
@@ -522,32 +522,34 @@ export const documentRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.session!.user!.id;
 
-      let resolvedWorkspaceId: string | null = input.workspaceId || null;
-      if (!resolvedWorkspaceId) {
-        if (input.spaceId) {
-          const space = await prisma.space.findUnique({ where: { id: input.spaceId }, select: { workspaceId: true } });
-          resolvedWorkspaceId = space?.workspaceId || null;
-        } else if (input.projectId) {
-          const project = await prisma.project.findUnique({ where: { id: input.projectId }, select: { workspaceId: true } });
-          resolvedWorkspaceId = project?.workspaceId || null;
-        } else if (input.listId) {
-          const list = await prisma.list.findUnique({ where: { id: input.listId }, select: { workspaceId: true } });
-          resolvedWorkspaceId = list?.workspaceId || null;
-        } else if (input.teamId) {
-          const team = await prisma.team.findUnique({ where: { id: input.teamId }, select: { workspaceId: true } });
-          resolvedWorkspaceId = team?.workspaceId || null;
-        } else if (input.folderId) {
-          const folder = await prisma.folder.findUnique({ where: { id: input.folderId }, select: { workspaceId: true } });
-          resolvedWorkspaceId = folder?.workspaceId || null;
-        }
+      const view = await prisma.view.findUnique({
+        where: { id: input.viewId },
+        select: {
+          id: true,
+          workspaceId: true,
+          spaceId: true,
+          projectId: true,
+          teamId: true,
+          folderId: true,
+          listId: true,
+        },
+      });
+
+      if (!view) {
+        throw new Error("View not found or invalid viewId");
       }
 
-      // workspaceId is optional for personal documents
+      const resolvedWorkspaceId = input.workspaceId || view.workspaceId || null;
+      const spaceId = input.spaceId || view.spaceId || null;
+      const projectId = input.projectId || view.projectId || null;
+      const teamId = input.teamId || view.teamId || null;
+      const folderId = input.folderId || view.folderId || null;
+      const listId = input.listId || view.listId || null;
 
-      // Get the last item to compute the next position
+      // Get the last item to compute the next position within this view
       const lastItem = await prisma.document.findFirst({
         where: {
-          workspaceId: resolvedWorkspaceId,
+          viewId: view.id,
           parentId: input.parentId ?? null,
         },
         orderBy: { position: "desc" },
@@ -562,12 +564,12 @@ export const documentRouter = router({
           description: input.description,
           content: input.content,
           parentId: input.parentId,
-          viewId: input.viewId,
-          spaceId: input.spaceId,
-          projectId: input.projectId,
-          listId: input.listId,
-          folderId: input.folderId,
-          teamId: input.teamId,
+          viewId: view.id,
+          spaceId,
+          projectId,
+          listId,
+          folderId,
+          teamId,
           icon: input.icon,
           coverImage: input.coverImage,
           isTemplate: input.isTemplate,

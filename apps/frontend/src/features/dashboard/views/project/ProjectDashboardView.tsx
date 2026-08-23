@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { buildCleanDashboardParams, parseDashboardState, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
 import { trpc } from "@/lib/trpc";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
 import ProjectNavigationSidebar, { type ProjectView } from "@/features/dashboard/layouts/project/ProjectNavigationSidebar";
@@ -31,7 +32,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ViewTabsOverflow } from "@/features/dashboard/components/shared/ViewTabsOverflow";
 import { AddViewModal, ViewType } from "@/features/dashboard/components/modals/AddViewModal";
-import { ProjectViewContextMenu } from "@/features/dashboard/components/project/ProjectViewContextMenu";
+import { ViewContextMenu } from "@/features/dashboard/components/shared/ViewContextMenu";
 import {
     ContextMenu,
     ContextMenuTrigger,
@@ -48,6 +49,7 @@ import {
 import { SaveTemplateModal } from "@/features/dashboard/components/modals/SaveTemplateModal";
 import { Input } from "@/components/ui/input";
 import { DashboardHeader } from "@/features/dashboard/components/shared/DashboardHeader";
+import { ProjectHeaderBreadcrumbs } from "@/features/dashboard/components/shared/ProjectHeaderBreadcrumbs";
 import { ResizableSplitLayout, SidePanelContainer } from "@/components/layout/ResizableSplitLayout";
 import { AgentsPopover } from "@/features/automations/components/AgentsPopover";
 import { AutomationsHubPopover } from "@/features/automations/components/AutomationsHubPopover";
@@ -188,9 +190,15 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
     const selectedTaskId = searchParams.get("task");
     const selectedListId = searchParams.get("list");
     const selectedFolderId = searchParams.get("folder");
-    const selectedTeamId = searchParams.get("team") || undefined;
+    const selectedTeamId = searchParams.get("tm") || searchParams.get("team") || undefined;
     const selectedAIChatId = searchParams.get("aid") || undefined;
     const selectedChatId = searchParams.get("ch") || undefined;
+
+    const clearSubParams = (params: URLSearchParams) => {
+        [
+            "v", "sid", "sp", "pj", "tm", "team", "ch", "ai", "aid", "nv", "docView", "list", "folder", "fv", "lt", "task", "taskId", "scope", "status", "page", "ptab", "ttab"
+        ].forEach((p) => params.delete(p));
+    };
 
     const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
     const [layoutMode, setLayoutMode] = useState<LayoutMode>("sidebar");
@@ -309,12 +317,13 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
         onError: (err) => toast.error(`Failed to duplicate view: ${err.message}`)
     });
 
-    // Derived views from DB
+    // Derived views from DB - only show views with sidebarView false
     const views = useMemo(() => {
         if (!project?.views || project.views.length === 0) {
             return [];
         }
-        return [...project.views].sort((a: any, b: any) => {
+        const nonSidebarViews = project.views.filter((v: any) => !v.sidebarView);
+        return [...nonSidebarViews].sort((a: any, b: any) => {
             if (a.type === "OVERVIEW") return -1;
             if (b.type === "OVERVIEW") return 1;
             if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -323,23 +332,28 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
     }, [project?.views]);
 
     // Check tabs
-    const currentTab = searchParams.get("tab");
+    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
+    const currentTab = parsedState.tab;
     const isViewsTab = currentTab === "overview" || !currentTab;
     const isListsTab = currentTab === "lists" || !!selectedListId;
 
     // Active Tab Logic
-    const urlTabId = searchParams.get("v");
+    const urlTabId = parsedState.viewId;
     const activeView = views.find((v: any) => v.id === urlTabId) || views[0];
     const activeTab = activeView?.id;
 
     const handleTabChange = useCallback((viewId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (!params.get("tab")) {
-            params.set("tab", "overview");
+        if (projectId) {
+            router.push(buildDashboardPath({ basePath: `/dashboard/projects/${projectId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
+        } else {
+            const clean = buildCleanDashboardParams(searchParams, {
+                tab: "overview",
+                viewId,
+                keepTask: true,
+            });
+            router.push(`?${clean.toString()}`, { scroll: false });
         }
-        params.set("v", viewId);
-        router.push(`?${params.toString()}`, { scroll: false });
-    }, [searchParams, router]);
+    }, [projectId, searchParams, router, parsedState.taskId]);
 
     const handleRenameView = (name: string) => {
         if (viewToRename) {
@@ -358,7 +372,7 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}${window.location.pathname}?v=${view.id}`;
+        const url = `${window.location.origin}/dashboard/projects/${projectId}/v/${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -397,16 +411,20 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
     }, [searchParams, router]);
 
     const handleListSelect = useCallback((listId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (listId) params.set("list", listId);
-        else params.delete("list");
-        router.push(`?${params.toString()}`, { scroll: false });
+        const clean = buildCleanDashboardParams(searchParams, {
+            tab: "lists",
+            entityKey: "list",
+            entityId: listId,
+            keepTask: true,
+        });
+        router.push(`?${clean.toString()}`, { scroll: false });
     }, [searchParams, router]);
 
     const handleTeamSelect = useCallback((teamId: string) => {
         const params = new URLSearchParams(searchParams.toString());
-        if (teamId) params.set("team", teamId);
-        else params.delete("team");
+        clearSubParams(params);
+        params.set("tab", "teams");
+        if (teamId) params.set("tm", teamId);
         router.push(`?${params.toString()}`, { scroll: false });
     }, [searchParams, router]);
 
@@ -418,14 +436,18 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
 
     useEffect(() => {
         if (isViewsTab && !urlTabId && views.length > 0) {
-            const params = new URLSearchParams(searchParams.toString());
-            if (!params.get("tab")) params.set("tab", "overview");
-            params.set("v", views[0].id);
-            // Use history.replaceState instead of router.replace to avoid
-            // triggering a React re-render cycle on every first-load navigation
-            history.replaceState(null, "", `?${params.toString()}`);
+            if (projectId) {
+                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/projects/${projectId}`, viewId: views[0].id, taskId: parsedState.taskId }));
+            } else {
+                const clean = buildCleanDashboardParams(searchParams, {
+                    tab: "overview",
+                    viewId: views[0].id,
+                    keepTask: true,
+                });
+                history.replaceState(null, "", `?${clean.toString()}`);
+            }
         }
-    }, [urlTabId, views, isViewsTab, searchParams]);
+    }, [urlTabId, views, isViewsTab, projectId, parsedState.taskId, searchParams]);
 
     const renderViewContent = (view: any) => {
         if (!view || !project) return null;
@@ -681,30 +703,30 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                             projectId={projectId!}
                             activeView={(currentTab as any) || (activeView?.type?.toLowerCase() || 'overview') as any}
                             onViewChange={(viewId) => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.delete("docView");
-                                params.delete("nv");
-                                params.delete("aid");
-                                params.delete("scope");
-                                params.delete("status");
-                                params.delete("page");
+                                const targetTab = (viewId as string) === "team" ? "teams" : viewId;
 
-                                if (viewId === "lists") {
-                                    params.set("tab", "lists");
-                                    router.push(`?${params.toString()}`, { scroll: false });
+                                if (targetTab === "overview") {
+                                    const clean = buildCleanDashboardParams(searchParams, {
+                                        tab: "overview",
+                                        viewId: views.length > 0 ? views[0].id : null,
+                                        keepTask: true,
+                                    });
+                                    router.push(`?${clean.toString()}`, { scroll: false });
                                     return;
                                 }
 
-                                const type = viewId.toUpperCase();
-                                const targetView = views.find((v: any) => v.type === type);
-                                if (targetView) {
-                                    params.set("tab", "overview");
-                                    params.set("v", targetView.id);
-                                    router.push(`?${params.toString()}`, { scroll: false });
-                                } else {
-                                    params.set("tab", viewId);
-                                    router.push(`?${params.toString()}`, { scroll: false });
-                                }
+                                const entityKey = targetTab === "teams" ? "tm" : undefined;
+                                const entityId = targetTab === "teams" && (project as any)?.teams?.length > 0
+                                    ? (project as any).teams[0].id
+                                    : null;
+
+                                const clean = buildCleanDashboardParams(searchParams, {
+                                    tab: targetTab,
+                                    entityKey,
+                                    entityId,
+                                    keepTask: true,
+                                });
+                                router.push(`?${clean.toString()}`, { scroll: false });
                             }}
                             collapsed={sidebarCollapsed}
                             onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
@@ -716,8 +738,68 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                             entityName={project.name || "Untitled Project"}
                             entityType="project"
                             entityIcon={<FolderKanban className="h-4 w-4" />}
+                            breadcrumbs={
+                                <ProjectHeaderBreadcrumbs
+                                    workspaceId={resolvedWorkspaceId!}
+                                    projectId={projectId!}
+                                    projectName={project.name || "Untitled Project"}
+                                    currentTab={currentTab ?? ""}
+                                    selectedTeamId={selectedTeamId || undefined}
+                                    selectedListId={selectedListId || undefined}
+                                    selectedFolderId={selectedFolderId || undefined}
+                                    selectedChatId={selectedChatId || undefined}
+                                    selectedAiChatId={selectedAIChatId || undefined}
+                                    onSelectTeam={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "teams");
+                                        params.set("tm", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectList={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "lists");
+                                        params.set("list", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectFolder={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "lists");
+                                        params.set("folder", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectChat={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "chats");
+                                        params.set("ch", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onSelectAiChat={(id) => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "ai-chat");
+                                        params.set("aid", id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                    onNavigateProject={() => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        clearSubParams(params);
+                                        params.set("tab", "overview");
+                                        if (views.length > 0) params.set("v", views[0].id);
+                                        router.push(`?${params.toString()}`, { scroll: false });
+                                    }}
+                                />
+                            }
                             shareUrl={`${window.location.origin}${window.location.pathname}?projectId=${projectId}`}
                             showSettings={false}
+                            workspaceId={resolvedWorkspaceId || project.workspaceId || undefined}
+                            spaceId={project.spaceId || undefined}
+                            projectId={projectId}
+                            teamId={selectedTeamId || undefined}
+                            currentScope="project"
                             askAIDisabled={currentTab === "ai-chat"}
                             onAskAIClick={() => {
                                 automations.closeAgentPanel();
@@ -732,7 +814,6 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                         setIsAskAIOpen(false);
                                         automations.openAgentPanel(req);
                                     }}
-                                    onManageAgents={automations.openManage}
                                 />
                             ) : undefined}
                             agentOpen={automations.agentOpen}
@@ -820,9 +901,9 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                         ) : isViewsTab && activeView ? (
                                             <div className="flex-1 overflow-hidden relative">
                                                 <Tabs value={activeTab || undefined} onValueChange={handleTabChange} className="h-full flex flex-col gap-0">
-                                                    <div className="border-b border-slate-200 bg-white px-4 py-1">
-                                                        <div className="flex items-center gap-1 min-w-0 overflow-visible">
-                                                            <TabsList className="h-auto bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible">
+                                                    <div className="border-b border-slate-200 bg-white px-4 py-2 h-[57px] flex items-center shrink-0">
+                                                        <div className="flex items-center gap-1 min-w-0 overflow-visible w-full">
+                                                            <TabsList className="h-10 bg-transparent p-0 flex-1 min-w-0 flex items-center overflow-visible transition-all duration-200">
                                                                 <ViewTabsOverflow
                                                                     views={views}
                                                                     activeTab={activeTab}
@@ -909,7 +990,7 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                                                             <ContextMenuTrigger asChild>
                                                                                 {trigger}
                                                                             </ContextMenuTrigger>
-                                                                            <ProjectViewContextMenu
+                                                                            <ViewContextMenu
                                                                                 view={view}
                                                                                 onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
                                                                                 onDelete={() => setViewToDelete({ id: view.id, name: view.name || "" })}
@@ -934,16 +1015,16 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                                                         const config = viewConfig[viewType] || { icon: FileText };
                                                                         const Icon = config.icon;
                                                                         return (
-                                                                            <ContextMenu key={view.id}>
-                                                                                <ContextMenuTrigger>
-                                                                                    <Tooltip>
+                                                                            <Tooltip key={view.id}>
+                                                                                <ContextMenu>
+                                                                                    <ContextMenuTrigger asChild>
                                                                                         <TooltipTrigger asChild>
                                                                                             <TabsTrigger value={view.id} asChild>
                                                                                                 <div className={cn(
                                                                                                     "group relative flex items-center gap-1.5 h-10 px-3 py-2 text-sm cursor-pointer whitespace-nowrap transition-colors rounded-md",
                                                                                                     activeTab === view.id
                                                                                                         ? "text-primary font-medium"
-                                                                                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                                                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                                                                                                 )}>
                                                                                                     <Icon className={cn("h-4 w-4 shrink-0", activeTab === view.id ? "text-primary" : "text-slate-500 group-hover:text-slate-700")} />
                                                                                                     <span className="inline-block max-w-[120px] truncate align-bottom">{view.name || viewConfig[viewType]?.label || viewType}</span>
@@ -956,28 +1037,28 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                                                                                 </div>
                                                                                             </TabsTrigger>
                                                                                         </TooltipTrigger>
-                                                                                        <TooltipContent>{view.name || viewConfig[viewType]?.label || viewType}</TooltipContent>
-                                                                                    </Tooltip>
-                                                                                </ContextMenuTrigger>
-                                                                                <ProjectViewContextMenu
-                                                                                    view={view}
-                                                                                    onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
-                                                                                    onDelete={() => setViewToDelete({ id: view.id, name: view.name || "" })}
-                                                                                    onShare={() => setViewToShare({ id: view.id, name: view.name || "" })}
-                                                                                    onTogglePin={() => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
-                                                                                    onTogglePrivate={() => updateViewMutation.mutate({ id: view.id, isPrivate: !view.isPrivate })}
-                                                                                    onToggleLock={() => updateViewMutation.mutate({ id: view.id, isLocked: !view.isLocked })}
-                                                                                    onToggleDefault={() => updateViewMutation.mutate({ id: view.id, isDefault: !view.isDefault })}
-                                                                                    onDuplicate={() => duplicateViewMutation.mutate({
-                                                                                        name: `${view.name} (Copy)`,
-                                                                                        type: view.type as any,
-                                                                                        projectId: projectId,
-                                                                                        config: view.config || {}
-                                                                                    })}
-                                                                                    onCopyLink={() => handleCopyViewLink(view)}
-                                                                                    onSaveTemplate={() => setViewToTemplate(view)}
-                                                                                />
-                                                                            </ContextMenu>
+                                                                                    </ContextMenuTrigger>
+                                                                                    <ViewContextMenu
+                                                                                        view={view}
+                                                                                        onRename={() => setViewToRename({ id: view.id, name: view.name || "" })}
+                                                                                        onDelete={() => setViewToDelete({ id: view.id, name: view.name || "" })}
+                                                                                        onShare={() => setViewToShare({ id: view.id, name: view.name || "" })}
+                                                                                        onTogglePin={() => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned })}
+                                                                                        onTogglePrivate={() => updateViewMutation.mutate({ id: view.id, isPrivate: !view.isPrivate })}
+                                                                                        onToggleLock={() => updateViewMutation.mutate({ id: view.id, isLocked: !view.isLocked })}
+                                                                                        onToggleDefault={() => updateViewMutation.mutate({ id: view.id, isDefault: !view.isDefault })}
+                                                                                        onDuplicate={() => duplicateViewMutation.mutate({
+                                                                                            name: `${view.name} (Copy)`,
+                                                                                            type: view.type as any,
+                                                                                            projectId: projectId,
+                                                                                            config: view.config || {}
+                                                                                        })}
+                                                                                        onCopyLink={() => handleCopyViewLink(view)}
+                                                                                        onSaveTemplate={() => setViewToTemplate(view)}
+                                                                                    />
+                                                                                </ContextMenu>
+                                                                                <TooltipContent>{view.name || viewConfig[viewType]?.label || viewType}</TooltipContent>
+                                                                            </Tooltip>
                                                                         );
                                                                     }}
                                                                     renderMeasureTab={(view) => {
@@ -995,14 +1076,22 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                                                     }}
                                                                 />
                                                             </TabsList>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 w-8 p-0 rounded-md hover:bg-slate-100 shrink-0 self-center"
-                                                                onClick={() => setAddViewModalOpen(true)}
-                                                            >
-                                                                <Plus className="h-4 w-4" />
-                                                            </Button>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => setAddViewModalOpen(true)}
+                                                                        className="h-8 px-2.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                                                                    >
+                                                                        <Plus className="h-4 w-4 mr-1" />
+                                                                        View
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top">
+                                                                    <p className="text-xs">Add view</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
                                                         </div>
                                                     </div>
 
@@ -1043,26 +1132,27 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                                     </div>
                                                 </Tabs>
                                             </div>
-                                        ) : currentTab === "docs" ? (
+                                        ) : (currentTab === "docs" || currentTab === "doc") ? (
                                             <ProjectDocsView projectId={projectId!} />
                                         ) : currentTab === "personal" ? (
                                             <ProjectPersonalView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
-                                        ) : currentTab === "teams" ? (
+                                        ) : (currentTab === "teams" || currentTab === "team") ? (
                                             <ProjectTeamView
                                                 projectId={projectId!}
                                                 workspaceId={resolvedWorkspaceId!}
                                                 selectedTeamId={selectedTeamId}
                                                 onTeamSelect={handleTeamSelect}
                                             />
-                                        ) : currentTab === "chats" ? (
+                                        ) : (currentTab === "chats" || currentTab === "chat") ? (
                                             <ChatView
                                                 workspaceId={resolvedWorkspaceId!}
                                                 projectId={projectId!}
                                                 selectedChatId={selectedChatId}
                                                 onChatSelect={(id) => {
                                                     const params = new URLSearchParams(searchParams.toString());
-                                                    if (id) params.set("ch", id);
-                                                    else params.delete("ch");
+                                                    clearSubParams(params);
+                                                    params.set("tab", "chats");
+                                                    params.set("ch", id);
                                                     router.push(`?${params.toString()}`, { scroll: false });
                                                 }}
                                             />

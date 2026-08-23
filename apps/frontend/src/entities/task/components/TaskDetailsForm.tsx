@@ -38,7 +38,7 @@ import { TaskPickerPopover } from './TaskPickerPopover';
 // Utility type for common props
 interface SelectOption { id: string; name: string; color?: string; type?: string; image?: string | null } // Added color/type for statuses, image for assignees
 
-type TaskContext = 'SPACE' | 'PROJECT' | 'TEAM' | 'GENERAL'
+type TaskContext = 'WORKSPACE' | 'SPACE' | 'PROJECT' | 'TEAM' | 'GENERAL'
 interface TaskDetailsFormProps {
   context: TaskContext;
   contextId?: string;

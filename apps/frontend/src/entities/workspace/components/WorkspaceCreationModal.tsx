@@ -181,6 +181,7 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
                   id="workspace-name"
                   name="name"
                   placeholder="Ex: Atlas Collaboration Hub"
+                  variant="ghost"
                   value={form.name}
                   onChange={(event) => {
                     const newName = event.target.value;
@@ -192,7 +193,7 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
                       return { ...prev, ...updates };
                     });
                   }}
-                  className="flex-1 w-full rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                  className="flex-1 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-normal text-zinc-900 shadow-none placeholder:text-zinc-400 focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 focus:outline-none"
                   required
                 />
               </div>
@@ -200,7 +201,7 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
 
             <div className="space-y-2.5">
               <Label htmlFor="workspace-description" className="text-sm font-medium text-slate-700">
-                Description <span className="text-[10px] font-normal lowercase">(optional)</span>
+                Description <span className="text-xs font-normal lowercase">(optional)</span>
               </Label>
               <Textarea
                 id="workspace-description"
@@ -208,7 +209,7 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
                 placeholder="Describe the focus, mission, or who should join..."
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                className="min-h-[120px] rounded-md border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                className="min-h-[100px] rounded-md px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 shadow-none focus:border-zinc-500 focus:ring-2 focus:ring-zinc-200 focus-visible:ring-none resize-none"
               />
             </div>
 
@@ -220,7 +221,7 @@ export function WorkspaceCreationModal({ open, onOpenChange, onCreated }: Worksp
                 value={form.visibility}
                 onValueChange={(value: any) => setForm(prev => ({ ...prev, visibility: value }))}
               >
-                <SelectTrigger id="workspace-visibility" className="h-11 bg-muted/30 border-input/60">
+                <SelectTrigger id="workspace-visibility" className="w-full max-w-xs rounded-md shadow-none bg-white border-slate-200 hover:border-slate-300 hover:bg-zinc-50">
                   <SelectValue placeholder="Select visibility">
                     {visibilityOptions.find((o) => o.value === form.visibility)?.label}
                   </SelectValue>

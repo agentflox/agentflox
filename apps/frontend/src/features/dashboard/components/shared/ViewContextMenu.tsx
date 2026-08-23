@@ -1,6 +1,6 @@
 import {
-    Copy, Lock, Star, Edit, Pin, EyeOff, Save, Download,
-    LayoutDashboard, CopyPlus, Trash2, Share2, UserPlus, Shield
+    Copy, Lock, Star, Edit, Pin, EyeOff, Save,
+    CopyPlus, Trash2, Shield
 } from "lucide-react";
 import {
     ContextMenuContent,
@@ -8,10 +8,9 @@ import {
     ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
 import { ViewType } from "@/features/dashboard/components/modals/AddViewModal";
 
-interface ProjectViewContextMenuProps {
+export interface ViewContextMenuProps {
     view: any;
     onRename: (view: any) => void;
     onDelete: (view: any) => void;
@@ -21,29 +20,32 @@ interface ProjectViewContextMenuProps {
     onToggleLock: (view: any) => void;
     onToggleDefault: (view: any) => void;
     onCopyLink: (view: any) => void;
-    onShare: (view: any) => void;
+    onShare?: (view: any) => void;
     onSaveTemplate?: (view: any) => void;
 }
 
-const OverviewMenu = ({ view, onToggleLock, onToggleDefault, onCopyLink }: ProjectViewContextMenuProps) => (
+const OverviewMenu = ({ view, onToggleLock, onToggleDefault, onCopyLink, onShare }: ViewContextMenuProps) => (
     <>
         <ContextMenuItem onClick={() => onCopyLink(view)}>
             <Copy className="mr-2 h-4 w-4" />
             Copy link to view
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => onToggleLock(view)}>
+        {onShare && (
+            <ContextMenuItem onClick={() => onShare(view)}>
+                <Shield className="mr-2 h-4 w-4" />
+                Permissions
+            </ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => onToggleLock(view)} onSelect={(e) => e.preventDefault()}>
             <Lock className="mr-2 h-4 w-4" />
             Protect view
-            <div className="ml-auto flex items-center">
-                <input type="checkbox" checked={view.isLocked} readOnly className="h-4 w-4 rounded border-gray-300" />
-            </div>
+            <Switch checked={view.isLocked} className="ml-auto" />
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => onToggleDefault(view)}>
+        <ContextMenuItem onClick={() => onToggleDefault(view)} onSelect={(e) => e.preventDefault()}>
             <Star className="mr-2 h-4 w-4" />
             Set as default view
-            <div className="ml-auto flex items-center">
-                <input type="checkbox" checked={view.isDefault} readOnly className="h-4 w-4 rounded border-gray-300" />
-            </div>
+            <Switch checked={view.isDefault} className="ml-auto" />
         </ContextMenuItem>
     </>
 );
@@ -60,7 +62,7 @@ const StandardMenu = ({
     onCopyLink,
     onShare,
     onSaveTemplate
-}: ProjectViewContextMenuProps) => (
+}: ViewContextMenuProps) => (
     <>
         <ContextMenuItem onClick={() => onRename(view)} disabled={view.isLocked}>
             <Edit className="mr-2 h-4 w-4" />
@@ -70,14 +72,12 @@ const StandardMenu = ({
             <Copy className="mr-2 h-4 w-4" />
             Copy link to view
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => onShare(view)}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Invite
-        </ContextMenuItem>
-        <ContextMenuItem onClick={() => toast.info("Permissions management coming soon")}>
-            <Shield className="mr-2 h-4 w-4" />
-            Permissions
-        </ContextMenuItem>
+        {onShare && (
+            <ContextMenuItem onClick={() => onShare(view)}>
+                <Shield className="mr-2 h-4 w-4" />
+                Permissions
+            </ContextMenuItem>
+        )}
 
         <ContextMenuSeparator />
 
@@ -138,11 +138,11 @@ const StandardMenu = ({
     </>
 );
 
-const ViewMenus: Partial<Record<ViewType, React.FC<ProjectViewContextMenuProps>>> = {
+const ViewMenus: Partial<Record<ViewType, React.FC<ViewContextMenuProps>>> = {
     OVERVIEW: OverviewMenu,
 };
 
-export const ProjectViewContextMenu = (props: ProjectViewContextMenuProps) => {
+export const ViewContextMenu = (props: ViewContextMenuProps) => {
     const viewType = props.view.type as ViewType;
     const MenuComponent = ViewMenus[viewType] || StandardMenu;
 
@@ -152,3 +152,11 @@ export const ProjectViewContextMenu = (props: ProjectViewContextMenuProps) => {
         </ContextMenuContent>
     );
 };
+
+// Aliases for compatibility
+export const SpaceViewContextMenu = ViewContextMenu;
+export type SpaceViewContextMenuProps = ViewContextMenuProps;
+export const ProjectViewContextMenu = ViewContextMenu;
+export type ProjectViewContextMenuProps = ViewContextMenuProps;
+export const TeamViewContextMenu = ViewContextMenu;
+export type TeamViewContextMenuProps = ViewContextMenuProps;

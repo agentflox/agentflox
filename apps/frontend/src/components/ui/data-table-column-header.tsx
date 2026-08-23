@@ -26,7 +26,7 @@ export function DataTableColumnHeader<TData, TValue>({
   className,
 }: DataTableColumnHeaderProps<TData, TValue>) {
   if (!column.getCanSort()) {
-    return <div className={cn("text-sm font-normal text-zinc-900 tracking-tight", className)}>{title}</div>
+    return <div className={cn("text-xs font-medium text-zinc-500 tracking-tight", className)}>{title}</div>
   }
 
   const isSorted = column.getIsSorted()
@@ -39,7 +39,7 @@ export function DataTableColumnHeader<TData, TValue>({
         className="-ml-3 h-8 hover:bg-zinc-100 data-[state=open]:bg-accent px-3 py-1 cursor-pointer group"
         onClick={() => column.toggleSorting(isSorted === "asc")}
       >
-        <span className="text-sm font-normal text-zinc-900 tracking-tight">{title}</span>
+        <span className="text-xs font-medium text-zinc-500 tracking-tight group-hover:text-zinc-800">{title}</span>
         <div className="flex flex-col ml-2 items-center -space-y-1">
           <ChevronUp className={cn("h-3.5 w-3.5 transition-colors", isSorted === "asc" ? "text-blue-600" : "text-zinc-300 group-hover:text-zinc-400")} />
           <ChevronDown className={cn("h-3.5 w-3.5 transition-colors", isSorted === "desc" ? "text-blue-600" : "text-zinc-300 group-hover:text-zinc-400")} />

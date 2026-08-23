@@ -31,9 +31,14 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
 	DropdownMenu,
+	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuPortal,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -42,8 +47,13 @@ import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { Settings2, ArrowUpDown, Check, ChevronUp, ChevronDown, MoreVertical, FolderKanban } from "lucide-react";
-import { DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+	LocationTypeFilterSubmenu,
+	NestedLocationFilterSubmenu,
+	DashboardSortPopover,
+	LocationSelection,
+} from "@/features/dashboard/components/shared/DashboardFilterSubmenus";
+import { Globe, User, Users, Circle } from "lucide-react";
 
 export default function ProjectsPage() {
 	const router = useRouter();
@@ -104,6 +114,8 @@ export default function ProjectsPage() {
 		setFilters,
 	} = useProjectList();
 
+	const [locationTypeFilter, setLocationTypeFilter] = useState<string>("all");
+	const [locationFilter, setLocationFilter] = useState<LocationSelection>(null);
 
 	const hasNextPage = (data?.items?.length || 0) === pageSize;
 	const hasPreviousPage = page > 1;
@@ -147,6 +159,9 @@ export default function ProjectsPage() {
 		}
 	};
 
+import { ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
+import { EntityStatusBadge } from "@/components/ui/status-badge";
+
 	const columns: ColumnDef<any>[] = [
 		{
 			id: "select",
@@ -177,30 +192,38 @@ export default function ProjectsPage() {
 				return (
 					<div className="flex flex-col" onMouseEnter={() => handlePrefetch(project.id)}>
 						<span
-							className="font-medium text-foreground hover:underline cursor-pointer"
+							className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer"
 							onClick={() => handleOpen(project.id)}
 						>
 							{project.title || "Untitled Project"}
 						</span>
-						{project.description && (
-							<span className="text-xs text-muted-foreground truncate max-w-[250px]">
-								{project.description}
-							</span>
-						)}
 					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "description",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
+			cell: ({ row }) => {
+				const desc = row.original.description;
+				return (
+					<span className="text-xs text-zinc-500 line-clamp-1 max-w-[240px]" title={desc}>
+						{desc || "-"}
+					</span>
 				);
 			},
 		},
 		{
 			accessorKey: "status",
 			header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+			cell: ({ row }) => <EntityStatusBadge status={row.original.status || "DRAFT"} />,
+		},
+		{
+			id: "owner",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Owner" />,
 			cell: ({ row }) => {
-				const status = row.original.status || "DRAFT";
-				return (
-					<Badge variant={status === "PUBLISHED" ? "default" : "secondary"}>
-						{status}
-					</Badge>
-				);
+				const owner = row.original.owner || row.original.user || row.original.creator;
+				return <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{owner?.name || "You"}</span>;
 			},
 		},
 		{
@@ -218,18 +241,30 @@ export default function ProjectsPage() {
 							<Badge variant="outline" className="text-xs">+{industries.length - 2}</Badge>
 						)}
 					</div>
-				)
+				);
 			},
 			enableSorting: false,
 		},
 		{
+			accessorKey: "createdAt",
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Date Created" />,
+			cell: ({ row }) => {
+				const date = row.original.createdAt;
+				return (
+					<span className="text-xs text-zinc-500 whitespace-nowrap">
+						{date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : "-"}
+					</span>
+				);
+			},
+		},
+		{
 			id: "updatedAt",
 			accessorKey: "updatedAt",
-			header: ({ column }) => <DataTableColumnHeader column={column} title="Updated" />,
+			header: ({ column }) => <DataTableColumnHeader column={column} title="Last Modified" />,
 			cell: ({ row }) => {
 				if (!row.original.updatedAt) return null;
 				return (
-					<span className="text-sm text-muted-foreground">
+					<span className="text-xs text-zinc-500 whitespace-nowrap">
 						{formatDistanceToNow(new Date(row.original.updatedAt), { addSuffix: true })}
 					</span>
 				);
@@ -242,7 +277,7 @@ export default function ProjectsPage() {
 				return (
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" className="h-8 w-8 p-0">
+							<Button variant="ghost" className="h-8 w-8 p-0 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 hover:font-medium transition-colors cursor-pointer">
 								<span className="sr-only">Open menu</span>
 								<MoreHorizontal className="h-4 w-4" />
 							</Button>
@@ -265,6 +300,18 @@ export default function ProjectsPage() {
 			},
 		},
 	];
+
+	const renderRowContextMenu = (project: any) => (
+		<>
+			<ContextMenuItem onClick={() => handleOpen(project.id)} className="cursor-pointer">
+				<PenSquare className="mr-2 h-4 w-4" /> Edit Project
+			</ContextMenuItem>
+			<ContextMenuSeparator />
+			<ContextMenuItem className="text-destructive focus:text-destructive cursor-pointer" onClick={() => handleDelete(project.id, project.title)}>
+				<Trash className="mr-2 h-4 w-4" /> Delete Project
+			</ContextMenuItem>
+		</>
+	);
 
 	const chips = useMemo(() => {
 		const result: Array<{ id: string; label: string; onRemove: () => void }> = [];
@@ -340,38 +387,75 @@ export default function ProjectsPage() {
 								<Button variant="ghost" className="h-9 px-3 gap-2 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all">
 									<Filter className="h-4 w-4" />
 									<span>Filter</span>
-									{(scope !== "all" || (filters as any).status || filters.industries.length > 0) && (
+									{(scope !== "all" || (filters as any).status || filters.industries.length > 0 || locationTypeFilter !== "all" || locationFilter) && (
 										<span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-											{(scope !== "all" ? 1 : 0) + ((filters as any).status ? 1 : 0) + (filters.industries.length > 0 ? 1 : 0)}
+											{(scope !== "all" ? 1 : 0) + ((filters as any).status ? 1 : 0) + (filters.industries.length > 0 ? 1 : 0) + (locationTypeFilter !== "all" ? 1 : 0) + (locationFilter ? 1 : 0)}
 										</span>
 									)}
 								</Button>
 							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-[180px]">
+							<DropdownMenuContent align="end" className="w-[200px]">
 								<div className="px-2 py-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
 									Filter by
 								</div>
 								<DropdownMenuSeparator />
 
+								<LocationTypeFilterSubmenu
+									selectedType={locationTypeFilter}
+									onSelectType={setLocationTypeFilter}
+								/>
+
+								<NestedLocationFilterSubmenu
+									selectedLocation={locationFilter}
+									onSelectLocation={setLocationFilter}
+								/>
+
 								<DropdownMenuSub>
-									<DropdownMenuSubTrigger>Scope</DropdownMenuSubTrigger>
+									<DropdownMenuSubTrigger className="flex items-center gap-2">
+										<Globe className="h-4 w-4 text-zinc-500" />
+										<span>Scope</span>
+									</DropdownMenuSubTrigger>
 									<DropdownMenuPortal>
 										<DropdownMenuSubContent>
-											<DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")}>All Projects</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={scope === "owned"} onCheckedChange={() => setScope("owned")}>Owned by me</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={scope === "participated"} onCheckedChange={() => setScope("participated")}>Shared with me</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "all"} onCheckedChange={() => setScope("all")} className="flex items-center gap-2">
+												<Globe className="h-4 w-4 text-zinc-400" />
+												<span>All Projects</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "owned"} onCheckedChange={() => setScope("owned")} className="flex items-center gap-2">
+												<User className="h-4 w-4 text-blue-500" />
+												<span>Owned by me</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={scope === "participated"} onCheckedChange={() => setScope("participated")} className="flex items-center gap-2">
+												<Users className="h-4 w-4 text-emerald-500" />
+												<span>Shared with me</span>
+											</DropdownMenuCheckboxItem>
 										</DropdownMenuSubContent>
 									</DropdownMenuPortal>
 								</DropdownMenuSub>
 
 								<DropdownMenuSub>
-									<DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
+									<DropdownMenuSubTrigger className="flex items-center gap-2">
+										<Circle className="h-4 w-4 text-zinc-500" />
+										<span>Status</span>
+									</DropdownMenuSubTrigger>
 									<DropdownMenuPortal>
 										<DropdownMenuSubContent>
-											<DropdownMenuCheckboxItem checked={!(filters as any).status} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "" as any }))}>All Status</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={(filters as any).status === "DRAFT"} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "DRAFT" }))}>Draft</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={(filters as any).status === "PUBLISHED"} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "PUBLISHED" }))}>Published</DropdownMenuCheckboxItem>
-											<DropdownMenuCheckboxItem checked={(filters as any).status === "ARCHIVED"} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "ARCHIVED" }))}>Archived</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={!(filters as any).status} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "" as any }))} className="flex items-center gap-2">
+												<Circle className="h-3.5 w-3.5 text-zinc-400" />
+												<span>All Status</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={(filters as any).status === "DRAFT"} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "DRAFT" }))} className="flex items-center gap-2">
+												<Circle className="h-3.5 w-3.5 text-zinc-400 fill-zinc-400" />
+												<span>Draft</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={(filters as any).status === "PUBLISHED"} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "PUBLISHED" }))} className="flex items-center gap-2">
+												<Circle className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500" />
+												<span>Published</span>
+											</DropdownMenuCheckboxItem>
+											<DropdownMenuCheckboxItem checked={(filters as any).status === "ARCHIVED"} onCheckedChange={() => setFilters((f: any) => ({ ...f, status: "ARCHIVED" }))} className="flex items-center gap-2">
+												<Circle className="h-3.5 w-3.5 text-red-500 fill-red-500" />
+												<span>Archived</span>
+											</DropdownMenuCheckboxItem>
 										</DropdownMenuSubContent>
 									</DropdownMenuPortal>
 								</DropdownMenuSub>
@@ -415,77 +499,14 @@ export default function ProjectsPage() {
 						})()}
 
 						{/* Sort Popover */}
-						<Popover>
-							<PopoverTrigger asChild>
-								<Button
-									variant="ghost"
-									className="h-9 gap-1.5 px-3 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/80 transition-all cursor-pointer rounded-md outline-hidden focus:ring-0 focus-visible:ring-0"
-								>
-									<ArrowUpDown className="h-4 w-4" />
-									<span>Sort</span>
-									{sort.length > 0 && (
-										<span className="ml-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-zinc-200/70 px-1.5 text-xs font-semibold text-zinc-700">
-											{sort.length}
-										</span>
-									)}
-								</Button>
-							</PopoverTrigger>
-							<PopoverContent align="end" className="w-[240px] p-1.5 rounded-xl shadow-xl border-zinc-200" sideOffset={8}>
-								<div className="px-2 py-1.5 mb-1">
-									<span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Sort By</span>
-								</div>
-								<div className="space-y-0.5">
-									<div
-										className="flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-zinc-50 transition-colors text-zinc-600"
-										onClick={() => setSort([])}
-									>
-										<span className="flex-1">None (default)</span>
-										{sort.length === 0 && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-									</div>
-									{[
-										{ id: "title", label: "Title" },
-										{ id: "status", label: "Status" },
-										{ id: "updatedAt", label: "Updated Date" },
-									].map((opt) => {
-										const currentSortIndex = sort.findIndex(s => s.id === opt.id);
-										const isSelected = currentSortIndex >= 0;
-										const currentSort = isSelected ? sort[currentSortIndex] : null;
-
-										return (
-											<div
-												key={opt.id}
-												className={cn(
-													"flex items-center gap-2.5 px-2 py-1.5 text-sm rounded-md cursor-pointer transition-colors group/item",
-													isSelected ? "bg-zinc-50 text-zinc-900" : "text-zinc-600 hover:bg-zinc-100"
-												)}
-												onClick={() => {
-													if (isSelected) setSort(s => s.filter(i => i.id !== opt.id));
-													else setSort(s => [...s, { id: opt.id, desc: false }]);
-												}}
-											>
-												<div
-													className="h-5 w-5 flex items-center justify-center rounded hover:bg-zinc-200 transition-colors"
-													onClick={(e) => {
-														e.stopPropagation();
-														if (isSelected) setSort(s => s.map(i => i.id === opt.id ? { ...i, desc: !i.desc } : i));
-														else setSort(s => [...s, { id: opt.id, desc: false }]);
-													}}
-												>
-													{isSelected &&
-														<div className="flex flex-col items-center -space-y-1">
-															<ChevronUp className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-800' : 'text-zinc-300'}`} />
-															<ChevronDown className={`h-3.5 w-3.5 ${currentSort?.desc ? 'text-zinc-300' : 'text-zinc-800'}`} />
-														</div>
-													}
-												</div>
-												<span className="flex-1">{opt.label}</span>
-												{isSelected && <Check className="h-3.5 w-3.5 text-zinc-900" />}
-											</div>
-										);
-									})}
-								</div>
-							</PopoverContent>
-						</Popover>
+						<DashboardSortPopover
+							sort={sort}
+							onSortChange={setSort}
+							options={[
+								{ id: "title", label: "Title" },
+								{ id: "status", label: "Status" },
+							]}
+						/>
 					</SearchSection>
 
 					{/* Filter Chips */}
@@ -576,7 +597,16 @@ export default function ProjectsPage() {
 								)}
 							</>
 						) : (
-							<DataTable columns={columns} data={data.items} onDeleteSelected={handleBulkDelete} onTableReady={setTable} hideToolbar columnVisibility={columnVisibility} onColumnVisibilityChange={setColumnVisibility} />
+							<DataTable
+								columns={columns}
+								data={data.items}
+								onDeleteSelected={handleBulkDelete}
+								onTableReady={setTable}
+								renderRowContextMenu={renderRowContextMenu}
+								hideToolbar
+								columnVisibility={columnVisibility}
+								onColumnVisibilityChange={setColumnVisibility}
+							/>
 						)
 					) : (
 						<div className="flex min-h-[400px] flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-gradient-to-b from-slate-50/50 to-white shadow-sm">

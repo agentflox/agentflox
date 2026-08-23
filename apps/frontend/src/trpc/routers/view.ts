@@ -137,6 +137,18 @@ export const viewRouter = router({
 
 		const position = (lastView?.position ?? 0) + 1000;
 
+		// Determine locationType automatically if not passed explicitly:
+		let locationType = input.locationType;
+		if (!locationType) {
+			if (input.listId) locationType = "LIST";
+			else if (input.folderId) locationType = "FOLDER";
+			else if (input.teamId) locationType = "TEAM";
+			else if (input.projectId) locationType = "PROJECT";
+			else if (input.spaceId) locationType = "SPACE";
+			else if (input.workspaceId || workspaceId) locationType = "WORKSPACE";
+			else locationType = "PERSONAL";
+		}
+
 		const view = await prisma.view.create({
 			data: {
 				name: input.name,
@@ -148,6 +160,7 @@ export const viewRouter = router({
 				teamId: input.teamId,
 				listId: input.listId,
 				folderId: input.folderId,
+				locationType: (locationType as any) || "WORKSPACE",
 				isDefault: input.isDefault ?? false,
 				isShared: input.isShared ?? false,
 				isPrivate: input.isPrivate ?? false,
@@ -168,7 +181,7 @@ export const viewRouter = router({
 		if (view.type === "DOC") {
 			await prisma.document.create({
 				data: {
-					title: "Untitled",
+					title: input.name || "Untitled",
 					content: "[]",
 					workspaceId: input.workspaceId || workspaceId || null,
 					viewId: view.id,
@@ -177,7 +190,6 @@ export const viewRouter = router({
 					listId: input.listId ?? null,
 					teamId: input.teamId ?? null,
 					folderId: input.folderId ?? null,
-					locationType: (input.locationType as any) || "PERSONAL",
 					ownerId: ctx.session!.user!.id,
 				}
 			});
@@ -259,8 +271,10 @@ export const viewRouter = router({
 		projectId: z.string().optional(),
 		teamId: z.string().optional(),
 		listId: z.string().optional(),
+		folderId: z.string().optional(),
 		type: z.enum(Object.keys(ViewType) as [keyof typeof ViewType, ...(keyof typeof ViewType)[]]).optional(),
 		sidebarView: z.boolean().optional(),
+		directOnly: z.boolean().optional().default(false),
 	})).query(async ({ input }) => {
 		const where: any = {};
 		if (input.workspaceId) where.workspaceId = input.workspaceId;
@@ -268,8 +282,37 @@ export const viewRouter = router({
 		if (input.projectId) where.projectId = input.projectId;
 		if (input.teamId) where.teamId = input.teamId;
 		if (input.listId) where.listId = input.listId;
+		if (input.folderId) where.folderId = input.folderId;
 		if (input.type) where.type = input.type;
 		if (input.sidebarView !== undefined) where.sidebarView = input.sidebarView;
+
+		if (input.directOnly) {
+			// Workspace root docs: exclude sub-spaces, teams, projects, folders, lists
+			if (input.workspaceId && !input.spaceId && !input.projectId && !input.teamId && !input.listId && !input.folderId) {
+				where.spaceId = null;
+				where.projectId = null;
+				where.teamId = null;
+				where.listId = null;
+				where.folderId = null;
+			}
+			// Space root docs: exclude projects, folders, lists
+			if (input.spaceId && !input.projectId && !input.listId && !input.folderId) {
+				where.projectId = null;
+				where.listId = null;
+				where.folderId = null;
+			}
+			// Team root docs: exclude projects, folders, lists
+			if (input.teamId && !input.projectId && !input.listId && !input.folderId) {
+				where.projectId = null;
+				where.listId = null;
+				where.folderId = null;
+			}
+			// Project root docs: exclude folders, lists
+			if (input.projectId && !input.listId && !input.folderId) {
+				where.listId = null;
+				where.folderId = null;
+			}
+		}
 
 		if (Object.keys(where).length === 0) {
 			throw new Error("Must provide at least one filter");

@@ -32,8 +32,11 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 
 interface DataTableProps<TData = any, TValue = any> {
   columns: ColumnDef<any, any>[]
@@ -41,6 +44,7 @@ interface DataTableProps<TData = any, TValue = any> {
   onDeleteSelected?: (rows: TData[]) => void
   onTableReady?: (table: import("@tanstack/react-table").Table<TData>) => void
   onRowSelectionChange?: (rowSelection: Record<string, boolean>) => void
+  renderRowContextMenu?: (row: TData) => React.ReactNode
   hideToolbar?: boolean
   hideHeader?: boolean
   onlyHeader?: boolean
@@ -55,6 +59,7 @@ export function DataTable<TData = any, TValue = any>({
   onDeleteSelected,
   onTableReady,
   onRowSelectionChange,
+  renderRowContextMenu,
   hideToolbar = false,
   hideHeader = false,
   onlyHeader = false,
@@ -74,6 +79,7 @@ export function DataTable<TData = any, TValue = any>({
   const table = useReactTable({
     data,
     columns,
+    getRowId: (row: any) => row?.id || row?.key || row?._id || String(row?.name || row?.title || Math.random()),
     state: {
       sorting,
       columnVisibility,
@@ -179,22 +185,39 @@ export function DataTable<TData = any, TValue = any>({
           {!onlyHeader && (
             <TableBody>
               {table.getRowModel().rows?.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className={cn("hover:bg-muted/50 cursor-pointer", hideHeader && "border-none")}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className={(cell.column.columnDef.meta as any)?.className}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                table.getRowModel().rows.map((row) => {
+                  const rowNode = (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && "selected"}
+                      className={cn("hover:bg-muted/50 cursor-pointer", hideHeader && "border-none")}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className={(cell.column.columnDef.meta as any)?.className}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+
+                  if (renderRowContextMenu) {
+                    return (
+                      <ContextMenu key={row.id}>
+                        <ContextMenuTrigger asChild>
+                          {rowNode}
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-56 p-1 rounded-xl shadow-xl border-zinc-200">
+                          {renderRowContextMenu(row.original)}
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    );
+                  }
+
+                  return rowNode;
+                })
               ) : (
                 <TableRow>
                   <TableCell

@@ -7,11 +7,11 @@ import { PlusIcon, FolderPlusIcon, LayoutGrid, Columns3, Table as TableIcon } fr
 import { TaskOverviewView } from './TaskOverviewView'
 import { TaskKanbanView } from './TaskKanbanView'
 import { TaskTableView } from './TaskTableView'
-import { ListCreationModal } from './ListCreationModal'
+import { ListCreationModal } from '../../lists/components/ListCreationModal'
 import { TaskCreationModal } from './TaskCreationModal'
 import { trpc } from '@/lib/trpc'
 
-export type TaskContextType = 'SPACE' | 'PROJECT' | 'TEAM' | 'GENERAL'
+export type TaskContextType = 'WORKSPACE' | 'SPACE' | 'PROJECT' | 'TEAM' | 'GENERAL'
 
 type Option = { id: string; name: string }
 

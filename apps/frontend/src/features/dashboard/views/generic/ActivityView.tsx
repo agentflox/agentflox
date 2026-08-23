@@ -44,7 +44,10 @@ import {
     MousePointer,
     Target,
     AlignLeft,
+    Wand2,
+    ChevronRight,
 } from "lucide-react";
+import { TemplateMenuPopover } from "@/entities/templates/components/TemplateMenuPopover";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -57,10 +60,10 @@ import { format } from "date-fns";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { SidePanel } from "@/features/dashboard/components/shared/SidePanel";
 import { Switch } from "@/components/ui/switch";
-import type { FilterCondition, FilterGroup, FilterOperator } from "./listViewTypes";
-import { STANDARD_FIELD_CONFIG } from "./listViewConstants";
+import type { FilterCondition, FilterGroup, FilterOperator } from "./viewTypes";
+import { STANDARD_FIELD_CONFIG } from "./viewConstants";
 import { evaluateGroup, hasFilterValue, hasAnyValueInGroup } from "./filterUtils";
-import { ListViewFilterPopoverContent } from "./ListViewFilterPopoverContent";
+import { ViewFilterPopoverContent } from "./ViewFilterPopoverContent";
 
 interface ActivityViewProps {
     spaceId?: string;
@@ -90,7 +93,7 @@ const getPriorityIcon = (p: string | null | undefined) => {
     return <Flag className={cn("h-3 w-3", getPriorityColor(p)?.split(" ")[0])} />;
 };
 
-export function ActivityView({ spaceId, projectId, teamId, listId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: ActivityViewProps) {
+export function ActivityView({ spaceId, projectId, teamId, listId, folderId, viewId, workspaceId, initialConfig, selectedTaskIdFromParent, onTaskSelect }: ActivityViewProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(selectedTaskIdFromParent || null);
@@ -128,6 +131,13 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
     const [filterAssignee, setFilterAssignee] = useState<string[]>([]);
 
     const updateViewMutation = trpc.view.update.useMutation();
+    const { data: viewData } = trpc.view.get.useQuery({ id: viewId as string }, { enabled: !!viewId });
+
+    useEffect(() => {
+        if (viewData?.name) {
+            setViewNameDraft(viewData.name);
+        }
+    }, [viewData]);
 
     const saveNewFilter = useCallback(async () => {
         if (!savedFilterName.trim()) return;
@@ -176,7 +186,8 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
         setSavedFiltersPanelOpen(false);
     };
 
-    const addFilterCondition = (groupId: string = "root") => {
+    const addFilterCondition = (groupId?: string) => {
+        const targetId = groupId || "root";
         const newCond: FilterCondition = {
             id: Math.random().toString(36).substring(7),
             field: "",
@@ -184,7 +195,7 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
             value: [],
         };
         const update = (group: FilterGroup): FilterGroup => {
-            if (group.id === groupId) return { ...group, conditions: [...group.conditions, newCond] };
+            if (group.id === targetId) return { ...group, conditions: [...group.conditions, newCond] };
             return { ...group, conditions: group.conditions.map(c => ("conditions" in c ? update(c as FilterGroup) : c)) };
         };
         setFilterGroups(update(filterGroups));
@@ -293,6 +304,47 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
         }).length;
     }, [filterGroups]);
 
+    const {
+        resolvedWorkspaceId,
+        customFields,
+        availableTaskTypes,
+        workspaceMembers,
+        projectParticipants,
+        teamParticipants,
+        listsData,
+        currentList,
+        tasks: rawTasks,
+        isTasksLoading,
+        hasMore: hasMoreTasks,
+        isFetchingNextPage,
+        loadMoreRef,
+        total: taskTotal,
+    } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, includeRelations: "card" });
+
+    const viewContentToSave = useMemo(() => {
+        return {
+            id: viewId,
+            name: viewNameDraft || viewData?.name || "Activity",
+            type: "ACTIVITY",
+            workspaceId: (workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined,
+            spaceId: (spaceId || viewData?.spaceId) ?? undefined,
+            projectId: (projectId || viewData?.projectId) ?? undefined,
+            folderId: (folderId || viewData?.folderId) ?? undefined,
+            listId: (listId || viewData?.listId) ?? undefined,
+            teamId: (teamId || viewData?.teamId) ?? undefined,
+            config: {
+                activityView: {
+                    showTaskProperties,
+                    filterGroups,
+                }
+            },
+            filters: filterGroups,
+        };
+    }, [
+        viewId, viewNameDraft, viewData, workspaceId, resolvedWorkspaceId, spaceId, projectId, folderId, listId, teamId,
+        showTaskProperties, filterGroups
+    ]);
+
     const updateViewName = async (newName: string) => {
         if (!viewId || !newName.trim()) return;
         try {
@@ -318,23 +370,6 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
             document.removeEventListener("mousedown", handleOutsideClick);
         };
     }, [isToolbarSearchOpen]);
-
-    const {
-        resolvedWorkspaceId,
-        customFields,
-        availableTaskTypes,
-        workspaceMembers,
-        projectParticipants,
-        teamParticipants,
-        listsData,
-        currentList,
-        tasks: rawTasks,
-        isTasksLoading,
-        hasMore: hasMoreTasks,
-        isFetchingNextPage,
-        loadMoreRef,
-        total: taskTotal,
-    } = useGenericTaskViewData({ spaceId, projectId, teamId, listId, workspaceId, includeRelations: "card" });
 
     const usedCustomFieldIds = useMemo(() => collectUsedCustomFieldIds(rawTasks), [rawTasks]);
 
@@ -448,7 +483,7 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
     }, [rawTasks, searchQuery, filterAssignee, filterGroups]);
 
     const renderFilterContent = (opts?: { onClose?: () => void }) => (
-        <ListViewFilterPopoverContent
+        <ViewFilterPopoverContent
             onClose={opts?.onClose ?? (() => setFiltersPanelOpen(false))}
             savedFiltersPanelOpen={savedFiltersPanelOpen}
             setSavedFiltersPanelOpen={setSavedFiltersPanelOpen}
@@ -490,9 +525,9 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
 
     return (
         <TooltipProvider delayDuration={200}>
-            <div className="h-full w-full flex flex-col bg-white border border-zinc-200/60 shadow-sm overflow-hidden font-sans relative min-w-0">
+            <div className="h-full w-full flex flex-col bg-white shadow-sm overflow-hidden font-sans relative min-w-0">
                 {/* Toolbar matching ListView design exactly */}
-                <div className="border-b border-zinc-100 bg-white px-3 py-2 shrink-0">
+                <div className="bg-white px-3 py-2 shrink-0">
                     <div className="flex items-center justify-between gap-3 overflow-x-auto">
                         {/* Left side (empty or basic view tools if needed) */}
                         <div className="flex items-center gap-1.5 flex-1">
@@ -847,6 +882,22 @@ export function ActivityView({ spaceId, projectId, teamId, listId, viewId, works
                                         onCheckedChange={setShowTaskProperties}
                                     />
                                 </div>
+                                <TemplateMenuPopover
+                                    entityType="VIEW"
+                                    workspaceId={(workspaceId || resolvedWorkspaceId || viewData?.workspaceId) ?? undefined}
+                                    contentToSave={viewContentToSave}
+                                >
+                                    <button
+                                        type="button"
+                                        className="w-full flex items-center justify-between py-2.5 text-sm text-zinc-800 hover:bg-zinc-50 rounded-md px-2 cursor-pointer"
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <Wand2 className="h-4 w-4 text-zinc-400" />
+                                            Templates
+                                        </span>
+                                        <ChevronRight className="inline h-3 w-3 ml-1 text-zinc-400" />
+                                    </button>
+                                </TemplateMenuPopover>
                             </div>
                         </div>
                     </ScrollArea>
