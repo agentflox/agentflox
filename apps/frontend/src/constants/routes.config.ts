@@ -23,8 +23,39 @@ export const AUTH_ROUTES = [
 
 export const PROTECTED_ROUTES = [
     "/",
+    "/personal",
+    "/workspaces",
+    "/spaces",
+    "/projects",
+    "/teams",
+    "/tasks",
+    "/materials",
+    "/docs",
+    "/tools",
+    "/skills",
+    "/resources",
+    "/agents",
+    "/workforces",
+    "/billing",
+    "/settings",
+    "/my-profile",
+    "/notifications",
+    "/messages",
+    "/mynetwork",
+    "/organization",
+    "/organizations",
+    "/proposals",
+    "/requests",
+    "/usage",
+    "/discussions",
+    "/integrations",
+    "/profiles",
+    "/analytics",
+    "/listings",
     "/dashboard",
-    "/mp" // marketplace
+    "/marketplace",
+    "/onboarding",
+    "/mp"
 ];
 
 // ============================================================================
@@ -32,79 +63,82 @@ export const PROTECTED_ROUTES = [
 // ============================================================================
 
 export const DASHBOARD_ROUTES = {
-    ROOT: '/dashboard',
+    ROOT: '/',
 
     // Personal
-    PERSONAL: '/dashboard/personal',
+    PERSONAL: '/personal',
 
     // Workspaces
-    WORKSPACES: `/dashboard/workspaces`,
-    WORKSPACE: (id: string) => `/dashboard/workspaces/${id}`,
-    WORKSPACE_TAB: (id: string, tab: string) => `/dashboard/workspaces/${id}?tab=${tab}`,
+    WORKSPACES: `/workspaces`,
+    WORKSPACE: (id: string) => `/workspaces/${id}`,
+    WORKSPACE_TAB: (id: string, tab: string) => `/workspaces/${id}?tab=${tab}`,
 
     // Spaces
-    SPACES: `/dashboard/spaces`,
-    SPACE: (id: string) => `/dashboard/spaces/${id}`,
-    SPACE_TAB: (id: string, tab: string) => `/dashboard/spaces/${id}?tab=${tab}`,
+    SPACES: `/spaces`,
+    SPACE: (id: string) => `/spaces/${id}`,
+    SPACE_TAB: (id: string, tab: string) => `/spaces/${id}?tab=${tab}`,
 
     // Projects
-    PROJECTS: `/dashboard/projects`,
-    PROJECT: (id: string) => `/dashboard/projects/${id}`,
-    PROJECT_EDIT: (id: string) => `/dashboard/projects/edit/${id}`,
-    PROJECT_TAB: (id: string, tab: string) => `/dashboard/projects/${id}?tab=${tab}`,
+    PROJECTS: `/projects`,
+    PROJECT: (id: string) => `/projects/${id}`,
+    PROJECT_EDIT: (id: string) => `/projects/edit/${id}`,
+    PROJECT_TAB: (id: string, tab: string) => `/projects/${id}?tab=${tab}`,
 
     // Teams
-    TEAMS: `/dashboard/teams`,
-    TEAM: (id: string) => `/dashboard/teams/${id}`,
-    TEAM_EDIT: (id: string) => `/dashboard/teams/edit/${id}`,
-    TEAM_TAB: (id: string, tab: string) => `/dashboard/teams/${id}?tab=${tab}`,
+    TEAMS: `/teams`,
+    TEAM: (id: string) => `/teams/${id}`,
+    TEAM_EDIT: (id: string) => `/teams/edit/${id}`,
+    TEAM_TAB: (id: string, tab: string) => `/teams/${id}?tab=${tab}`,
 
     // Nested Context Routes (Workspace-scoped)
     WORKSPACE_SPACE: (workspaceId: string, spaceId: string) =>
-        `/dashboard/workspaces/${workspaceId}?v=spaces&sid=${spaceId}`,
+        `/workspaces/${workspaceId}?v=spaces&sid=${spaceId}`,
     WORKSPACE_PROJECT: (workspaceId: string, projectId: string) =>
-        `/dashboard/workspaces/${workspaceId}/projects/${projectId}`,
+        `/workspaces/${workspaceId}/projects/${projectId}`,
     WORKSPACE_TEAM: (workspaceId: string, teamId: string) =>
-        `/dashboard/workspaces/${workspaceId}/teams/${teamId}`,
+        `/workspaces/${workspaceId}/teams/${teamId}`,
     WORKSPACE_SPACE_PROJECT: (workspaceId: string, spaceId: string, projectId: string) =>
-        `/dashboard/workspaces/${workspaceId}/spaces/${spaceId}/projects/${projectId}`,
+        `/workspaces/${workspaceId}/spaces/${spaceId}/projects/${projectId}`,
 
     // Other Dashboard Routes
-    TASKS: '/dashboard/tasks',
-    TASK: (id: string) => `/dashboard/tasks/${id}`,
+    TASKS: '/tasks',
+    TASK: (id: string) => `/tasks/${id}`,
 
-    MATERIALS: '/dashboard/materials',
-    MATERIAL: (id: string) => `/dashboard/materials/${id}`,
+    MATERIALS: '/materials',
+    MATERIAL: (id: string) => `/materials/${id}`,
 
-    DOCUMENTS: '/dashboard/docs',
-    DOCUMENT: (id: string) => `/dashboard/docs/${id}`,
+    DOCUMENTS: '/docs',
+    DOCUMENT: (id: string) => `/docs/${id}`,
 
-    TOOLS: '/dashboard/tools',
-    TOOL: (id: string) => `/dashboard/tools/${id}`,
+    TOOLS: '/tools',
+    TOOL: (id: string) => `/tools/${id}`,
 
-    RESOURCES: '/dashboard/resources',
-    RESOURCE: (id: string) => `/dashboard/resources/${id}`,
+    SKILLS: '/skills',
+    SKILL: (id: string) => `/skills/${id}`,
 
-    AGENTS: '/dashboard/agents',
-    AGENT: (id: string) => `/dashboard/agents/${id}`,
+    RESOURCES: '/resources',
+    RESOURCE: (id: string) => `/resources/${id}`,
 
-    WORKFORCES: '/dashboard/workforces',
-    WORKFORCE_CREATE: (id: string) => `/dashboard/workforces/${id}`,
+    AGENTS: '/agents',
+    AGENT: (id: string) => `/agents/${id}`,
 
-    BILLING: '/dashboard/billing',
-    SETTINGS: '/dashboard/settings',
-    PROFILE: '/dashboard/my-profile',
-    NOTIFICATIONS: '/dashboard/notifications',
-    MESSAGES: '/dashboard/messages',
-    NETWORK: '/dashboard/mynetwork',
-    ORGANIZATION: '/dashboard/organization',
-    ORGANIZATIONS: '/dashboard/organizations',
-    PROPOSALS: '/dashboard/proposals',
-    REQUESTS: '/dashboard/requests',
-    USAGE: '/dashboard/usage',
-    DISCUSSIONS: '/dashboard/discussions',
-    INTEGRATIONS: '/dashboard/integrations',
-    PROFILES: (id: string) => `/dashboard/profiles/${id}`,
+    WORKFORCES: '/workforces',
+    WORKFORCE_CREATE: (id: string) => `/workforces/${id}`,
+
+    BILLING: '/billing',
+    SETTINGS: '/settings',
+    PROFILE: '/my-profile',
+    NOTIFICATIONS: '/notifications',
+    MESSAGES: '/messages',
+    NETWORK: '/mynetwork',
+    ORGANIZATION: '/organization',
+    ORGANIZATIONS: '/organizations',
+    PROPOSALS: '/proposals',
+    REQUESTS: '/requests',
+    USAGE: '/usage',
+    DISCUSSIONS: '/discussions',
+    INTEGRATIONS: '/integrations',
+    PROFILES: (id: string) => `/profiles/${id}`,
 } as const;
 
 // ============================================================================

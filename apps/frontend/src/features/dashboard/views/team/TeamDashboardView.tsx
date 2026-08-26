@@ -1,12 +1,9 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import {
-  clearAllSubParams,
-  buildCleanDashboardParams,
-  parseDashboardState,
-} from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
@@ -67,7 +64,7 @@ import { TaskDetailModal, TaskDetailContent } from "@/entities/task/components/T
 const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
 const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView").then(mod => mod.AIChatView));
 const TeamPersonalView = dynamic(() => import("@/features/dashboard/views/team/TeamPersonalView"));
-const TeamProjectView = dynamic(() => import("@/features/dashboard/views/team/TeamProjectView"));
+
 const TeamDocsView = dynamic(() => import("@/features/dashboard/views/team/TeamDocsView"));
 import { TeamActionsMenu } from "@/features/dashboard/components/sidebar/TeamActionsMenu";
 import {
@@ -124,6 +121,7 @@ interface TeamDashboardViewProps {
   teamId?: string;
   selectedTaskIdFromParent?: string | null;
   onTaskSelect?: (taskId: string | null) => void;
+  subpath?: string[];
 }
 
 const viewConfig: Partial<Record<
@@ -185,22 +183,27 @@ const viewConfig: Partial<Record<
   MARKETPLACE: { label: "Marketplace", icon: LayoutDashboard, description: "Marketplace" },
 };
 
-export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, onTaskSelect }: TeamDashboardViewProps) {
-  const searchParams = useSearchParams();
+export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, onTaskSelect, subpath }: TeamDashboardViewProps) {
+  const { searchParams, parsedState } = useDashboardState(subpath);
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const selectedTaskId = searchParams.get("task");
+  const selectedTaskId = parsedState.taskId || searchParams.get("task");
+  const selectedListId = parsedState.listId || null;
+
+  const selectedFolderId = parsedState.folderId || null;
+  const selectedAIChatId = parsedState.aiChatId;
+  const selectedChatId = parsedState.chatId;
+  const currentTab = parsedState.tab || "overview";
+  const selectedListIdFromUrl = parsedState.listId;
+  const isOverviewTab = currentTab === "overview" || (!parsedState.tab && !selectedListIdFromUrl);
+  const isListsTab = currentTab === "lists" || !!selectedListIdFromUrl;
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("sidebar");
 
   // Item selection states
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-
-  const selectedListId = useState<string | null>(searchParams.get("list"))[0];
-  const selectedProjectId = useState<string | null>(searchParams.get("pj"))[0];
-  const selectedFolderId = searchParams.get("folder");
   const [addViewModalOpen, setAddViewModalOpen] = useState(false);
   const [viewToRename, setViewToRename] = useState<{ id: string, name: string } | null>(null);
   const [viewToDelete, setViewToDelete] = useState<{ id: string, name: string } | null>(null);
@@ -239,9 +242,8 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
   const aiChatContext = useMemo(() => {
     if (selectedFolderId) return { contextType: "FOLDER" as const, contextId: selectedFolderId, contextName: "Folder" };
     if (selectedListId) return { contextType: "LIST" as const, contextId: selectedListId, contextName: "List" };
-    if (selectedProjectId) return { contextType: "PROJECT" as const, contextId: selectedProjectId, contextName: "Project" };
     return { contextType: "TEAM" as const, contextId: teamId!, contextName: team?.name || "Team" };
-  }, [selectedFolderId, selectedListId, selectedProjectId, teamId, team?.name]);
+  }, [selectedFolderId, selectedListId, teamId, team?.name]);
 
   // Refs for tracking multi-view creation so we redirect to the last created view
   const pendingViewCreatesRef = useRef(0);
@@ -316,27 +318,23 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
     });
   }, [team?.views]);
 
-  const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
-  const selectedAIChatId = parsedState.aiChatId;
-  const selectedChatId = parsedState.chatId;
-  const currentTab = parsedState.tab || "overview";
-  const selectedListIdFromUrl = parsedState.listId;
-  const isOverviewTab = currentTab === "overview" || (!parsedState.tab && !selectedListIdFromUrl);
-  const isListsTab = currentTab === "lists" || !!selectedListIdFromUrl;
-
   // Active Tab Logic
   const urlTabId = parsedState.viewId;
   const activeView = views.find((v: any) => v.id === urlTabId) || views[0];
   const activeTab = activeView?.id;
 
   const handleTabChange = useCallback((viewId: string) => {
-    const clean = buildCleanDashboardParams(searchParams, {
-      tab: "overview",
-      viewId,
-      keepTask: true,
-    });
-    router.push(`?${clean.toString()}`, { scroll: false });
-  }, [searchParams, router]);
+    if (teamId) {
+      router.push(buildDashboardPath({ basePath: `/teams/${teamId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
+    } else {
+      const clean = buildCleanDashboardParams(searchParams, {
+        tab: "overview",
+        viewId,
+        keepTask: true,
+      });
+      router.push(`?${clean.toString()}`, { scroll: false });
+    }
+  }, [teamId, searchParams, router, parsedState.taskId]);
 
   const handleRenameView = (name: string) => {
     if (viewToRename) {
@@ -410,14 +408,18 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
 
   useEffect(() => {
     if (isOverviewTab && !urlTabId && views.length > 0) {
-      const clean = buildCleanDashboardParams(searchParams, {
-        tab: "overview",
-        viewId: views[0].id,
-        keepTask: true,
-      });
-      history.replaceState(null, "", `?${clean.toString()}`);
+      if (teamId) {
+        router.replace(buildDashboardPath({ basePath: `/teams/${teamId}`, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
+      } else {
+        const clean = buildCleanDashboardParams(searchParams, {
+          tab: "overview",
+          viewId: views[0].id,
+          keepTask: true,
+        });
+        router.replace(`?${clean.toString()}`, { scroll: false });
+      }
     }
-  }, [urlTabId, views, isOverviewTab, searchParams, router]);
+  }, [urlTabId, views, isOverviewTab, searchParams, router, teamId, parsedState.taskId]);
 
   const renderViewContent = (view: any) => {
     if (!view || !team) return null;
@@ -679,27 +681,35 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
               teamId={activeTeamId}
               activeView={(isListsTab ? "lists" : currentTab) as any}
               onViewChange={(viewId) => {
-                const targetTab = (viewId as string) === "project" ? "projects" : viewId;
+                const targetTab = viewId as string;
 
                 if (targetTab === "overview") {
-                  const clean = buildCleanDashboardParams(searchParams, {
-                    tab: "overview",
-                    viewId: views.length > 0 ? views[0].id : null,
-                    keepTask: true,
-                  });
-                  router.push(`?${clean.toString()}`, { scroll: false });
+                  const firstViewId = views.length > 0 ? views[0].id : null;
+                  if (activeTeamId && firstViewId) {
+                    router.push(buildDashboardPath({ basePath: `/teams/${activeTeamId}`, viewId: firstViewId, taskId: parsedState.taskId }), { scroll: false });
+                  } else {
+                    router.push(activeTeamId ? `/teams/${activeTeamId}` : `?tab=overview`, { scroll: false });
+                  }
                   return;
                 }
 
-                const entityKey = targetTab === "projects" ? "pj" : undefined;
-                const entityId = targetTab === "projects" && (team as any)?.projects?.length > 0
-                  ? (team as any).projects[0].id
-                  : null;
+                if (activeTeamId) {
+                  if (targetTab === "personal") {
+                    router.push(buildDashboardPath({
+                      basePath: `/teams/${activeTeamId}`,
+                      tab: "personal",
+                      personalTab: "tasks",
+                      taskSubView: "my-work",
+                      taskId: parsedState.taskId
+                    }), { scroll: false });
+                    return;
+                  }
+                  router.push(buildDashboardPath({ basePath: `/teams/${activeTeamId}`, tab: targetTab, taskId: parsedState.taskId }), { scroll: false });
+                  return;
+                }
 
                 const clean = buildCleanDashboardParams(searchParams, {
                   tab: targetTab,
-                  entityKey,
-                  entityId,
                   keepTask: true,
                 });
                 router.push(`?${clean.toString()}`, { scroll: false });
@@ -721,18 +731,12 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                   teamId={activeTeamId!}
                   teamName={team.name || "Untitled Team"}
                   currentTab={currentTab}
-                  selectedProjectId={selectedProjectId || undefined}
+
                   selectedListId={selectedListId || undefined}
                   selectedFolderId={selectedFolderId || undefined}
                   selectedChatId={selectedChatId || undefined}
                   selectedAiChatId={selectedAIChatId || undefined}
-                  onSelectProject={(id) => {
-                    const params = new URLSearchParams(searchParams.toString());
-                    clearSubParams(params);
-                    params.set("tab", "projects");
-                    params.set("pj", id);
-                    router.push(`?${params.toString()}`, { scroll: false });
-                  }}
+
                   onSelectList={(id) => {
                     const params = new URLSearchParams(searchParams.toString());
                     clearSubParams(params);
@@ -778,7 +782,7 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
               showSettings={false}
               workspaceId={activeWorkspaceId || undefined}
               spaceId={team.spaceId || undefined}
-              projectId={selectedProjectId || undefined}
+
               teamId={activeTeamId || teamId}
               currentScope="team"
               askAIDisabled={currentTab === "ai-chat"}
@@ -1081,22 +1085,8 @@ export default function TeamDashboardView({ teamId, selectedTaskIdFromParent, on
                         </Tabs>
                       </div>
                     ) : currentTab === "personal" ? (
-                      <TeamPersonalView teamId={teamId!} workspaceId={resolvedWorkspaceId!} />
-                    ) : (currentTab === "projects" || currentTab === "project") ? (
-                      <TeamProjectView
-                        teamId={teamId!}
-                        workspaceId={resolvedWorkspaceId!}
-                        selectedProjectId={selectedProjectId || undefined}
-                        onProjectSelect={(id) => {
-                          const params = new URLSearchParams(searchParams.toString());
-                          clearSubParams(params);
-                          params.set("tab", "projects");
-                          params.set("pj", id);
-                          router.push(`?${params.toString()}`, { scroll: false });
-                        }}
-                        selectedTaskIdFromParent={selectedTaskIdFromParent}
-                        onTaskSelect={onTaskSelect}
-                      />
+                      <TeamPersonalView teamId={teamId!} workspaceId={resolvedWorkspaceId!} personalTab={parsedState.personalTab} taskSubView={parsedState.taskSubView} viewId={parsedState.viewId} />
+
                     ) : (currentTab === "docs" || currentTab === "doc") ? (
                       <TeamDocsView teamId={teamId!} workspaceId={activeWorkspaceId} />
                     ) : (currentTab === "chats" || currentTab === "chat") ? (

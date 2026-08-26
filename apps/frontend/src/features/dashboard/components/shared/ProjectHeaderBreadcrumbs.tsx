@@ -8,44 +8,41 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
-import { TeamActionsMenu } from "@/features/dashboard/components/sidebar/TeamActionsMenu";
 import { ListActionsMenu } from "@/features/dashboard/components/sidebar/ListActionsMenu";
 import { FolderActionsMenu } from "@/features/dashboard/components/sidebar/FolderActionsMenu";
 import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
-import { TeamIcon } from "@/entities/teams/components/TeamIcon";
 import { FolderIcon } from "@/entities/folders/components/FolderIcon";
 import { ListEntityIcon } from "@/entities/lists/components/ListEntityIcon";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
 import {
-    FolderKanban,
-    Users,
-    MessageSquare,
     FileText,
     User,
     ChevronDown,
-    ChevronRight,
     Link2,
     MoreHorizontal,
     Folder,
     List as ListIcon,
     Hash,
     Sparkles,
-    Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+    breadcrumbItemClass,
+    BreadcrumbTypeBadge,
+    BREADCRUMB_BADGE,
+    ExpandControl,
+} from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 export interface ProjectHeaderBreadcrumbsProps {
     workspaceId: string;
     projectId: string;
     projectName: string;
     currentTab: string;
-    selectedTeamId?: string;
     selectedListId?: string;
     selectedFolderId?: string;
     selectedChatId?: string;
     selectedAiChatId?: string;
-    onSelectTeam?: (teamId: string) => void;
     onSelectList?: (listId: string) => void;
     onSelectFolder?: (folderId: string) => void;
     onSelectChat?: (chatId: string) => void;
@@ -58,12 +55,10 @@ export function ProjectHeaderBreadcrumbs({
     projectId,
     projectName,
     currentTab,
-    selectedTeamId,
     selectedListId,
     selectedFolderId,
     selectedChatId,
     selectedAiChatId,
-    onSelectTeam,
     onSelectList,
     onSelectFolder,
     onSelectChat,
@@ -76,11 +71,14 @@ export function ProjectHeaderBreadcrumbs({
     const [subPopoverOpen, setSubPopoverOpen] = useState(false);
     const [projectEditName, setProjectEditName] = useState(projectName || "");
     const [subEditName, setSubEditName] = useState("");
-    const [collapsedNodes, setCollapsedNodes] = useState<Record<string, boolean>>({});
+    const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+    const isNodeExpanded = (nodeId: string) => !!expandedNodes[nodeId];
 
     const toggleNode = (e: React.MouseEvent, nodeId: string) => {
+        e.preventDefault();
         e.stopPropagation();
-        setCollapsedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
+        setExpandedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
     };
 
     useEffect(() => {
@@ -101,18 +99,11 @@ export function ProjectHeaderBreadcrumbs({
     const projects = projectsData?.items ?? [];
 
     // Sub-queries
-    const isTeamTab = currentTab === "teams";
     const isListTab = currentTab === "lists" || !!selectedListId || !!selectedFolderId;
     const isDocsTab = currentTab === "docs";
     const isChannelsTab = currentTab === "channels" || currentTab === "chats";
     const isAiChatTab = currentTab === "ai-chat";
     const isPersonalTab = currentTab === "personal";
-
-    const { data: teamsData } = trpc.team.list.useQuery(
-        { workspaceId, scope: "owned", pageSize: 50 },
-        { enabled: !!workspaceId }
-    );
-    const teams = teamsData?.items ?? [];
 
     const { data: listsData } = trpc.list.byContext.useQuery(
         { projectId, workspaceId, includeViewDetails: false },
@@ -138,12 +129,13 @@ export function ProjectHeaderBreadcrumbs({
     );
     const aiChats = aiChatsData ?? [];
 
-    // Active sub-item resolution
-    const activeTeam = useMemo(() => {
-        if (selectedTeamId) return teams.find((t) => t.id === selectedTeamId) || null;
-        if (isTeamTab) return teams[0] || null;
-        return null;
-    }, [isTeamTab, selectedTeamId, teams]);
+    // Project-level docs query
+    const { data: projectDocsData } = trpc.view.list.useQuery(
+        { projectId, type: "DOC", sidebarView: true },
+        { enabled: !!projectId }
+    );
+    const docs = ((projectDocsData as any[]) ?? []).filter((v: any) => v.sidebarView !== false);
+    const projectDocs = docs.filter((d: any) => !d.folderId && !d.listId);
 
     const activeList = useMemo(() => {
         if (selectedListId) return lists.find((l: any) => l.id === selectedListId) || null;
@@ -170,20 +162,33 @@ export function ProjectHeaderBreadcrumbs({
     const currentSubItem = useMemo(() => {
         if (activeFolder) return { type: "folder" as const, id: activeFolder.id, name: activeFolder.name, icon: Folder };
         if (activeList) return { type: "list" as const, id: activeList.id, name: activeList.name, icon: ListIcon };
-        if (isTeamTab && activeTeam) return { type: "team" as const, id: activeTeam.id, name: activeTeam.name, icon: Users };
         if (isDocsTab) return { type: "docs" as const, id: "docs", name: "Project Docs", icon: FileText };
         if (isChannelsTab) return { type: "channels" as const, id: activeChannel?.id || selectedChatId || "channels", name: activeChannel?.name ? `#${activeChannel.name}` : "Channels", icon: Hash };
         if (isAiChatTab) return { type: "ai-chat" as const, id: activeAiChat?.id || selectedAiChatId || "ai-chat", name: activeAiChat?.title || "AI Chat", icon: Sparkles };
         if (isPersonalTab) return { type: "personal" as const, id: "personal", name: "Personal", icon: User };
         if (currentTab === "lists") return { type: "lists-overview" as const, id: "lists", name: "Lists", icon: ListIcon };
         return null;
-    }, [isTeamTab, activeTeam, activeList, activeFolder, isDocsTab, isChannelsTab, isAiChatTab, isPersonalTab, activeChannel, activeAiChat, selectedChatId, selectedAiChatId, currentTab]);
+    }, [activeList, activeFolder, isDocsTab, isChannelsTab, isAiChatTab, isPersonalTab, activeChannel, activeAiChat, selectedChatId, selectedAiChatId, currentTab]);
 
     useEffect(() => {
         if (currentSubItem?.name) {
             setSubEditName(currentSubItem.name);
         }
     }, [currentSubItem?.name]);
+
+    useEffect(() => {
+        if (!subPopoverOpen) return;
+        const next: Record<string, boolean> = {};
+        if (activeFolder) {
+            next[`folder-${activeFolder.id}`] = true;
+        }
+        if (activeList) {
+            if (activeList.folderId) next[`folder-${activeList.folderId}`] = true;
+        }
+        if (Object.keys(next).length > 0) {
+            setExpandedNodes((prev) => ({ ...prev, ...next }));
+        }
+    }, [subPopoverOpen, activeFolder, activeList]);
 
     // Mutations
     const updateProjectMutation = trpc.project.update.useMutation({
@@ -193,15 +198,6 @@ export function ProjectHeaderBreadcrumbs({
             toast.success("Project updated");
         },
         onError: (err) => toast.error(`Failed to update project: ${err.message}`),
-    });
-
-    const updateTeamMutation = trpc.team.update.useMutation({
-        onSuccess: () => {
-            utils.team.list.invalidate();
-            if (activeTeam?.id) utils.team.get.invalidate({ id: activeTeam.id });
-            toast.success("Team updated");
-        },
-        onError: (err) => toast.error(`Failed to update team: ${err.message}`),
     });
 
     const updateListMutation = trpc.list.update.useMutation({
@@ -230,9 +226,7 @@ export function ProjectHeaderBreadcrumbs({
         const trimmed = subEditName.trim();
         if (!trimmed || !currentSubItem || trimmed === currentSubItem.name) return;
 
-        if (currentSubItem.type === "team" && activeTeam) {
-            updateTeamMutation.mutate({ id: activeTeam.id, name: trimmed });
-        } else if (currentSubItem.type === "list" && activeList) {
+        if (currentSubItem.type === "list" && activeList) {
             updateListMutation.mutate({ id: activeList.id, name: trimmed });
         } else if (currentSubItem.type === "folder" && activeFolder) {
             updateFolderMutation.mutate({ id: activeFolder.id, name: trimmed });
@@ -248,9 +242,7 @@ export function ProjectHeaderBreadcrumbs({
     const handleCopySubLink = () => {
         if (!currentSubItem) return;
         let url = window.location.href;
-        if (currentSubItem.type === "team" && activeTeam) {
-            url = `${window.location.origin}${window.location.pathname}?projectId=${projectId}&team=${activeTeam.id}`;
-        } else if (currentSubItem.type === "list" && activeList) {
+        if (currentSubItem.type === "list" && activeList) {
             url = `${window.location.origin}${window.location.pathname}?projectId=${projectId}&list=${activeList.id}`;
         } else if (currentSubItem.type === "folder" && activeFolder) {
             url = `${window.location.origin}${window.location.pathname}?projectId=${projectId}&folder=${activeFolder.id}`;
@@ -263,12 +255,9 @@ export function ProjectHeaderBreadcrumbs({
         toast.success("Link copied to clipboard");
     };
 
-    const handleNavigate = (type: "team" | "folder" | "list" | "channels" | "ai-chat", id: string) => {
+    const handleNavigate = (type: "folder" | "list" | "channels" | "ai-chat" | "doc", id: string) => {
         setSubPopoverOpen(false);
-        if (type === "team") {
-            if (onSelectTeam) onSelectTeam(id);
-            else router.push(`?projectId=${projectId}&tm=${id}`, { scroll: false });
-        } else if (type === "folder") {
+        if (type === "folder") {
             if (onSelectFolder) onSelectFolder(id);
             else router.push(`?projectId=${projectId}&folder=${id}`, { scroll: false });
         } else if (type === "list") {
@@ -281,10 +270,96 @@ export function ProjectHeaderBreadcrumbs({
             if (onSelectAiChat) onSelectAiChat(id);
             else if (onSelectChat) onSelectChat(id);
             else router.push(`?projectId=${projectId}&tab=ai-chat&aid=${id}`, { scroll: false });
+        } else if (type === "doc") {
+            router.push(`?projectId=${projectId}&tab=docs&dc=${id}`, { scroll: false });
         }
     };
 
-    const SubIcon = currentSubItem?.icon || ListIcon;
+    const renderDocRow = (doc: any, compact = false) => (
+        <div
+            key={doc.id}
+            className={breadcrumbItemClass(false, compact)}
+            onClick={() => handleNavigate("doc", doc.id)}
+        >
+            <div className="h-5 w-5 rounded bg-teal-50 flex items-center justify-center shrink-0">
+                <FileText className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+            </div>
+            <span className="flex-1 truncate text-zinc-700">{doc.name}</span>
+            <BreadcrumbTypeBadge label="Doc" className={BREADCRUMB_BADGE.doc} />
+        </div>
+    );
+
+    const renderListRow = (lst: any, compact = false) => {
+        const listDocs = docs.filter((d: any) => d.listId === lst.id);
+        const listHasChildren = listDocs.length > 0;
+        const listNodeId = `list-${lst.id}`;
+        const isListExpanded = isNodeExpanded(listNodeId);
+        const isListSelected = lst.id === activeList?.id && currentSubItem?.type === "list";
+
+        return (
+            <div key={lst.id} className="space-y-0.5">
+                <div
+                    className={breadcrumbItemClass(isListSelected, compact)}
+                    onClick={() => handleNavigate("list", lst.id)}
+                >
+                    <ExpandControl
+                        expanded={isListExpanded}
+                        hasChildren={listHasChildren}
+                        onToggle={(e) => toggleNode(e, listNodeId)}
+                    >
+                        <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                            <ListIcon className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                    </ExpandControl>
+                    <span className="flex-1 truncate text-zinc-700">{lst.name}</span>
+                    <BreadcrumbTypeBadge label="List" className={BREADCRUMB_BADGE.list} />
+                </div>
+                {isListExpanded && listHasChildren && (
+                    <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
+                        {listDocs.map((d: any) => renderDocRow(d, true))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderFolderNode = (fold: any, compact = false) => {
+        const foldLists = lists.filter((l: any) => l.folderId === fold.id);
+        const foldDocs = docs.filter((d: any) => d.folderId === fold.id && !d.listId);
+        const foldHasChildren = foldLists.length > 0 || foldDocs.length > 0;
+        const foldNodeId = `folder-${fold.id}`;
+        const isFoldExpanded = isNodeExpanded(foldNodeId);
+        const isFoldSelected = fold.id === activeFolder?.id && currentSubItem?.type === "folder";
+
+        return (
+            <div key={fold.id} className="space-y-0.5">
+                <div
+                    className={breadcrumbItemClass(isFoldSelected, compact)}
+                    onClick={() => handleNavigate("folder", fold.id)}
+                >
+                    <ExpandControl
+                        expanded={isFoldExpanded}
+                        hasChildren={foldHasChildren}
+                        onToggle={(e) => toggleNode(e, foldNodeId)}
+                    >
+                        <div className="h-5 w-5 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                            <Folder className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                        </div>
+                    </ExpandControl>
+                    <span className="flex-1 truncate text-zinc-700">{fold.name}</span>
+                    <BreadcrumbTypeBadge label="Folder" className={BREADCRUMB_BADGE.folder} />
+                </div>
+                {isFoldExpanded && foldHasChildren && (
+                    <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
+                        {foldLists.map((fl: any) => renderListRow(fl, true))}
+                        {foldDocs.map((d: any) => renderDocRow(d, true))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const SubIcon = currentSubItem?.icon || Folder;
 
     return (
         <div className="flex items-center gap-0.5 min-w-0">
@@ -403,8 +478,8 @@ export function ProjectHeaderBreadcrumbs({
                                     }}
                                     className={cn(
                                         "group/project flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors text-left cursor-pointer",
-                                        "hover:bg-slate-50",
-                                        isSelected && "bg-slate-100"
+                                        "hover:bg-zinc-100",
+                                        isSelected && "bg-zinc-100"
                                     )}
                                 >
                                     <span
@@ -436,7 +511,7 @@ export function ProjectHeaderBreadcrumbs({
                 <>
                     <span className="text-slate-300 font-light text-base select-none">/</span>
 
-                    {["team", "list", "folder", "channels", "ai-chat"].includes(currentSubItem.type) ? (
+                    {["list", "folder", "channels", "ai-chat", "docs"].includes(currentSubItem.type) ? (
                         <Popover open={subPopoverOpen} onOpenChange={setSubPopoverOpen}>
                             <PopoverTrigger asChild>
                                 <button
@@ -446,19 +521,7 @@ export function ProjectHeaderBreadcrumbs({
                                         subPopoverOpen && "bg-slate-100"
                                     )}
                                 >
-                                    {isTeamTab && activeTeam ? (
-                                        <span
-                                            className="h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center"
-                                            style={{ backgroundColor: activeTeam.icon ? (activeTeam.color || "#6366f1") : "transparent" }}
-                                        >
-                                            <TeamIcon
-                                                icon={activeTeam.icon}
-                                                className={cn(activeTeam.icon ? "text-white" : "text-indigo-500")}
-                                                size={14}
-                                                fill
-                                            />
-                                        </span>
-                                    ) : activeFolder ? (
+                                    {activeFolder ? (
                                         <span
                                             className="h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center"
                                             style={{ backgroundColor: activeFolder.icon ? (activeFolder.color || "#3b82f6") : "transparent" }}
@@ -490,6 +553,10 @@ export function ProjectHeaderBreadcrumbs({
                                         <span className="h-5 w-5 rounded bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                                             <Sparkles className="h-3.5 w-3.5" />
                                         </span>
+                                    ) : currentSubItem.type === "docs" ? (
+                                        <span className="h-5 w-5 rounded-sm bg-blue-500 text-white flex items-center justify-center shrink-0">
+                                            <FileText className="h-3.5 w-3.5" />
+                                        </span>
                                     ) : (
                                         <SubIcon className="h-4 w-4 text-slate-600 group-hover:text-slate-900 shrink-0" />
                                     )}
@@ -505,29 +572,7 @@ export function ProjectHeaderBreadcrumbs({
                             >
                                 {/* Top Editable Header */}
                                 <div className="flex items-center gap-1.5 pb-1 border-b border-slate-100">
-                                    {isTeamTab && activeTeam ? (
-                                        <IconColorSelector
-                                            icon={activeTeam.icon}
-                                            color={activeTeam.color || "#6366f1"}
-                                            onIconChange={(icon) => updateTeamMutation.mutate({ id: activeTeam.id, icon })}
-                                            onColorChange={(color) => updateTeamMutation.mutate({ id: activeTeam.id, color })}
-                                        >
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="icon"
-                                                className="h-8 w-8 rounded-lg shrink-0 overflow-hidden grid place-items-center p-0 border border-slate-200 hover:border-slate-300"
-                                                style={{ backgroundColor: activeTeam.icon ? (activeTeam.color || "#6366f1") : "transparent" }}
-                                            >
-                                                <TeamIcon
-                                                    icon={activeTeam.icon}
-                                                    className={cn(activeTeam.icon ? "text-white" : "text-indigo-500")}
-                                                    size={16}
-                                                    fill
-                                                />
-                                            </Button>
-                                        </IconColorSelector>
-                                    ) : activeFolder ? (
+                                    {activeFolder ? (
                                         <IconColorSelector
                                             icon={activeFolder.icon}
                                             color={activeFolder.color || "#3b82f6"}
@@ -579,6 +624,10 @@ export function ProjectHeaderBreadcrumbs({
                                         <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                                             <Sparkles className="h-4 w-4" />
                                         </div>
+                                    ) : currentSubItem.type === "docs" ? (
+                                        <div className="h-8 w-8 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0">
+                                            <FileText className="h-4 w-4" />
+                                        </div>
                                     ) : (
                                         <div className="h-8 w-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                                             <SubIcon className="h-4 w-4" />
@@ -589,7 +638,7 @@ export function ProjectHeaderBreadcrumbs({
                                         onChange={(e) => setSubEditName(e.target.value)}
                                         onBlur={handleSaveSubName}
                                         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
-                                        disabled={!["team", "list", "folder"].includes(currentSubItem.type)}
+                                        disabled={!["list", "folder"].includes(currentSubItem.type)}
                                         className="h-8 flex-1 text-sm font-normal border border-slate-200 focus-visible:ring-1 focus-visible:ring-indigo-500 px-2 py-1 rounded-sm disabled:bg-transparent disabled:opacity-100 disabled:cursor-default"
                                     />
                                     <TooltipProvider>
@@ -610,21 +659,6 @@ export function ProjectHeaderBreadcrumbs({
                                         </Tooltip>
                                     </TooltipProvider>
 
-                                    {currentSubItem.type === "team" && activeTeam && (
-                                        <TeamActionsMenu
-                                            workspaceId={workspaceId}
-                                            teamId={activeTeam.id}
-                                            trigger={
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-sm shrink-0"
-                                                >
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            }
-                                        />
-                                    )}
                                     {currentSubItem.type === "list" && activeList && (
                                         <ListActionsMenu
                                             workspaceId={workspaceId}
@@ -670,21 +704,14 @@ export function ProjectHeaderBreadcrumbs({
                                                 return (
                                                     <div
                                                         key={ch.id}
-                                                        className={cn(
-                                                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-emerald-50",
-                                                            isSelected && "bg-emerald-100 font-semibold"
-                                                        )}
+                                                        className={breadcrumbItemClass(isSelected)}
                                                         onClick={() => handleNavigate("channels", ch.id)}
                                                     >
                                                         <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
                                                             <span className="text-xs font-semibold text-emerald-600">#</span>
                                                         </div>
-                                                        <span className="flex-1 truncate text-slate-700">
-                                                            {ch.name}
-                                                        </span>
-                                                        <span className="text-[9px] text-emerald-600 font-medium px-1 py-0.2 bg-emerald-100 rounded">
-                                                            Channel
-                                                        </span>
+                                                        <span className="flex-1 truncate text-zinc-700">{ch.name}</span>
+                                                        <BreadcrumbTypeBadge label="Channel" className={BREADCRUMB_BADGE.channel} />
                                                     </div>
                                                 );
                                             })
@@ -700,145 +727,39 @@ export function ProjectHeaderBreadcrumbs({
                                                 return (
                                                     <div
                                                         key={c.id}
-                                                        className={cn(
-                                                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-purple-50",
-                                                            isSelected && "bg-purple-100 font-semibold"
-                                                        )}
+                                                        className={breadcrumbItemClass(isSelected)}
                                                         onClick={() => handleNavigate("ai-chat", c.id)}
                                                     >
                                                         <div className="h-5 w-5 rounded bg-purple-50 flex items-center justify-center shrink-0">
                                                             <Sparkles className="h-3.5 w-3.5 text-purple-600 shrink-0" />
                                                         </div>
-                                                        <span className="flex-1 truncate text-slate-700">
-                                                            {c.title || "Untitled Conversation"}
-                                                        </span>
-                                                        <span className="text-[9px] text-purple-600 font-medium px-1 py-0.2 bg-purple-100 rounded">
-                                                            AI Chat
-                                                        </span>
+                                                        <span className="flex-1 truncate text-zinc-700">{c.title || "Untitled Conversation"}</span>
+                                                        <BreadcrumbTypeBadge label="AI Chat" className={BREADCRUMB_BADGE.ai} />
                                                     </div>
                                                 );
                                             })
                                         )}
                                     </div>
-                                ) : (
-                                    /* Full Nested Hierarchy Tree under current Project */
+                                ) : currentSubItem.type === "docs" ? (
                                     <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto pr-0.5 select-none">
-                                        {/* Project Folders & Lists */}
-                                        {folders.map((folder: any) => {
-                                            const folderLists = lists.filter((l: any) => l.folderId === folder.id);
-                                            const folderHasChildren = folderLists.length > 0;
-                                            const isFolderExpanded = !collapsedNodes[`folder-${folder.id}`];
-                                            const isFolderSelected = folder.id === activeFolder?.id && currentSubItem.type === "folder";
-
-                                            return (
-                                                <div key={folder.id} className="space-y-0.5">
-                                                    <div
-                                                        className={cn(
-                                                            "group/folder flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                            isFolderSelected && "bg-slate-100 font-semibold"
-                                                        )}
-                                                        onClick={() => handleNavigate("folder", folder.id)}
-                                                    >
-                                                        <div
-                                                            className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center"
-                                                            onClick={(e) => {
-                                                                if (folderHasChildren) {
-                                                                    toggleNode(e, `folder-${folder.id}`);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <div className={cn("h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0", folderHasChildren && "group-hover/folder:hidden")}>
-                                                                <Folder className="h-3 w-3 text-blue-600 shrink-0" />
-                                                            </div>
-                                                            {folderHasChildren && (
-                                                                <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
-                                                                    <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", isFolderExpanded && "rotate-90")} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <span className="flex-1 truncate text-zinc-600 group-hover/folder:text-foreground">
-                                                            {folder.name}
-                                                        </span>
-                                                    </div>
-                                                    {isFolderExpanded && folderHasChildren && (
-                                                        <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
-                                                            {folderLists.map((fl: any) => (
-                                                                <div
-                                                                    key={fl.id}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                                        fl.id === activeList?.id && currentSubItem.type === "list" && "bg-slate-100 font-semibold"
-                                                                    )}
-                                                                    onClick={() => handleNavigate("list", fl.id)}
-                                                                >
-                                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                                        <ListIcon className="h-3 w-3 text-emerald-600" />
-                                                                    </div>
-                                                                    <span className="flex-1 truncate text-zinc-600">
-                                                                        {fl.name}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-
-                                        {/* Direct Lists under Project */}
-                                        {lists.filter((l: any) => !l.folderId).map((list: any) => (
-                                            <div
-                                                key={list.id}
-                                                className={cn(
-                                                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                    list.id === activeList?.id && currentSubItem.type === "list" && "bg-slate-100 font-semibold"
-                                                )}
-                                                onClick={() => handleNavigate("list", list.id)}
-                                            >
-                                                <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                    <ListIcon className="h-3.5 w-3.5 text-emerald-600" />
-                                                </div>
-                                                <span className="flex-1 truncate text-zinc-600">
-                                                    {list.name}
-                                                </span>
-                                            </div>
-                                        ))}
-
-                                        {/* Teams */}
-                                        {teams.map((tm: any) => {
-                                            const isSelected = tm.id === activeTeam?.id && currentSubItem.type === "team";
-                                            return (
-                                                <div
-                                                    key={tm.id}
-                                                    className={cn(
-                                                        "group/team flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-emerald-50",
-                                                        isSelected && "bg-emerald-100 font-semibold"
-                                                    )}
-                                                    onClick={() => handleNavigate("team", tm.id)}
-                                                >
-                                                    <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <Users className="h-3.5 w-3.5 text-emerald-600" />
-                                                    </div>
-                                                    <span className="flex-1 truncate text-slate-700 group-hover/team:text-emerald-800">
-                                                        {tm.name}
-                                                    </span>
-                                                    <span className="text-[9px] text-emerald-600 font-medium px-1 py-0.2 bg-emerald-100 rounded">
-                                                        Team
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
+                                        {docs.length === 0 ? (
+                                            <div className="text-xs text-muted-foreground px-2 py-3 text-center">No documents in this project</div>
+                                        ) : (
+                                            docs.map((doc: any) => renderDocRow(doc))
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto pr-0.5 select-none">
+                                        {folders.map((folder: any) => renderFolderNode(folder))}
+                                        {lists.filter((l: any) => !l.folderId).map((list: any) => renderListRow(list))}
+                                        {projectDocs.map((d: any) => renderDocRow(d))}
                                     </div>
                                 )}
                             </PopoverContent>
                         </Popover>
                     ) : (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-semibold text-slate-900 min-w-0 max-w-[260px]">
-                            {currentSubItem.type === "docs" ? (
-                                <span className="h-5 w-5 rounded-sm bg-blue-500 text-white flex items-center justify-center shrink-0">
-                                    <FileText className="h-3.5 w-3.5" />
-                                </span>
-                            ) : currentSubItem.type === "lists-overview" ? (
+                            {currentSubItem.type === "lists-overview" ? (
                                 <span className="h-5 w-5 rounded-sm bg-indigo-500 text-white flex items-center justify-center shrink-0">
                                     <ListIcon className="h-3.5 w-3.5" />
                                 </span>

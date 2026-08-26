@@ -6,8 +6,8 @@ import { skillRegistryManager } from './skills';
 
 /** Convert camelCase name to display name, e.g. navigateToUrl -> "Navigate to URL" */
 function camelToDisplayName(name: string): string {
-  const spaced = name.replace(/([A-Z])/g, ' $1').replace(/[_-]+/g, ' ').trim();
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    const spaced = name.replace(/([A-Z])/g, ' $1').replace(/[_-]+/g, ' ').trim();
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**
@@ -84,15 +84,21 @@ export async function syncSkillsToDatabase(): Promise<void> {
     let syncedCount = 0;
 
     for (const skillDef of skillDefinitions) {
-        await prisma.agentSkill.upsert({
+        await prisma.aiSkill.upsert({
             where: { name: skillDef.name },
             update: {
                 displayName: skillDef.displayName,
                 description: skillDef.description,
                 category: skillDef.category,
                 icon: skillDef.icon,
+                schema: (skillDef.schema as any) ?? undefined,
+                metadata: (skillDef.metadata as any) ?? undefined,
+                tags: skillDef.tags ?? [],
                 isBuiltIn: true,
                 isActive: true,
+                status: "ACTIVE",
+                visibility: "PUBLIC" as any,
+                version: "1.0.0",
             },
             create: {
                 id: randomUUID(),
@@ -101,8 +107,14 @@ export async function syncSkillsToDatabase(): Promise<void> {
                 description: skillDef.description,
                 category: skillDef.category,
                 icon: skillDef.icon,
+                schema: (skillDef.schema as any) ?? undefined,
+                metadata: (skillDef.metadata as any) ?? undefined,
+                tags: skillDef.tags ?? [],
                 isBuiltIn: true,
                 isActive: true,
+                status: "ACTIVE",
+                visibility: "PUBLIC" as any,
+                version: "1.0.0",
             },
         });
         syncedCount++;
@@ -112,64 +124,12 @@ export async function syncSkillsToDatabase(): Promise<void> {
 }
 
 /**
- * Sync skill-to-tool mappings natively based on the skill's 'tools' array
- */
-export async function syncSkillToolMappings(): Promise<void> {
-    console.log('[System] Syncing skill-tool mappings...');
-    const skillDefinitions = skillRegistryManager.getAllSkillDefinitions();
-    let mappingCount = 0;
-
-    for (const skillDef of skillDefinitions) {
-        if (!skillDef.tools || skillDef.tools.length === 0) continue;
-
-        const skill = await prisma.agentSkill.findUnique({
-            where: { name: skillDef.name },
-        });
-
-        if (!skill) continue;
-
-        for (const toolName of skillDef.tools) {
-            const tool = await prisma.systemTool.findUnique({
-                where: { name: toolName },
-            });
-
-            if (!tool) {
-                console.warn(`[System] ⚠ Tool not found for mapping: ${toolName}, skipping...`);
-                continue;
-            }
-
-            await prisma.skillToTool.upsert({
-                where: {
-                    skillId_toolId: {
-                        skillId: skill.id,
-                        toolId: tool.id,
-                    },
-                },
-                update: {
-                    isDefault: true,
-                },
-                create: {
-                    id: randomUUID(),
-                    skillId: skill.id,
-                    toolId: tool.id,
-                    isDefault: true,
-                },
-            });
-            mappingCount++;
-        }
-    }
-
-    console.log(`[System] ✓ Synced ${mappingCount} skill-tool mappings`);
-}
-
-/**
- * Main wrapper to sync everything
+ * Main wrapper to sync skills and tools
  */
 export async function syncSkillsAndTools(): Promise<void> {
     try {
         await syncToolsToDatabase();
         await syncSkillsToDatabase();
-        await syncSkillToolMappings();
         console.log('[System] ✓ Skill and tool sync completed successfully');
     } catch (error) {
         console.error('[System] ✗ Error syncing skills and tools:', error);

@@ -23,7 +23,7 @@ import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplace
 import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
 import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 import { useRouter } from "next/navigation";
-import { useAgentContext } from "@/app/(protected)/dashboard/agents/[id]/layout";
+import { useAgentContext } from "@/app/(protected)/(main)/agents/[id]/layout";
 import { useAppDispatch } from "@/hooks/useReduxStore";
 import { setSupportAssistantOpen } from "@/stores/slices/messages.slice";
 

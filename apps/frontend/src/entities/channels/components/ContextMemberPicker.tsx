@@ -48,8 +48,6 @@ export function ContextMemberPicker({
                 <div className="flex h-8 items-center rounded-md border border-slate-200 bg-white px-2 transition-colors focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
                     <Search className="h-3.5 w-3.5 shrink-0 text-slate-400 mr-1.5" />
                     <Input
-                        // @ts-ignore
-                        variant="ghost"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search members..."

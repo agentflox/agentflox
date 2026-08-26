@@ -8,6 +8,8 @@ import {
   Users,
   Building2,
   Zap,
+  Bot,
+  Wrench,
   X,
   ArrowRight,
 } from "lucide-react";
@@ -21,7 +23,7 @@ import {
 } from "@/features/usage/types";
 
 const KIND_META: Record<
-  Extract<UsageCapKind, "PROJECT" | "TEAM" | "SPACE" | "WORKSPACE" | "EXECUTION">,
+  Extract<UsageCapKind, "PROJECT" | "TEAM" | "SPACE" | "WORKSPACE" | "EXECUTION" | "AGENT" | "TOOL">,
   { title: string; noun: string; description: string; Icon: typeof FolderKanban }
 > = {
   PROJECT: {
@@ -53,6 +55,18 @@ const KIND_META: Record<
     noun: "executions",
     description: "Agent, tool, and workforce runs in this billing period.",
     Icon: Zap,
+  },
+  AGENT: {
+    title: "Agents limit",
+    noun: "agents",
+    description: "Agents available on your current plan.",
+    Icon: Bot,
+  },
+  TOOL: {
+    title: "Tools limit",
+    noun: "tools",
+    description: "Tools available on your current plan.",
+    Icon: Wrench,
   },
 };
 

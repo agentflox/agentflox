@@ -154,8 +154,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerRef, ChatComposerProps>(
     if (!value) return null
     const result = renderCommentText(value, mentionItems)
     if (value.endsWith('\n')) {
-      // @ts-ignore - renderCommentText returns an array of ReactNodes
-      return [...(Array.isArray(result) ? result : [result]), <br key="end-br" />]
+      const arr = Array.isArray(result) ? result : [result];
+      return [...(arr as React.ReactNode[]), <br key="end-br" />];
     }
     return result
   }

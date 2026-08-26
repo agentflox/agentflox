@@ -11,6 +11,8 @@ import {
   Gauge,
   Coins,
   ArrowRight,
+  Bot,
+  Wrench,
 } from "lucide-react";
 import {
   Dialog,
@@ -41,6 +43,8 @@ const COPY: Record<
   CONCURRENT: { title: "Too many runs in progress", Icon: Gauge },
   SUBSCRIPTION: { title: "No active subscription", Icon: CreditCard },
   TOKENS: { title: "Token budget exhausted", Icon: Coins },
+  AGENT: { title: "Agent limit reached", Icon: Bot },
+  TOOL: { title: "Tool limit reached", Icon: Wrench },
 };
 
 function supportingLine(payload: UsageCapPayload): string {

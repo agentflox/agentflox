@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Label } from "@/components/ui/label";
 import {
@@ -13,11 +13,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ChevronDown, MinusCircle, ChevronUp, ChevronRight, CircleDot, Diamond, ClipboardList, FileText, Check, Flag, Ban, AlertTriangle, BookOpen, Briefcase, CheckCircle2, Building2, Network, Folder as FolderIconLucide, ListChecks, Lock, Type, Search } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { ChevronDown, MinusCircle, ChevronUp, ChevronRight, CircleDot, Diamond, ClipboardList, FileText, Check, Flag, Ban, AlertTriangle, BookOpen, Briefcase, CheckCircle2, Building2, Network, Folder as FolderIconLucide, ListChecks, Lock, Type, Search, User, Users } from "lucide-react";
 import { ALL_FIELDS } from "@/entities/task/constants/fieldTypes";
 import { trpc } from "@/lib/trpc";
 import type { AutomationScope } from "../../types";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Popover as EmojiPopover, PopoverContent as EmojiPopoverContent, PopoverTrigger as EmojiPopoverTrigger } from "@/components/ui/popover";
 import { TemplateCenterModal } from "@/entities/templates/components/TemplateCenterModal";
 import { SingleDateCalendar } from "@/components/ui/date-picker";

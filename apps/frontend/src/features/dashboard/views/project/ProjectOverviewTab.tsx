@@ -371,7 +371,7 @@ export function ProjectOverviewTab({ project }: { project: any }) {
                 <ScrollArea className="max-h-[320px]">
                   <div className="divide-y divide-slate-50">
                     {teams.map((team: any) => {
-                      const url = `/dashboard/teams/${team.id}`;
+                      const url = `/teams/${team.id}`;
                       const memberCount = team._count?.members ?? team.members?.length ?? 0;
                       return (
                         <div
@@ -418,7 +418,7 @@ export function ProjectOverviewTab({ project }: { project: any }) {
                 <ScrollArea className="max-h-[320px]">
                   <div className="divide-y divide-slate-50">
                     {channels.map((channel: any) => {
-                      const url = `/dashboard/channels/${channel.id}`;
+                      const url = `/channels/${channel.id}`;
                       return (
                         <div
                           key={channel.id}
@@ -464,7 +464,7 @@ export function ProjectOverviewTab({ project }: { project: any }) {
                 <ScrollArea className="max-h-[320px]">
                   <div className="divide-y divide-slate-50">
                     {folders.map((folder: any) => {
-                      const url = `/dashboard/folders/${folder.id}`;
+                      const url = `/folders/${folder.id}`;
                       return (
                         <div
                           key={folder.id}
@@ -507,7 +507,7 @@ export function ProjectOverviewTab({ project }: { project: any }) {
                 <ScrollArea className="max-h-[320px]">
                   <div className="divide-y divide-slate-50">
                     {lists.map((list: any) => {
-                      const url = `/dashboard/lists/${list.id}`;
+                      const url = `/lists/${list.id}`;
                       return (
                         <div
                           key={list.id}

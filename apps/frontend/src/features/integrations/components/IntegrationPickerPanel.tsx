@@ -149,11 +149,11 @@ export function IntegrationPickerPanel({
       systemToolId: systemTool?.id,
       systemTool: systemTool
         ? {
-            id: systemTool.id,
-            name: systemTool.name,
-            displayName: systemTool.displayName,
-            description: systemTool.description,
-          }
+          id: systemTool.id,
+          name: systemTool.name,
+          displayName: systemTool.displayName,
+          description: systemTool.description,
+        }
         : undefined,
     });
   };
@@ -186,7 +186,7 @@ export function IntegrationPickerPanel({
 
         {!selectedProvider.isConnected && selectedProvider.providerId !== 'webhook' && (
           <Button variant="outline" size="sm" className="w-full gap-2" asChild>
-            <Link href="/dashboard/integrations">
+            <Link href="/integrations">
               <Link2 className="h-3.5 w-3.5" />
               Connect {selectedProvider.displayName}
             </Link>
@@ -247,7 +247,7 @@ export function IntegrationPickerPanel({
     return (
       <div className={cn('space-y-3', className)}>
         {initialView === 'overview' && (
-         <div className="flex items-center gap-1.5 text-md font-semibold text-zinc-900">
+          <div className="flex items-center gap-1.5 text-md font-semibold text-zinc-900">
             <button
               type="button"
               onClick={goBack}
@@ -347,7 +347,7 @@ export function IntegrationPickerPanel({
       {!isLoading && connectedProviders.length === 0 && (
         <p className="px-2 py-2 text-[12px] text-zinc-400">
           No connected integrations yet.{' '}
-          <Link href="/dashboard/integrations" className="text-zinc-600 underline-offset-2 hover:underline">
+          <Link href="/integrations" className="text-zinc-600 underline-offset-2 hover:underline">
             Connect one
           </Link>
         </p>

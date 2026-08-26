@@ -15,8 +15,10 @@ import { AlertTriangle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConfirmDeleteModalProps {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+    open?: boolean;
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    onClose?: () => void;
     /** The human-readable name of the item(s) being deleted */
     itemName?: string;
     /** How many items are being deleted — when > 1, shows a count-based message */
@@ -29,18 +31,27 @@ interface ConfirmDeleteModalProps {
     onConfirm: () => void | Promise<void>;
     /** Whether the deletion is in progress */
     isLoading?: boolean;
+    /** Custom title override */
+    title?: string;
+    /** Custom description override */
+    description?: string;
 }
 
 export function ConfirmDeleteModal({
     open,
+    isOpen,
     onOpenChange,
+    onClose,
     itemName,
     count = 1,
     entityLabel = "workspace",
     requireConfirmText = false,
     onConfirm,
     isLoading = false,
+    title,
+    description,
 }: ConfirmDeleteModalProps) {
+    const isModalOpen = open ?? isOpen ?? false;
     const [confirmText, setConfirmText] = useState("");
     const isBulk = count > 1;
     const pluralLabel = `${count} ${entityLabel}s`;
@@ -48,19 +59,23 @@ export function ConfirmDeleteModal({
     const expectedText = isBulk ? "delete" : (itemName ?? "delete");
     const canConfirm = !requireConfirmText || confirmText.trim().toLowerCase() === expectedText.toLowerCase();
 
+    const closeModal = () => {
+        setConfirmText("");
+        onClose?.();
+        onOpenChange?.(false);
+    };
+
     const handleConfirm = async () => {
         await onConfirm();
-        setConfirmText("");
-        onOpenChange(false);
+        closeModal();
     };
 
     const handleCancel = () => {
-        setConfirmText("");
-        onOpenChange(false);
+        closeModal();
     };
 
     return (
-        <Dialog open={open} onOpenChange={(v) => { if (!v) handleCancel(); }}>
+        <Dialog open={isModalOpen} onOpenChange={(v) => { if (!v) handleCancel(); }}>
             <DialogContent
                 hideOverlay
                 className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl"
@@ -74,25 +89,29 @@ export function ConfirmDeleteModal({
                             </div>
                             <div>
                                 <DialogTitle className="text-[15px] font-semibold text-zinc-900 leading-tight">
-                                    {isBulk ? `Delete ${count} ${entityLabel}s?` : `Delete ${entityLabel}?`}
+                                    {title ?? (isBulk ? `Delete ${count} ${entityLabel}s?` : `Delete ${entityLabel}?`)}
                                 </DialogTitle>
                                 <DialogDescription className="mt-0.5 text-[13px] text-zinc-500 leading-relaxed">
-                                    This action is <span className="font-medium text-zinc-700">permanent</span> and cannot be undone.
+                                    {description ?? (
+                                        <>This action is <span className="font-medium text-zinc-700">permanent</span> and cannot be undone.</>
+                                    )}
                                 </DialogDescription>
                             </div>
                         </div>
                     </DialogHeader>
 
                     {/* Warning box */}
-                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
-                        <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                        <p className="text-[12.5px] text-amber-800 leading-relaxed">
-                            <span className="font-semibold">{label}</span>
-                            {isBulk
-                                ? ` and all associated data will be permanently removed.`
-                                : ` and all its associated data will be permanently removed.`}
-                        </p>
-                    </div>
+                    {!description && (
+                        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3">
+                            <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                            <p className="text-[12.5px] text-amber-800 leading-relaxed">
+                                <span className="font-semibold">{label}</span>
+                                {isBulk
+                                    ? ` and all associated data will be permanently removed.`
+                                    : ` and all its associated data will be permanently removed.`}
+                            </p>
+                        </div>
+                    )}
 
                     {/* Confirm text input */}
                     {requireConfirmText && (

@@ -19,10 +19,11 @@ import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
 import { useUsageCapModal } from "@/features/usage/hooks/useUsageCapModal";
 import { UsageRemainingHint } from "@/features/usage/components/UsageRemainingHint";
-import { Loader2, Rocket, Layers, Sparkles, Building, Search, Check, ChevronDown } from "lucide-react";
+import { Loader2, Rocket, Search, ChevronDown } from "lucide-react";
 import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { cn } from "@/lib/utils";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
+import { DestinationTreeRow } from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 interface CreateSpaceModalProps {
 	workspaceId?: string;
@@ -72,19 +73,13 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 	const utils = trpc.useUtils();
 	const queryClient = useQueryClient();
 
-	// Fetch workspaces
+	// Always load all workspaces globally so user can pick any location
 	const { data: workspacesData } = trpc.workspace.list.useQuery(
-		{ scope: "editable" as any, pageSize: 100 },
+		{ scope: "owned" as any, pageSize: 50 },
 		{ enabled: open }
 	);
 
 	const workspaces = workspacesData?.items ?? [];
-
-	// Fetch single workspace if workspaceId passed
-	const workspaceQuery = trpc.workspace.get.useQuery(
-		{ id: workspaceId || selectedWorkspaceId },
-		{ enabled: open && !!(workspaceId || selectedWorkspaceId) }
-	);
 
 	// Reset form when modal opens
 	useEffect(() => {
@@ -194,14 +189,10 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 	};
 
 	const currentWorkspaceName = useMemo(() => {
-		if (selectedWorkspaceId) {
-			const found = workspaces.find(w => w.id === selectedWorkspaceId);
-			if (found) return found.name;
-			if (workspaceQuery.data?.name) return workspaceQuery.data.name;
-		}
-		if (workspaceId && workspaceQuery.data?.name) return workspaceQuery.data.name;
-		return undefined;
-	}, [selectedWorkspaceId, workspaces, workspaceQuery.data, workspaceId]);
+		const id = selectedWorkspaceId || workspaceId;
+		if (!id) return undefined;
+		return workspaces.find((w: any) => w.id === id)?.name;
+	}, [selectedWorkspaceId, workspaceId, workspaces]);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -265,26 +256,17 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 												.map((ws: any) => {
 													const isSelected = selectedWorkspaceId === ws.id;
 													return (
-														<button
-															type="button"
+														<DestinationTreeRow
 															key={ws.id}
+															selected={isSelected}
+															kind="workspace"
+															entity={ws}
+															label={ws.name}
 															onClick={() => {
 																setSelectedWorkspaceId(ws.id);
 																setLocationOpen(false);
 															}}
-															className={cn(
-																"w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer group/ws",
-																isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-															)}
-														>
-															<div className="flex items-center gap-2 truncate">
-																<div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 shrink-0 flex items-center justify-center">
-																	<Building className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
-																</div>
-																<span className="truncate">{ws.name}</span>
-															</div>
-															{isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-														</button>
+														/>
 													);
 												})}
 											{workspaces.length === 0 && (
@@ -435,4 +417,4 @@ export function SpaceCreationModal({ workspaceId, open, onOpenChange, onSuccess,
 	);
 }
 
-export default SpaceCreationModal;
+export default SpaceCreationModal;

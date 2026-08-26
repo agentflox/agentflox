@@ -1,7 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExternalLinkIcon, MoreVertical, Eye, Share2, PenSquare, Wrench, Calendar, Sparkles, Workflow, ArrowRight, Trash2 } from "lucide-react";
+import { ExternalLinkIcon, MoreVertical, Eye, Share2, PenSquare, Wrench, Calendar, ArrowRight, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
@@ -9,9 +8,7 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-	DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { EntityModeBadge } from "@/components/ui/status-badge";
 
 type ToolSummary = {
 	id: string;
@@ -35,8 +32,6 @@ type Props = {
 
 export function ToolCard({ item, onOpen, onManage, onDelete, isSelected, onSelect }: Props) {
 	const updatedAt = item.updatedAt ? new Date(item.updatedAt) : undefined;
-	const isAI = item.mode === "AI";
-	const isFlow = item.mode === "MANUAL";
 
 	return (
 		<div
@@ -44,9 +39,7 @@ export function ToolCard({ item, onOpen, onManage, onDelete, isSelected, onSelec
 				"group relative flex flex-col bg-white rounded-xl border shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden h-full",
 				isSelected
 					? "border-indigo-300 ring-2 ring-indigo-200 bg-indigo-50/20"
-					: "border-slate-200",
-				!isSelected && isAI && "hover:border-violet-300 hover:shadow-violet-500/15",
-				!isSelected && isFlow && "hover:border-sky-300 hover:shadow-sky-500/15"
+					: "border-slate-200 hover:border-slate-300 hover:shadow-slate-500/10"
 			)}
 			onClick={() => onOpen?.(item.id)}
 		>
@@ -95,13 +88,10 @@ export function ToolCard({ item, onOpen, onManage, onDelete, isSelected, onSelec
 						<div className="flex items-start justify-between gap-3">
 							<h3 className={cn(
 								"font-bold text-base leading-snug line-clamp-1 transition-colors duration-200",
-								isSelected ? "text-indigo-700" : isAI ? "text-slate-900 group-hover:text-violet-700" : "text-slate-900 group-hover:text-sky-700"
+								isSelected ? "text-indigo-700" : "text-slate-900 group-hover:text-indigo-600"
 							)}>
 								{item.name || "Untitled Tool"}
 							</h3>
-
-							{/* Mode Badge */}
-							<EntityModeBadge mode={isAI ? "AI Mode" : "Flow Mode"} />
 						</div>
 						<p className="line-clamp-2 text-sm text-slate-500 leading-relaxed">
 							{item.description || "No description provided."}
@@ -119,10 +109,7 @@ export function ToolCard({ item, onOpen, onManage, onDelete, isSelected, onSelec
 						</div>
 
 						{/* Hover Open Indicator */}
-						<div className={cn(
-							"flex items-center gap-1 font-bold opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300",
-							isAI ? "text-violet-600" : "text-sky-600"
-						)}>
+						<div className="flex items-center gap-1 font-bold opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-indigo-600">
 							<span>View</span>
 							<ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
 						</div>
@@ -132,6 +119,7 @@ export function ToolCard({ item, onOpen, onManage, onDelete, isSelected, onSelec
 		</div>
 	);
 }
+
 
 
 

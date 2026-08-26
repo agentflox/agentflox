@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { setCleanViewParam, parseDashboardState } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { setCleanViewParam, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -153,7 +154,7 @@ const viewConfig: Record<
 };
 
 export default function DashboardTeamView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect, context = "team" }: DashboardTeamViewProps) {
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
     const router = useRouter();
     const utils = trpc.useUtils();
 
@@ -211,27 +212,41 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
         onError: (err) => toast.error(`Failed to reorder views: ${err.message}`)
     });
 
+    const basePath = useMemo(() => {
+        if (spaceId && teamId) return `/spaces/${spaceId}/tm/${teamId}`;
+        if (workspaceId && teamId) return `/workspaces/${workspaceId}/tm/${teamId}`;
+        if (teamId) return `/teams/${teamId}`;
+        return null;
+    }, [spaceId, workspaceId, teamId]);
+
     const createFromTemplateMutation = trpc.view.createFromTemplate.useMutation({
         onSuccess: async (data) => {
             if (teamId) await utils.team.get.invalidate({ id: teamId });
             toast.success("View created from template");
 
-            const clean = setCleanViewParam(searchParams, data.id);
-            router.push(`?${clean.toString()}`, { scroll: false });
+            if (basePath) {
+                router.push(buildDashboardPath({ basePath, viewId: data.id, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, data.id);
+                router.push(`?${clean.toString()}`, { scroll: false });
+            }
         },
         onError: (err) => toast.error(`Failed to create view: ${err.message}`)
     });
 
     // Active Tab Logic
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
     const urlViewId = parsedState.viewId;
     const activeView = views.find(v => v.id === urlViewId) || views[0];
     const activeTab = activeView?.id;
 
     const handleTabChange = useCallback((viewId: string) => {
-        const clean = setCleanViewParam(searchParams, viewId);
-        router.push(`?${clean.toString()}`, { scroll: false });
-    }, [searchParams, router]);
+        if (basePath) {
+            router.push(buildDashboardPath({ basePath, viewId, taskId: parsedState.taskId }), { scroll: false });
+        } else {
+            const clean = setCleanViewParam(searchParams, viewId);
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
+    }, [basePath, parsedState.taskId, searchParams, router]);
 
     const handleRenameView = (name: string) => {
         if (viewToRename) {
@@ -252,7 +267,9 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}${window.location.pathname}?tm=${teamId}&v=${view.id}`;
+        const url = basePath
+            ? `${window.location.origin}${basePath}/v/${view.id}`
+            : `${window.location.origin}${window.location.pathname}?v=${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -281,8 +298,12 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
 
         if (lastCreatedViewId) {
             if (teamId) await utils.team.get.invalidate({ id: teamId });
-            const clean = setCleanViewParam(searchParams, lastCreatedViewId);
-            router.push(`?${clean.toString()}`, { scroll: false });
+            if (basePath) {
+                router.push(buildDashboardPath({ basePath, viewId: lastCreatedViewId, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, lastCreatedViewId);
+                router.push(`?${clean.toString()}`, { scroll: false });
+            }
         }
     };
 
@@ -305,10 +326,14 @@ export default function DashboardTeamView({ listId, spaceId, projectId, teamId, 
 
     useEffect(() => {
         if (!urlViewId && views.length > 0) {
-            const clean = setCleanViewParam(searchParams, views[0].id);
-            history.replaceState(null, "", `?${clean.toString()}`);
+            if (basePath) {
+                router.replace(buildDashboardPath({ basePath, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, views[0].id);
+                router.replace(`?${clean.toString()}`, { scroll: false });
+            }
         }
-    }, [urlViewId, views, searchParams]);
+    }, [urlViewId, views, searchParams, basePath, parsedState.taskId, router]);
 
     const renderViewContent = (view: any) => {
         if (!view) return null;

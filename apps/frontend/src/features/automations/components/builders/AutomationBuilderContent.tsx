@@ -204,13 +204,61 @@ export function AutomationBuilderContent({
     }
     const a = Array.isArray(row.actions) ? (row.actions as ActionSpec[]) : [];
     if (a.length > 0) {
-      setActions(a.map((act) => ({
+      setActions(a.map((act) => {
+        const actionInput: any = { ...(act.input || {}) };
+        if (row.aiAgent) {
+          if (!actionInput.prompt && row.aiAgent.systemPrompt) {
+            actionInput.prompt = row.aiAgent.systemPrompt;
+          }
+          if (!actionInput.agentId) {
+            actionInput.agentId = row.aiAgent.id;
+          }
+          if (!actionInput.agentName) {
+            actionInput.agentName = row.aiAgent.name;
+          }
+          if (!actionInput.agentAvatar && row.aiAgent.avatar) {
+            actionInput.agentAvatar = row.aiAgent.avatar;
+          }
+          if (!actionInput.agentDescription && row.aiAgent.description) {
+            actionInput.agentDescription = row.aiAgent.description;
+          }
+          if (!actionInput.model && row.aiAgent.modelId) {
+            actionInput.model = row.aiAgent.modelId;
+          }
+          const agentMeta = (row.aiAgent.metadata || {}) as any;
+          if (agentMeta.knowledge && !actionInput.workspaceKnowledge) {
+            actionInput.workspaceKnowledge = agentMeta.knowledge;
+          }
+          if (agentMeta.tools && !actionInput.toolIds) {
+            actionInput.toolIds = agentMeta.tools;
+          }
+        }
+        return {
+          id: crypto.randomUUID(),
+          type: displayActionType(act.type),
+          config: actionInput,
+          integration: null,
+          integrationConfig: {},
+        };
+      }));
+    } else if (row.aiAgent || row.kind === "AGENT") {
+      const agentMeta = (row.aiAgent?.metadata || {}) as any;
+      setActions([{
         id: crypto.randomUUID(),
-        type: displayActionType(act.type),
-        config: { ...(act.input || {}) },
-        integration: null, // Note: integration reconstruction for actions requires extra info in spec
+        type: "DO_ANYTHING_WITH_AI",
+        config: {
+          prompt: row.aiAgent?.systemPrompt || "",
+          agentId: (row.aiAgent?.id || row.agentId) ?? undefined,
+          agentName: row.aiAgent?.name ?? undefined,
+          agentAvatar: row.aiAgent?.avatar ?? undefined,
+          agentDescription: row.aiAgent?.description ?? undefined,
+          model: row.aiAgent?.modelId ?? undefined,
+          workspaceKnowledge: agentMeta.knowledge,
+          toolIds: agentMeta.tools,
+        },
+        integration: null,
         integrationConfig: {},
-      })));
+      }]);
     }
   }, [existing.data]);
 
@@ -227,9 +275,15 @@ export function AutomationBuilderContent({
 
   const buildActions = (): ActionSpec[] => {
     if (mode === "agent") {
+      const cfg = actions[0]?.config || {};
       return [{
         type: "DO_ANYTHING_WITH_AI",
-        input: { prompt: actions[0]?.config.prompt || "", version: "0.5", workspaceKnowledge: emptyKnowledge() },
+        input: {
+          ...cfg,
+          prompt: cfg.prompt || "",
+          version: "0.5",
+          workspaceKnowledge: cfg.workspaceKnowledge || emptyKnowledge(),
+        },
       }];
     }
     return actions.map(a => {
@@ -239,7 +293,7 @@ export function AutomationBuilderContent({
       if (spec.type === "DO_ANYTHING_WITH_AI" || spec.type === "LAUNCH_AI_AGENT") {
         return {
           type: spec.type,
-          input: { ...spec.input, version: "0.5", workspaceKnowledge: emptyKnowledge() },
+          input: { ...a.config, ...spec.input, version: "0.5", workspaceKnowledge: a.config.workspaceKnowledge || emptyKnowledge() },
         };
       }
       return { type: spec.type as AutomationActionTypeV1, input: spec.input };

@@ -597,7 +597,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 								<ScrollArea className="max-h-[320px]">
 									<div className="divide-y divide-slate-50">
 										{folders.map((folder: any) => {
-											const url = `/dashboard/folders/${folder.id}`;
+											const url = `/folders/${folder.id}`;
 											return (
 												<div
 													key={folder.id}
@@ -646,7 +646,7 @@ export default function WorkspaceOverviewView({ workspaceId }: Props) {
 								<ScrollArea className="max-h-[320px]">
 									<div className="divide-y divide-slate-50">
 										{lists.map((list: any) => {
-											const url = `/dashboard/lists/${list.id}`;
+											const url = `/lists/${list.id}`;
 											return (
 												<div
 													key={list.id}

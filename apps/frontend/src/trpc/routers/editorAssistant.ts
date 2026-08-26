@@ -37,17 +37,37 @@ export const editorAssistantRouter = router({
     const userId = ctx.session.user.id;
     const db: any = prisma as any;
 
-    // Resolve a default model if none supplied
-    let modelId = input.modelId;
+    // Resolve a default model if none supplied or if invalid
+    let modelId: string | null = null;
+    const trimmed = input.modelId?.trim();
+    if (trimmed) {
+      const existingModel = await db.aiModel.findUnique({
+        where: { id: trimmed },
+        select: { id: true },
+      });
+      if (existingModel?.id) {
+        modelId = existingModel.id;
+      }
+    }
+
     if (!modelId) {
       const defaultModel =
         (await db.aiModel.findFirst({
           where: { isDefault: true, isSystem: true, isActive: true },
+          select: { id: true },
         })) ||
         (await db.aiModel.findFirst({
           where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
+          select: { id: true },
+        })) ||
+        (await db.aiModel.findFirst({
+          where: { isActive: true },
+          select: { id: true },
+        })) ||
+        (await db.aiModel.findFirst({
+          select: { id: true },
         }));
-      modelId = defaultModel?.id ?? undefined;
+      modelId = defaultModel?.id ?? null;
     }
 
     const conversationType =
@@ -131,7 +151,7 @@ export const editorAssistantRouter = router({
     }
 
     // Resolve via Shared Model catalog (system or custom BYOK)
-    let modelRow =
+    const modelRow =
       (selectedModelId
         ? await db.aiModel.findFirst({ where: { id: selectedModelId, isActive: true } })
         : null) ||

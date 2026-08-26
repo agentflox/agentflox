@@ -34,10 +34,15 @@ import {
     Hash,
     Sparkles,
     Briefcase,
-    Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+    breadcrumbItemClass,
+    BreadcrumbTypeBadge,
+    BREADCRUMB_BADGE,
+    ExpandControl,
+} from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 export interface SpaceHeaderBreadcrumbsProps {
     workspaceId: string;
@@ -84,11 +89,14 @@ export function SpaceHeaderBreadcrumbs({
     const [subPopoverOpen, setSubPopoverOpen] = useState(false);
     const [spaceEditName, setSpaceEditName] = useState(spaceName || "");
     const [subEditName, setSubEditName] = useState("");
-    const [collapsedNodes, setCollapsedNodes] = useState<Record<string, boolean>>({});
+    const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+
+    const isNodeExpanded = (nodeId: string) => !!expandedNodes[nodeId];
 
     const toggleNode = (e: React.MouseEvent, nodeId: string) => {
+        e.preventDefault();
         e.stopPropagation();
-        setCollapsedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
+        setExpandedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
     };
 
     useEffect(() => {
@@ -153,6 +161,14 @@ export function SpaceHeaderBreadcrumbs({
     );
     const aiChats = aiChatsData ?? [];
 
+    // Space-level docs query
+    const { data: spaceDocsData } = trpc.view.list.useQuery(
+        { spaceId, type: "DOC", sidebarView: true },
+        { enabled: !!spaceId }
+    );
+    const docs = ((spaceDocsData as any[]) ?? []).filter((v: any) => v.sidebarView !== false);
+    const spaceDocs = docs.filter((d: any) => !d.projectId && !d.teamId && !d.folderId && !d.listId);
+
     // Active sub-item resolution
     const activeProject = useMemo(() => {
         if (selectedProjectId) return projects.find((p) => p.id === selectedProjectId) || null;
@@ -206,6 +222,26 @@ export function SpaceHeaderBreadcrumbs({
             setSubEditName(currentSubItem.name);
         }
     }, [currentSubItem?.name]);
+
+    useEffect(() => {
+        if (!subPopoverOpen) return;
+        const next: Record<string, boolean> = {};
+        if (activeFolder) {
+            next[`folder-${activeFolder.id}`] = true;
+            if (activeFolder.projectId) next[`proj-${activeFolder.projectId}`] = true;
+            if (activeFolder.teamId) next[`team-${activeFolder.teamId}`] = true;
+        }
+        if (activeList) {
+            if (activeList.folderId) next[`folder-${activeList.folderId}`] = true;
+            if (activeList.projectId) next[`proj-${activeList.projectId}`] = true;
+            if (activeList.teamId) next[`team-${activeList.teamId}`] = true;
+        }
+        if (activeProject) next[`proj-${activeProject.id}`] = true;
+        if (activeTeam) next[`team-${activeTeam.id}`] = true;
+        if (Object.keys(next).length > 0) {
+            setExpandedNodes((prev) => ({ ...prev, ...next }));
+        }
+    }, [subPopoverOpen, activeFolder, activeList, activeProject, activeTeam]);
 
     // Mutations
     const updateSpaceMutation = trpc.space.update.useMutation({
@@ -298,7 +334,7 @@ export function SpaceHeaderBreadcrumbs({
         toast.success("Link copied to clipboard");
     };
 
-    const handleNavigate = (type: "project" | "team" | "folder" | "list" | "channels" | "ai-chat", id: string) => {
+    const handleNavigate = (type: "project" | "team" | "folder" | "list" | "channels" | "ai-chat" | "doc", id: string) => {
         setSubPopoverOpen(false);
         if (type === "project") {
             if (onSelectProject) onSelectProject(id);
@@ -319,7 +355,170 @@ export function SpaceHeaderBreadcrumbs({
             if (onSelectAiChat) onSelectAiChat(id);
             else if (onSelectChannel) onSelectChannel(id);
             else router.push(`?spaceId=${spaceId}&tab=ai-chat&aid=${id}`, { scroll: false });
+        } else if (type === "doc") {
+            router.push(`?spaceId=${spaceId}&tab=docs&dc=${id}`, { scroll: false });
         }
+    };
+
+    const renderDocRow = (doc: any, compact = false) => (
+        <div
+            key={doc.id}
+            className={breadcrumbItemClass(false, compact)}
+            onClick={() => handleNavigate("doc", doc.id)}
+        >
+            <div className="h-5 w-5 rounded bg-teal-50 flex items-center justify-center shrink-0">
+                <FileText className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+            </div>
+            <span className="flex-1 truncate text-zinc-700">{doc.name}</span>
+            <BreadcrumbTypeBadge label="Doc" className={BREADCRUMB_BADGE.doc} />
+        </div>
+    );
+
+    const renderListRow = (lst: any, compact = false) => {
+        const listDocs = docs.filter((d: any) => d.listId === lst.id);
+        const listHasChildren = listDocs.length > 0;
+        const listNodeId = `list-${lst.id}`;
+        const isListExpanded = isNodeExpanded(listNodeId);
+        const isListSelected = lst.id === activeList?.id && currentSubItem?.type === "list";
+
+        return (
+            <div key={lst.id} className="space-y-0.5">
+                <div
+                    className={breadcrumbItemClass(isListSelected, compact)}
+                    onClick={() => handleNavigate("list", lst.id)}
+                >
+                    <ExpandControl
+                        expanded={isListExpanded}
+                        hasChildren={listHasChildren}
+                        onToggle={(e) => toggleNode(e, listNodeId)}
+                    >
+                        <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                            <ListIcon className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                    </ExpandControl>
+                    <span className="flex-1 truncate text-zinc-700">{lst.name}</span>
+                    <BreadcrumbTypeBadge label="List" className={BREADCRUMB_BADGE.list} />
+                </div>
+                {isListExpanded && listHasChildren && (
+                    <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
+                        {listDocs.map((d: any) => renderDocRow(d, true))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderFolderNode = (fold: any, compact = false) => {
+        const foldLists = lists.filter((l: any) => l.folderId === fold.id);
+        const foldDocs = docs.filter((d: any) => d.folderId === fold.id && !d.listId);
+        const foldHasChildren = foldLists.length > 0 || foldDocs.length > 0;
+        const foldNodeId = `folder-${fold.id}`;
+        const isFoldExpanded = isNodeExpanded(foldNodeId);
+        const isFoldSelected = fold.id === activeFolder?.id && currentSubItem?.type === "folder";
+
+        return (
+            <div key={fold.id} className="space-y-0.5">
+                <div
+                    className={breadcrumbItemClass(isFoldSelected, compact)}
+                    onClick={() => handleNavigate("folder", fold.id)}
+                >
+                    <ExpandControl
+                        expanded={isFoldExpanded}
+                        hasChildren={foldHasChildren}
+                        onToggle={(e) => toggleNode(e, foldNodeId)}
+                    >
+                        <div className="h-5 w-5 rounded bg-blue-50 flex items-center justify-center shrink-0">
+                            <Folder className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                        </div>
+                    </ExpandControl>
+                    <span className="flex-1 truncate text-zinc-700">{fold.name}</span>
+                    <BreadcrumbTypeBadge label="Folder" className={BREADCRUMB_BADGE.folder} />
+                </div>
+                {isFoldExpanded && foldHasChildren && (
+                    <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
+                        {foldLists.map((fl: any) => renderListRow(fl, true))}
+                        {foldDocs.map((d: any) => renderDocRow(d, true))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderProjectNode = (proj: any, compact = false) => {
+        const projFolders = folders.filter((f: any) => f.projectId === proj.id);
+        const projLists = lists.filter((l: any) => l.projectId === proj.id && !l.folderId);
+        const projDocs = docs.filter((d: any) => d.projectId === proj.id && !d.folderId && !d.listId);
+        const projHasChildren = projFolders.length > 0 || projLists.length > 0 || projDocs.length > 0;
+        const projNodeId = `proj-${proj.id}`;
+        const isProjExpanded = isNodeExpanded(projNodeId);
+        const isProjSelected = proj.id === activeProject?.id && currentSubItem?.type === "project";
+
+        return (
+            <div key={proj.id} className="space-y-0.5">
+                <div
+                    className={breadcrumbItemClass(isProjSelected, compact)}
+                    onClick={() => handleNavigate("project", proj.id)}
+                >
+                    <ExpandControl
+                        expanded={isProjExpanded}
+                        hasChildren={projHasChildren}
+                        onToggle={(e) => toggleNode(e, projNodeId)}
+                    >
+                        <div className="h-5 w-5 rounded bg-purple-50 flex items-center justify-center shrink-0">
+                            <Briefcase className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                        </div>
+                    </ExpandControl>
+                    <span className="flex-1 truncate text-zinc-700">{proj.name}</span>
+                    <BreadcrumbTypeBadge label="Project" className={BREADCRUMB_BADGE.project} />
+                </div>
+                {isProjExpanded && projHasChildren && (
+                    <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
+                        {projFolders.map((pf: any) => renderFolderNode(pf, true))}
+                        {projLists.map((pl: any) => renderListRow(pl, true))}
+                        {projDocs.map((d: any) => renderDocRow(d, true))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderTeamNode = (tm: any, compact = false) => {
+        const teamFolders = folders.filter((f: any) => f.teamId === tm.id && !f.projectId);
+        const teamLists = lists.filter((l: any) => l.teamId === tm.id && !l.projectId && !l.folderId);
+        const teamDocs = docs.filter((d: any) => d.teamId === tm.id && !d.projectId && !d.folderId && !d.listId);
+        const teamHasChildren =
+            teamFolders.length > 0 || teamLists.length > 0 || teamDocs.length > 0;
+        const teamNodeId = `team-${tm.id}`;
+        const isTeamExpanded = isNodeExpanded(teamNodeId);
+        const isTeamSelected = tm.id === activeTeam?.id && currentSubItem?.type === "team";
+
+        return (
+            <div key={tm.id} className="space-y-0.5">
+                <div
+                    className={breadcrumbItemClass(isTeamSelected, compact)}
+                    onClick={() => handleNavigate("team", tm.id)}
+                >
+                    <ExpandControl
+                        expanded={isTeamExpanded}
+                        hasChildren={teamHasChildren}
+                        onToggle={(e) => toggleNode(e, teamNodeId)}
+                    >
+                        <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
+                            <Users className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
+                    </ExpandControl>
+                    <span className="flex-1 truncate text-zinc-700">{tm.name}</span>
+                    <BreadcrumbTypeBadge label="Team" className={BREADCRUMB_BADGE.team} />
+                </div>
+                {isTeamExpanded && teamHasChildren && (
+                    <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
+                        {teamFolders.map((tf: any) => renderFolderNode(tf, true))}
+                        {teamLists.map((tl: any) => renderListRow(tl, true))}
+                        {teamDocs.map((d: any) => renderDocRow(d, true))}
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const SubIcon = currentSubItem?.icon || FolderKanban;
@@ -441,8 +640,8 @@ export function SpaceHeaderBreadcrumbs({
                                     }}
                                     className={cn(
                                         "group/space flex w-full items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition-colors text-left cursor-pointer",
-                                        "hover:bg-slate-50",
-                                        isSelected && "bg-slate-100"
+                                        "hover:bg-zinc-100",
+                                        isSelected && "bg-zinc-100"
                                     )}
                                 >
                                     <span
@@ -474,7 +673,7 @@ export function SpaceHeaderBreadcrumbs({
                 <>
                     <span className="text-slate-300 font-light text-base select-none">/</span>
 
-                    {["project", "team", "list", "folder", "channels", "ai-chat"].includes(currentSubItem.type) ? (
+                    {["project", "team", "list", "folder", "channels", "ai-chat", "docs"].includes(currentSubItem.type) ? (
                         <Popover open={subPopoverOpen} onOpenChange={setSubPopoverOpen}>
                             <PopoverTrigger asChild>
                                 <button
@@ -539,6 +738,10 @@ export function SpaceHeaderBreadcrumbs({
                                     ) : currentSubItem.type === "ai-chat" ? (
                                         <span className="h-5 w-5 rounded bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                                             <Sparkles className="h-3.5 w-3.5" />
+                                        </span>
+                                    ) : currentSubItem.type === "docs" ? (
+                                        <span className="h-5 w-5 rounded-sm bg-blue-500 text-white flex items-center justify-center shrink-0">
+                                            <FileText className="h-3.5 w-3.5" />
                                         </span>
                                     ) : (
                                         <SubIcon className="h-4 w-4 text-slate-600 group-hover:text-slate-900 shrink-0" />
@@ -651,6 +854,10 @@ export function SpaceHeaderBreadcrumbs({
                                         <div className="h-8 w-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
                                             <Sparkles className="h-4 w-4" />
                                         </div>
+                                    ) : currentSubItem.type === "docs" ? (
+                                        <div className="h-8 w-8 rounded-lg bg-blue-500 text-white flex items-center justify-center shrink-0">
+                                            <FileText className="h-4 w-4" />
+                                        </div>
                                     ) : (
                                         <div className="h-8 w-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
                                             <SubIcon className="h-4 w-4" />
@@ -757,21 +964,14 @@ export function SpaceHeaderBreadcrumbs({
                                                 return (
                                                     <div
                                                         key={ch.id}
-                                                        className={cn(
-                                                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-emerald-50",
-                                                            isSelected && "bg-emerald-100 font-semibold"
-                                                        )}
+                                                        className={breadcrumbItemClass(isSelected)}
                                                         onClick={() => handleNavigate("channels", ch.id)}
                                                     >
                                                         <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
                                                             <span className="text-xs font-semibold text-emerald-600">#</span>
                                                         </div>
-                                                        <span className="flex-1 truncate text-slate-700">
-                                                            {ch.name}
-                                                        </span>
-                                                        <span className="text-[9px] text-emerald-600 font-medium px-1 py-0.2 bg-emerald-100 rounded">
-                                                            Channel
-                                                        </span>
+                                                        <span className="flex-1 truncate text-zinc-700">{ch.name}</span>
+                                                        <BreadcrumbTypeBadge label="Channel" className={BREADCRUMB_BADGE.channel} />
                                                     </div>
                                                 );
                                             })
@@ -787,274 +987,41 @@ export function SpaceHeaderBreadcrumbs({
                                                 return (
                                                     <div
                                                         key={c.id}
-                                                        className={cn(
-                                                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-purple-50",
-                                                            isSelected && "bg-purple-100 font-semibold"
-                                                        )}
+                                                        className={breadcrumbItemClass(isSelected)}
                                                         onClick={() => handleNavigate("ai-chat", c.id)}
                                                     >
                                                         <div className="h-5 w-5 rounded bg-purple-50 flex items-center justify-center shrink-0">
                                                             <Sparkles className="h-3.5 w-3.5 text-purple-600 shrink-0" />
                                                         </div>
-                                                        <span className="flex-1 truncate text-slate-700">
-                                                            {c.title || "Untitled Conversation"}
-                                                        </span>
-                                                        <span className="text-[9px] text-purple-600 font-medium px-1 py-0.2 bg-purple-100 rounded">
-                                                            AI Chat
-                                                        </span>
+                                                        <span className="flex-1 truncate text-zinc-700">{c.title || "Untitled Conversation"}</span>
+                                                        <BreadcrumbTypeBadge label="AI Chat" className={BREADCRUMB_BADGE.ai} />
                                                     </div>
                                                 );
                                             })
                                         )}
                                     </div>
-                                ) : (
-                                    /* Full Nested Hierarchy Tree under current Space */
+                                ) : currentSubItem.type === "docs" ? (
                                     <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto pr-0.5 select-none">
-                                        {/* Projects under Space */}
-                                        {projects.map((proj: any) => {
-                                            const projFolders = folders.filter((f: any) => f.projectId === proj.id);
-                                            const projLists = lists.filter((l: any) => l.projectId === proj.id && !l.folderId);
-                                            const projHasChildren = projFolders.length > 0 || projLists.length > 0;
-                                            const isProjExpanded = !collapsedNodes[`proj-${proj.id}`];
-                                            const isProjSelected = proj.id === activeProject?.id && currentSubItem.type === "project";
-
-                                            return (
-                                                <div key={proj.id} className="space-y-0.5">
-                                                    <div
-                                                        className={cn(
-                                                            "group/proj flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-purple-50",
-                                                            isProjSelected && "bg-purple-100 font-semibold"
-                                                        )}
-                                                        onClick={() => handleNavigate("project", proj.id)}
-                                                    >
-                                                        <div
-                                                            className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center"
-                                                            onClick={(e) => {
-                                                                if (projHasChildren) {
-                                                                    toggleNode(e, `proj-${proj.id}`);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <div className={cn("h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0", projHasChildren && "group-hover/proj:hidden")}>
-                                                                <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
-                                                            </div>
-                                                            {projHasChildren && (
-                                                                <div className="hidden group-hover/proj:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
-                                                                    <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", isProjExpanded && "rotate-90")} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <span className="flex-1 truncate text-slate-700 group-hover/proj:text-purple-800">
-                                                            {proj.name}
-                                                        </span>
-                                                        <span className="text-[9px] text-purple-600 font-medium px-1 py-0.2 bg-purple-100 rounded">
-                                                            Project
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Project Children */}
-                                                    {isProjExpanded && projHasChildren && (
-                                                        <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
-                                                            {projFolders.map((pf: any) => {
-                                                                const pfLists = lists.filter((l: any) => l.folderId === pf.id);
-                                                                const pfHasChildren = pfLists.length > 0;
-                                                                const isPfExpanded = !collapsedNodes[`folder-${pf.id}`];
-                                                                const isPfSelected = pf.id === activeFolder?.id && currentSubItem.type === "folder";
-
-                                                                return (
-                                                                    <div key={pf.id} className="space-y-0.5">
-                                                                        <div
-                                                                            className={cn(
-                                                                                "group/folder flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                                                isPfSelected && "bg-slate-100 font-semibold"
-                                                                            )}
-                                                                            onClick={() => handleNavigate("folder", pf.id)}
-                                                                        >
-                                                                            <div
-                                                                                className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center"
-                                                                                onClick={(e) => {
-                                                                                    if (pfHasChildren) {
-                                                                                        toggleNode(e, `folder-${pf.id}`);
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                <div className={cn("h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0", pfHasChildren && "group-hover/folder:hidden")}>
-                                                                                    <Folder className="h-3 w-3 text-blue-600 shrink-0" />
-                                                                                </div>
-                                                                                {pfHasChildren && (
-                                                                                    <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
-                                                                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", isPfExpanded && "rotate-90")} />
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                            <span className="flex-1 truncate text-zinc-600 group-hover/folder:text-foreground">
-                                                                                {pf.name}
-                                                                            </span>
-                                                                        </div>
-                                                                        {isPfExpanded && pfHasChildren && (
-                                                                            <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
-                                                                                {pfLists.map((pfl: any) => (
-                                                                                    <div
-                                                                                        key={pfl.id}
-                                                                                        className={cn(
-                                                                                            "flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                                                            pfl.id === activeList?.id && currentSubItem.type === "list" && "bg-slate-100 font-semibold"
-                                                                                        )}
-                                                                                        onClick={() => handleNavigate("list", pfl.id)}
-                                                                                    >
-                                                                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                                                            <ListIcon className="h-3 w-3 text-emerald-600" />
-                                                                                        </div>
-                                                                                        <span className="flex-1 truncate text-zinc-600">
-                                                                                            {pfl.name}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
-
-                                                            {projLists.map((pl: any) => (
-                                                                <div
-                                                                    key={pl.id}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                                        pl.id === activeList?.id && currentSubItem.type === "list" && "bg-slate-100 font-semibold"
-                                                                    )}
-                                                                    onClick={() => handleNavigate("list", pl.id)}
-                                                                >
-                                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                                        <ListIcon className="h-3 w-3 text-emerald-600" />
-                                                                    </div>
-                                                                    <span className="flex-1 truncate text-zinc-600">
-                                                                        {pl.name}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-
-                                        {/* Direct Folders under Space */}
-                                        {folders.filter((f: any) => !f.projectId).map((sf: any) => {
-                                            const sfLists = lists.filter((l: any) => l.folderId === sf.id);
-                                            const sfHasChildren = sfLists.length > 0;
-                                            const isSfExpanded = !collapsedNodes[`folder-${sf.id}`];
-                                            const isSfSelected = sf.id === activeFolder?.id && currentSubItem.type === "folder";
-
-                                            return (
-                                                <div key={sf.id} className="space-y-0.5">
-                                                    <div
-                                                        className={cn(
-                                                            "group/folder flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                            isSfSelected && "bg-slate-100 font-semibold"
-                                                        )}
-                                                        onClick={() => handleNavigate("folder", sf.id)}
-                                                    >
-                                                        <div
-                                                            className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center"
-                                                            onClick={(e) => {
-                                                                if (sfHasChildren) {
-                                                                    toggleNode(e, `folder-${sf.id}`);
-                                                                }
-                                                            }}
-                                                        >
-                                                            <div className={cn("h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0", sfHasChildren && "group-hover/folder:hidden")}>
-                                                                <Folder className="h-3 w-3 text-blue-600 shrink-0" />
-                                                            </div>
-                                                            {sfHasChildren && (
-                                                                <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
-                                                                    <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", isSfExpanded && "rotate-90")} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <span className="flex-1 truncate text-zinc-600 group-hover/folder:text-foreground">
-                                                            {sf.name}
-                                                        </span>
-                                                    </div>
-                                                    {isSfExpanded && sfHasChildren && (
-                                                        <div className="ml-3 pl-2 border-l border-slate-200 space-y-0.5">
-                                                            {sfLists.map((sfl: any) => (
-                                                                <div
-                                                                    key={sfl.id}
-                                                                    className={cn(
-                                                                        "flex w-full items-center gap-2 rounded-md px-2 py-1 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                                        sfl.id === activeList?.id && currentSubItem.type === "list" && "bg-slate-100 font-semibold"
-                                                                    )}
-                                                                    onClick={() => handleNavigate("list", sfl.id)}
-                                                                >
-                                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                                        <ListIcon className="h-3 w-3 text-emerald-600" />
-                                                                    </div>
-                                                                    <span className="flex-1 truncate text-zinc-600">
-                                                                        {sfl.name}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-
-                                        {/* Direct Lists under Space */}
-                                        {lists.filter((l: any) => !l.projectId && !l.folderId).map((sl: any) => (
-                                            <div
-                                                key={sl.id}
-                                                className={cn(
-                                                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-slate-50",
-                                                    sl.id === activeList?.id && currentSubItem.type === "list" && "bg-slate-100 font-semibold"
-                                                )}
-                                                onClick={() => handleNavigate("list", sl.id)}
-                                            >
-                                                <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                    <ListIcon className="h-3.5 w-3.5 text-emerald-600" />
-                                                </div>
-                                                <span className="flex-1 truncate text-zinc-600">
-                                                    {sl.name}
-                                                </span>
-                                            </div>
-                                        ))}
-
-                                        {/* Direct Teams under Space */}
-                                        {teams.map((tm: any) => {
-                                            const isSelected = tm.id === activeTeam?.id && currentSubItem.type === "team";
-                                            return (
-                                                <div
-                                                    key={tm.id}
-                                                    className={cn(
-                                                        "group/team flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors cursor-pointer text-left text-xs hover:bg-emerald-50",
-                                                        isSelected && "bg-emerald-100 font-semibold"
-                                                    )}
-                                                    onClick={() => handleNavigate("team", tm.id)}
-                                                >
-                                                    <div className="h-5 w-5 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <Users className="h-3.5 w-3.5 text-emerald-600" />
-                                                    </div>
-                                                    <span className="flex-1 truncate text-slate-700 group-hover/team:text-emerald-800">
-                                                        {tm.name}
-                                                    </span>
-                                                    <span className="text-[9px] text-emerald-600 font-medium px-1 py-0.2 bg-emerald-100 rounded">
-                                                        Team
-                                                    </span>
-                                                </div>
-                                            );
-                                        })}
+                                        {docs.length === 0 ? (
+                                            <div className="text-xs text-muted-foreground px-2 py-3 text-center">No documents in this space</div>
+                                        ) : (
+                                            docs.map((doc: any) => renderDocRow(doc))
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto pr-0.5 select-none">
+                                        {teams.map((tm: any) => renderTeamNode(tm))}
+                                        {projects.map((proj: any) => renderProjectNode(proj))}
+                                        {folders.filter((f: any) => !f.projectId && !f.teamId).map((sf: any) => renderFolderNode(sf))}
+                                        {lists.filter((l: any) => !l.folderId && !l.projectId && !l.teamId).map((sl: any) => renderListRow(sl))}
+                                        {spaceDocs.map((d: any) => renderDocRow(d))}
                                     </div>
                                 )}
                             </PopoverContent>
                         </Popover>
                     ) : (
                         <div className="flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-semibold text-slate-900 min-w-0 max-w-[260px]">
-                            {currentSubItem.type === "docs" ? (
-                                <span className="h-5 w-5 rounded-sm bg-blue-500 text-white flex items-center justify-center shrink-0">
-                                    <FileText className="h-3.5 w-3.5" />
-                                </span>
-                            ) : currentSubItem.type === "lists-overview" ? (
+                            {currentSubItem.type === "lists-overview" ? (
                                 <span className="h-5 w-5 rounded-sm bg-indigo-500 text-white flex items-center justify-center shrink-0">
                                     <ListIcon className="h-3.5 w-3.5" />
                                 </span>

@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import {
+    clearAllSubParams,
+    buildCleanDashboardParams,
+    setCleanViewParam,
+    buildDashboardPath,
+} from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -49,7 +55,7 @@ export default function WorkspaceProjectView({
     onTaskSelect,
 }: WorkspaceProjectViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
 
     // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -68,12 +74,12 @@ export default function WorkspaceProjectView({
     }, [searchQuery]);
 
     // URL-derived active items
-    const activeProjectId = !isManageView ? (searchParams.get("pj") || selectedProjectId || null) : null;
+    const activeProjectId = !isManageView ? (selectedProjectId || parsedState.projectId || null) : null;
 
     // Fetch projects for this workspace
     const { data: projectsData, isLoading: isLoadingProjects, refetch: refetchProjects } = trpc.project.list.useQuery(
-        { workspaceId, scope: "owned", pageSize: 50 },
-        { enabled: !!workspaceId }
+        { workspaceId, scope: "all", pageSize: 50 },
+        { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
     const projectsRaw = projectsData?.items ?? [];
 
@@ -89,7 +95,7 @@ export default function WorkspaceProjectView({
         if (onProjectSelect) {
             onProjectSelect(projectId);
         } else if (workspaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, type: "pj", id: projectId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/workspaces/${workspaceId}`, type: "pj", id: projectId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "projects",

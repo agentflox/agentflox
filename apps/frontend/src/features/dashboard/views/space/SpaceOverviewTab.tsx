@@ -35,8 +35,8 @@ interface SpaceOverviewTabProps {
 }
 
 // ── Build URL helpers ──────────────────────────────────────────────────────
-function buildUrl(spaceId: string, tab: string, paramKey: string, id: string) {
-    return `/dashboard/spaces/${spaceId}?tab=${tab}&${paramKey}=${id}`;
+function buildUrl(spaceId: string, _tab: string, paramKey: string, id: string) {
+    return `/spaces/${spaceId}/${paramKey}/${id}`;
 }
 
 // ── Tooltip ────────────────────────────────────────────────────────────────

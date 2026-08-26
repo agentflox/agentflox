@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { setCleanViewParam, parseDashboardState } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { setCleanViewParam, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,7 @@ interface DashboardListViewProps {
     projectId?: string;
     teamId?: string;
     workspaceId?: string;
+    basePath?: string;
     viewId?: string;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
@@ -152,8 +154,8 @@ const viewConfig: Record<
     MEMBERS: { label: "Members", icon: LayoutDashboard, description: "Members" },
 };
 
-export default function DashboardListView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect, context = "list" }: DashboardListViewProps) {
-    const searchParams = useSearchParams();
+export default function DashboardListView({ listId, spaceId, projectId, teamId, workspaceId, basePath, selectedTaskIdFromParent, onTaskSelect, context = "list" }: DashboardListViewProps) {
+    const { searchParams, parsedState } = useDashboardState();
     const router = useRouter();
     const utils = trpc.useUtils();
 
@@ -244,15 +246,27 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
     });
 
     // Active Tab Logic
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
     const urlViewId = parsedState.viewId;
     const activeView = views.find(v => v.id === urlViewId) || views[0];
     const activeTab = activeView?.id;
 
+    const derivedBasePath = useMemo(() => {
+        if (basePath) return basePath;
+        if (spaceId && listId) return `/spaces/${spaceId}/lt/${listId}`;
+        if (projectId && listId) return `/projects/${projectId}/lt/${listId}`;
+        if (teamId && listId) return `/teams/${teamId}/lt/${listId}`;
+        if (workspaceId && listId) return `/workspaces/${workspaceId}/lt/${listId}`;
+        return null;
+    }, [basePath, spaceId, projectId, teamId, workspaceId, listId]);
+
     const handleTabChange = useCallback((viewId: string) => {
-        const clean = setCleanViewParam(searchParams, viewId);
-        router.push(`?${clean.toString()}`, { scroll: false });
-    }, [searchParams, router]);
+        if (derivedBasePath) {
+            router.push(buildDashboardPath({ basePath: derivedBasePath, viewId, taskId: parsedState.taskId }), { scroll: false });
+        } else {
+            const clean = setCleanViewParam(searchParams, viewId);
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
+    }, [derivedBasePath, parsedState.taskId, searchParams, router]);
 
     const handleRenameView = (name: string) => {
         if (viewToRename) {
@@ -278,7 +292,9 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}${window.location.pathname}?lt=${listId}&v=${view.id}`;
+        const url = derivedBasePath
+            ? `${window.location.origin}${derivedBasePath}/v/${view.id}`
+            : `${window.location.origin}${window.location.pathname}?lt=${listId}&v=${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -307,8 +323,12 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
 
         if (lastCreatedViewId) {
             await utils.list.byContext.invalidate();
-            const clean = setCleanViewParam(searchParams, lastCreatedViewId);
-            router.push(`?${clean.toString()}`, { scroll: false });
+            if (derivedBasePath) {
+                router.push(buildDashboardPath({ basePath: derivedBasePath, viewId: lastCreatedViewId, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, lastCreatedViewId);
+                router.push(`?${clean.toString()}`, { scroll: false });
+            }
         }
     };
 
@@ -331,10 +351,14 @@ export default function DashboardListView({ listId, spaceId, projectId, teamId, 
 
     useEffect(() => {
         if (!urlViewId && views.length > 0) {
-            const clean = setCleanViewParam(searchParams, views[0].id);
-            history.replaceState(null, "", `?${clean.toString()}`);
+            if (derivedBasePath) {
+                router.replace(buildDashboardPath({ basePath: derivedBasePath, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, views[0].id);
+                router.replace(`?${clean.toString()}`, { scroll: false });
+            }
         }
-    }, [urlViewId, views, searchParams]);
+    }, [urlViewId, views, searchParams, derivedBasePath, parsedState.taskId, router]);
 
     const renderViewContent = (view: any) => {
         if (!view) return null;

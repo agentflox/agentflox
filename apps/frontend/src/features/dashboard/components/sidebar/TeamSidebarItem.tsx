@@ -10,6 +10,7 @@ import {
     FileText,
     Users,
     CheckSquare,
+
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trpc } from "@/lib/trpc";
@@ -53,6 +54,8 @@ interface TeamSidebarItemProps {
     onSelectList?: (id: string) => void;
     onSelectFolder?: (id: string) => void;
     onSelectDoc?: (id: string) => void;
+    onSelectProject?: (id: string) => void;
+    spaceId?: string | null;
 }
 
 export function TeamSidebarItem({
@@ -63,6 +66,8 @@ export function TeamSidebarItem({
     onSelectList,
     onSelectFolder,
     onSelectDoc,
+
+    spaceId,
 }: TeamSidebarItemProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -76,6 +81,7 @@ export function TeamSidebarItem({
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+
 
     const [targetFolderId, setTargetFolderId] = useState<string | undefined>(undefined);
     const [targetListId, setTargetListId] = useState<string | undefined>(undefined);
@@ -100,9 +106,12 @@ export function TeamSidebarItem({
         { enabled: true }
     );
 
+
+
     const folders = foldersData?.items ?? [];
     const lists = listsData?.items ?? [];
     const docs = (docViewsData ?? []).filter(v => v.sidebarView === true);
+
 
     const handleItemClick = (type: "list" | "folder" | "doc", id: string) => {
         if (type === "list") {
@@ -222,17 +231,18 @@ export function TeamSidebarItem({
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Create Tasks, Lists, Folders, Docs and more</p>
+                                    <p>Create Projects, Lists, Folders, Docs and more</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
                         <DropdownMenuContent align="end" className="w-48">
+
                             <DropdownMenuItem onClick={() => {
-                                setTargetListId(lists[0]?.id);
-                                setIsTaskModalOpen(true);
+                                setTargetFolderId(undefined);
+                                setIsFolderModalOpen(true);
                             }}>
-                                <CheckSquare className="mr-2 h-4 w-4" />
-                                Task
+                                <FolderIcon className="mr-2 h-4 w-4" />
+                                Folder
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                                 setTargetFolderId(undefined);
@@ -241,14 +251,6 @@ export function TeamSidebarItem({
                                 <ListIcon className="mr-2 h-4 w-4" />
                                 List
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                                setTargetFolderId(undefined);
-                                setIsFolderModalOpen(true);
-                            }}>
-                                <FolderIcon className="mr-2 h-4 w-4" />
-                                Folder
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => {
                                 setTargetDocFolderId(undefined);
                                 setTargetDocListId(undefined);
@@ -265,7 +267,6 @@ export function TeamSidebarItem({
             {/* Sub-Tree when expanded */}
             {isExpanded && hasChildren && (
                 <div className="ml-[1.125rem] pl-2 border-l border-slate-200 mt-1 space-y-1">
-
                     {/* Direct Folders */}
                     {folders.map((folder: any) => {
                         const isFolderExpanded = expandedFolders[folder.id];
@@ -502,6 +503,7 @@ export function TeamSidebarItem({
                     utils.view.list.invalidate();
                 }}
             />
+
         </div>
     );
 }

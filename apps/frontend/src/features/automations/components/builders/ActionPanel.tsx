@@ -80,6 +80,7 @@ export function ActionPanel({
                 integrationValue={action.integration}
                 actionConfig={action.config}
                 scope={scope}
+                disabled={mode === "agent"}
                 onChange={(type, extraConfig) =>
                   onChange(index, {
                     ...action,
@@ -121,15 +122,19 @@ export function ActionPanel({
         );
       })}
 
-      <DottedConnector />
-      <button
-        type="button"
-        onClick={onAddAction}
-        className="mx-auto h-7 w-7 rounded-md border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 cursor-pointer flex items-center justify-center shadow-sm"
-        aria-label="Add step"
-      >
-        <Plus className="h-4 w-4" />
-      </button>
+      {mode !== "agent" && (
+        <>
+          <DottedConnector />
+          <button
+            type="button"
+            onClick={onAddAction}
+            className="mx-auto h-7 w-7 rounded-md border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50 cursor-pointer flex items-center justify-center shadow-sm"
+            aria-label="Add step"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </>
+      )}
     </div>
   );
 }

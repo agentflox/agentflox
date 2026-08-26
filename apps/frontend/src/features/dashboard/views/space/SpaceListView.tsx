@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams, parseDashboardState, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Plus, Play, List as ListIcon, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Folder, CheckSquare, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ interface SpaceListViewProps {
 
 export default function SpaceListView({ spaceId, workspaceId, selectedListId, onListSelect, selectedTaskIdFromParent, onTaskSelect }: SpaceListViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
 
     // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -69,11 +70,9 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
     const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
     const [targetFolderId, setTargetFolderId] = useState<string | undefined>(undefined);
 
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
-
     const handleFolderClick = (folderId: string) => {
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "fd", id: folderId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "fd", id: folderId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "lists",
@@ -140,14 +139,14 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
         // Only auto-select if neither list nor folder is selected and we have lists
         if (!hasListParam && !hasFolderParam && lists.length > 0) {
             if (spaceId) {
-                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: lists[0].id }));
+                router.replace(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "lt", id: lists[0].id }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "lists",
                     entityKey: "list",
                     entityId: lists[0].id,
                 });
-                history.replaceState(null, "", `?${clean.toString()}`);
+                router.replace(`?${clean.toString()}`, { scroll: false });
             }
         }
     }, [parsedState, lists, spaceId]);
@@ -202,7 +201,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
 
     const handleBackToList = () => {
         if (spaceId) {
-            router.push(`/dashboard/spaces/${spaceId}`, { scroll: false });
+            router.push(`/spaces/${spaceId}`, { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "lists",
@@ -214,7 +213,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
     const handleListCreated = (list: any) => {
         refetchList();
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: list.id }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "lt", id: list.id }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "lists",
@@ -229,7 +228,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
         if (onListSelect) {
             onListSelect(listId);
         } else if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: listId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "lt", id: listId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "lists",
@@ -249,7 +248,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
 
     const handleDocViewClick = (docViewId: string) => {
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "dv", id: docViewId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "dv", id: docViewId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "lists",
@@ -263,7 +262,7 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
     const handleDocCreated = (id: string) => {
         refetchDocViews();
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "dv", id }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "dv", id }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "lists",
@@ -369,19 +368,18 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                             <DropdownMenuContent align="end" className="w-48">
                                                 <DropdownMenuItem onClick={() => {
                                                     setTargetFolderId(activeFolderId || undefined);
-                                                    setIsListModalOpen(true);
-                                                }}>
-                                                    <ListIcon className="mr-2 h-4 w-4" />
-                                                    List
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => {
-                                                    setTargetFolderId(activeFolderId || undefined);
                                                     setIsFolderModalOpen(true);
                                                 }}>
                                                     <Folder className="mr-2 h-4 w-4" />
                                                     Folder
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => {
+                                                    setTargetFolderId(activeFolderId || undefined);
+                                                    setIsListModalOpen(true);
+                                                }}>
+                                                    <ListIcon className="mr-2 h-4 w-4" />
+                                                    List
+                                                </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => {
                                                     setDocTargetListId(undefined);
                                                     setDocTargetFolderId(activeFolderId || undefined);
@@ -533,19 +531,17 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                                 <DropdownMenuContent align="end" className="w-48">
-                                                                    <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
-                                                                        <ListIcon className="mr-2 h-4 w-4" />
-                                                                        List
-                                                                    </DropdownMenuItem>
                                                                     <DropdownMenuItem onClick={() => {
                                                                         setTargetFolderId(item.id);
                                                                         setIsFolderModalOpen(true);
                                                                     }}>
                                                                         <Folder className="mr-2 h-4 w-4" />
                                                                         Folder
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
-                                                                    <DropdownMenuItem onClick={() => {
+                                                                    </DropdownMenuItem>      
+                                                                    <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
+                                                                        <ListIcon className="mr-2 h-4 w-4" />
+                                                                        List
+                                                                    </DropdownMenuItem>                                                                    <DropdownMenuItem onClick={() => {
                                                                         setDocTargetListId(undefined);
                                                                         setDocTargetFolderId(item.id);
                                                                         setIsDocModalOpen(true);
@@ -791,7 +787,6 @@ export default function SpaceListView({ spaceId, workspaceId, selectedListId, on
                                                                         <ListIcon className="mr-2 h-4 w-4" />
                                                                         List
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
                                                                     <DropdownMenuItem onClick={() => {
                                                                         setDocTargetListId(list.id);
                                                                         setDocTargetFolderId(undefined);

@@ -28,12 +28,13 @@ export default function AdminDashboardView() {
   const overview = trpc.admin.overview.useQuery({ days: 30 }, { staleTime: 15_000 });
 
   return (
-    <Shell>
-      <div className="relative space-y-8">
+    <Shell noPadding>
+      <div className="flex flex-col min-h-full relative">
         {/* Ambient background glow */}
         <div className="absolute top-0 inset-x-0 h-[300px] bg-gradient-to-b from-indigo-500/10 via-purple-500/5 to-transparent pointer-events-none -z-10 blur-3xl" />
 
-        <div className="flex items-center justify-between">
+        {/* Enterprise Docked Sticky Header */}
+        <div className="sticky top-0 z-20 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 shadow-xs px-6 pt-6 pb-4 transition-all">
           <PageHeader
             title="Admin command center"
             description="Monitor platform health, manage users and subscriptions, and review support + audit logs."
@@ -41,8 +42,10 @@ export default function AdminDashboardView() {
           />
         </div>
 
-        <Card className="p-0 overflow-hidden border border-white/20 dark:border-white/10 shadow-xl shadow-zinc-200/50 dark:shadow-black/50 bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl transition-all duration-300">
-          <div className="p-4 sm:p-5 border-b border-zinc-200/50 dark:border-zinc-800/50">
+        {/* Main Content Area */}
+        <div className="flex-1 px-6 pt-6 pb-8 space-y-8">
+          <Card className="p-0 overflow-hidden border border-white/20 dark:border-white/10 shadow-xl shadow-zinc-200/50 dark:shadow-black/50 bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl transition-all duration-300">
+            <div className="p-4 sm:p-5 border-b border-zinc-200/50 dark:border-zinc-800/50">
             <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
               <TabsList className="bg-zinc-100/80 dark:bg-zinc-900/80 p-1.5 rounded-xl h-auto border border-zinc-200/50 dark:border-zinc-800/50 backdrop-blur-sm shadow-inner">
                 {tabs.map((t) => (
@@ -80,6 +83,7 @@ export default function AdminDashboardView() {
             </Tabs>
           </div>
         </Card>
+        </div>
       </div>
     </Shell>
   );

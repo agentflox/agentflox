@@ -1,4 +1,4 @@
-﻿import type { AutomationActionTypeV1 } from "../../types";
+import type { AutomationActionTypeV1 } from "../../types";
 import { ACTION_BY_TYPE } from "../../actionCatalog";
 
 export type ActionConfigState = {
@@ -38,6 +38,7 @@ export type ActionConfigState = {
   locationKey?: string;
   removeTags?: string;
   agentName?: string;
+  agentAvatar?: string;
   agentDescription?: string;
   toolIds?: string[];
   toolConfigs?: Record<string, any>;
@@ -56,6 +57,8 @@ export type ActionConfigState = {
   };
   selectedSpaces?: string[];
   selectedKnowledgeItems?: string[];
+  workspaceKnowledge?: any;
+  model?: string;
 };
 
 export function actionConfigIsValid(type: AutomationActionTypeV1, config: ActionConfigState) {

@@ -9,18 +9,11 @@ import {
   X,
   ChevronDown,
   ChevronUp,
-  ChevronRight,
   Check,
   Tag as TagIcon,
   Sparkles,
-  Folder,
-  List,
-  Users,
-  Globe,
   Info,
   Loader2,
-  Play,
-  Briefcase,
 } from "lucide-react";
 import {
   Dialog,
@@ -45,11 +38,13 @@ import {
 } from "@/components/ui/tooltip";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
-import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
-import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
-import { WorkspaceIcon } from "@/entities/workspace/components/WorkspaceIcon";
 import { ConfirmDeleteModal } from "@/components/modals/ConfirmDeleteModal";
 import { ThemeColorPicker } from "@/entities/shared/components/ThemeColorPicker";
+import {
+  DestinationTreeRow,
+  ENTITY_TREE_NEST,
+  EntityTreeIcon,
+} from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 export interface TagItem {
   id: string;
@@ -274,7 +269,14 @@ export function TagManagerModal({
   );
   const lists = useMemo(() => (listsData?.items ?? []) as any[], [listsData]);
 
-  // 6. Real Tags Query
+  // 6. Real Teams Query
+  const { data: teamsData } = trpc.team.list.useQuery(
+    { workspaceId: activeWorkspaceId ?? "" } as any,
+    { enabled: open && Boolean(activeWorkspaceId), staleTime: 5 * 60 * 1000 }
+  );
+  const teams = useMemo(() => (teamsData?.items ?? teamsData ?? []) as any[], [teamsData]);
+
+  // 7. Real Tags Query
   const { data: realTags = [], isLoading: isLoadingTags } = trpc.tags.list.useQuery(
     {},
     { enabled: open }
@@ -702,13 +704,7 @@ export function TagManagerModal({
   };
 
   const getLocationIcon = (type: LocationKey["type"]) => {
-    if (type === "WORKSPACE") return <WorkspaceIcon icon={null} size={16} className="text-indigo-500" />;
-    if (type === "SPACE") return <SpaceIcon icon={null} size={16} className="text-violet-500" />;
-    if (type === "PROJECT") return <ProjectIcon icon={null} size={16} className="text-indigo-500" />;
-    if (type === "FOLDER") return <Folder size={16} className="text-yellow-500" />;
-    if (type === "LIST") return <List size={16} className="text-emerald-500" />;
-    if (type === "TEAM") return <Users size={16} className="text-blue-500" />;
-    return <Globe size={16} className="text-zinc-400" />;
+    return <EntityTreeIcon kind={type.toLowerCase()} />;
   };
 
   // Helper to count tags in a location
@@ -795,11 +791,17 @@ export function TagManagerModal({
                       !p.spaceId &&
                       (!isSearching || p.name?.toLowerCase().includes(locationSearchLower))
                   );
+                  const wsTeams = teams.filter(
+                    (t) =>
+                      t.workspaceId === ws.id &&
+                      (!isSearching || t.name?.toLowerCase().includes(locationSearchLower))
+                  );
                   const wsFolders = folders.filter(
                     (f) =>
                       f.workspaceId === ws.id &&
                       !f.spaceId &&
                       !f.projectId &&
+                      !f.teamId &&
                       (!isSearching || f.name?.toLowerCase().includes(locationSearchLower))
                   );
                   const wsLists = lists.filter(
@@ -807,12 +809,97 @@ export function TagManagerModal({
                       l.workspaceId === ws.id &&
                       !l.spaceId &&
                       !l.projectId &&
+                      !l.teamId &&
                       !l.folderId &&
                       (!isSearching || l.name?.toLowerCase().includes(locationSearchLower))
                   );
-                  const hasWsChildren = wsSpaces.length > 0 || wsProjects.length > 0 || wsFolders.length > 0 || wsLists.length > 0;
+                  const hasWsChildren =
+                    wsSpaces.length > 0 ||
+                    wsProjects.length > 0 ||
+                    wsTeams.length > 0 ||
+                    wsFolders.length > 0 ||
+                    wsLists.length > 0;
                   const isWsSelected = activeLocation.id === ws.id && activeLocation.type === "WORKSPACE";
                   const wsTagCount = getTagCountForLocation("WORKSPACE", ws.id);
+                  const pick = (id: string, type: LocationKey["type"], name: string) => {
+                    setSelectedLocation({ id, type, name });
+                    setSelectedTagIds([]);
+                    setIsCreatingInline(false);
+                  };
+
+                  const renderFolderBranch = (fold: any) => {
+                    const foldLists = lists.filter((l) => l.folderId === fold.id);
+                    const foldHasChildren = foldLists.length > 0;
+                    const isFoldExpanded = !collapsedNodes[fold.id] || isSearching;
+                    return (
+                      <div key={fold.id} className="space-y-0.5">
+                        <DestinationTreeRow
+                          selected={activeLocation.id === fold.id && activeLocation.type === "FOLDER"}
+                          kind="folder"
+                          entity={fold}
+                          label={fold.name}
+                          hasChildren={foldHasChildren}
+                          expanded={isFoldExpanded}
+                          onToggle={(e) => toggleCollapse(fold.id, e)}
+                          onClick={() => pick(fold.id, "FOLDER", fold.name)}
+                          trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("FOLDER", fold.id)}</span>}
+                        />
+                        {isFoldExpanded && foldHasChildren && (
+                          <div className={ENTITY_TREE_NEST}>
+                            {foldLists.map((lst) => (
+                              <DestinationTreeRow
+                                key={lst.id}
+                                selected={activeLocation.id === lst.id && activeLocation.type === "LIST"}
+                                kind="list"
+                                entity={lst}
+                                label={lst.name}
+                                onClick={() => pick(lst.id, "LIST", lst.name)}
+                                trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("LIST", lst.id)}</span>}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  };
+
+                  const renderProjectBranch = (proj: any) => {
+                    const projFolders = folders.filter((f) => f.projectId === proj.id && !f.teamId);
+                    const projLists = lists.filter((l) => l.projectId === proj.id && !l.folderId && !l.teamId);
+                    const hasProjChildren = projFolders.length > 0 || projLists.length > 0;
+                    const isProjExpanded = !collapsedNodes[proj.id] || isSearching;
+                    return (
+                      <div key={proj.id} className="space-y-0.5">
+                        <DestinationTreeRow
+                          selected={activeLocation.id === proj.id && activeLocation.type === "PROJECT"}
+                          kind="project"
+                          entity={proj}
+                          label={proj.name}
+                          hasChildren={hasProjChildren}
+                          expanded={isProjExpanded}
+                          onToggle={(e) => toggleCollapse(proj.id, e)}
+                          onClick={() => pick(proj.id, "PROJECT", proj.name)}
+                          trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("PROJECT", proj.id)}</span>}
+                        />
+                        {isProjExpanded && hasProjChildren && (
+                          <div className={ENTITY_TREE_NEST}>
+                            {projFolders.map(renderFolderBranch)}
+                            {projLists.map((lst) => (
+                              <DestinationTreeRow
+                                key={lst.id}
+                                selected={activeLocation.id === lst.id && activeLocation.type === "LIST"}
+                                kind="list"
+                                entity={lst}
+                                label={lst.name}
+                                onClick={() => pick(lst.id, "LIST", lst.name)}
+                                trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("LIST", lst.id)}</span>}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  };
 
                   if (isSearching && !hasWsChildren && !ws.name?.toLowerCase().includes(locationSearchLower)) {
                     return null;
@@ -820,343 +907,114 @@ export function TagManagerModal({
 
                   return (
                     <div key={ws.id} className="space-y-0.5">
-                      {/* Workspace Node */}
-                      <div
-                        onClick={() => {
-                          setSelectedLocation({ id: ws.id, type: "WORKSPACE", name: ws.name });
-                          setSelectedTagIds([]);
-                          setIsCreatingInline(false);
-                        }}
-                        className={cn(
-                          "group/ws flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
-                          isWsSelected
-                            ? "bg-zinc-200/80 font-semibold text-zinc-900 shadow-2xs"
-                            : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 font-medium"
-                        )}
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                          <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
-                            <span className={cn("flex items-center justify-center", hasWsChildren && "group-hover/ws:hidden")}>
-                              <WorkspaceIcon icon={ws.logo ?? ws.avatarUrl ?? null} size={16} className="text-indigo-500" />
-                            </span>
-                            {hasWsChildren && (
-                              <div
-                                className="hidden group-hover/ws:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
-                                onClick={(e) => toggleCollapse(ws.id, e)}
-                              >
-                                <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isWsExpanded && "rotate-90")} />
-                              </div>
-                            )}
-                          </div>
-                          <span className="truncate">{ws.name}</span>
-                        </div>
-                        <span className="text-[11px] font-medium text-zinc-400 ml-1 shrink-0">
-                          {wsTagCount}
-                        </span>
-                      </div>
-
-                      {/* Children of Workspace */}
-                      {isWsExpanded && (
-                        <div className="space-y-0.5 pl-3 border-l border-zinc-200/60 ml-3">
+                      <DestinationTreeRow
+                        selected={isWsSelected}
+                        kind="workspace"
+                        entity={{ logo: ws.logo ?? ws.avatarUrl, color: ws.color }}
+                        label={ws.name}
+                        hasChildren={hasWsChildren}
+                        expanded={isWsExpanded}
+                        onToggle={(e) => toggleCollapse(ws.id, e)}
+                        onClick={() => pick(ws.id, "WORKSPACE", ws.name)}
+                        trailing={<span className="text-[11px] font-medium text-zinc-400">{wsTagCount}</span>}
+                      />
+                      {isWsExpanded && hasWsChildren && (
+                        <div className={ENTITY_TREE_NEST}>
                           {wsSpaces.map((space) => {
                             const isSpaceExpanded = !collapsedNodes[space.id] || isSearching;
                             const spaceProjects = projects.filter((p) => p.spaceId === space.id);
-                            const spaceFolders = folders.filter((f) => f.spaceId === space.id);
+                            const spaceFolders = folders.filter((f) => f.spaceId === space.id && !f.projectId && !f.teamId);
                             const spaceLists = lists.filter(
-                              (l) => l.spaceId === space.id && !l.folderId && !l.projectId
+                              (l) => l.spaceId === space.id && !l.folderId && !l.projectId && !l.teamId
                             );
                             const hasSpaceChildren =
                               spaceProjects.length > 0 || spaceFolders.length > 0 || spaceLists.length > 0;
                             const isSpaceSelected =
                               activeLocation.id === space.id && activeLocation.type === "SPACE";
                             const spaceTagCount = getTagCountForLocation("SPACE", space.id);
-
                             return (
                               <div key={space.id} className="space-y-0.5">
-                                {/* Space Node */}
-                                <div
-                                  onClick={() => {
-                                    setSelectedLocation({ id: space.id, type: "SPACE", name: space.name });
-                                    setSelectedTagIds([]);
-                                    setIsCreatingInline(false);
-                                  }}
-                                  className={cn(
-                                    "group/space flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left",
-                                    isSpaceSelected
-                                      ? "bg-zinc-200/80 font-semibold text-zinc-900 shadow-2xs"
-                                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 font-medium"
-                                  )}
-                                >
-                                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                    <div className="relative h-5 w-5 rounded shrink-0 flex items-center justify-center">
-                                      <span
-                                        className={cn(
-                                          "h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center ml-0.5",
-                                          hasSpaceChildren && "group-hover/space:hidden"
-                                        )}
-                                        style={{ backgroundColor: space.color || "#6366f1" }}
-                                      >
-                                        <SpaceIcon
-                                          icon={space.icon}
-                                          className="text-white"
-                                          size={13}
-                                          fill
-                                        />
-                                      </span>
-                                      {hasSpaceChildren && (
-                                        <div
-                                          className="hidden group-hover/space:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
-                                          onClick={(e) => toggleCollapse(space.id, e)}
-                                        >
-                                          <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isSpaceExpanded && "rotate-90")} />
-                                        </div>
-                                      )}
-                                    </div>
-                                    <span className="truncate">{space.name}</span>
-                                  </div>
-                                  <span className="text-[11px] font-medium text-zinc-400 ml-1 shrink-0">
-                                    {spaceTagCount}
-                                  </span>
-                                </div>
-
-                                {/* Space Nested Children */}
-                                {isSpaceExpanded && (
-                                  <div className="space-y-0.5 pl-3 border-l border-zinc-200/60 ml-2.5">
-                                    {/* Projects */}
-                                    {spaceProjects.map((proj) => {
-                                      const isProjSelected =
-                                        activeLocation.id === proj.id && activeLocation.type === "PROJECT";
-                                      const projTagCount = getTagCountForLocation("PROJECT", proj.id);
-                                      return (
-                                        <div
-                                          key={proj.id}
-                                          onClick={() => {
-                                            setSelectedLocation({ id: proj.id, type: "PROJECT", name: proj.name });
-                                            setSelectedTagIds([]);
-                                            setIsCreatingInline(false);
-                                          }}
-                                          className={cn(
-                                            "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                            isProjSelected
-                                              ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                          )}
-                                        >
-                                          <div className="flex items-center gap-1.5 truncate">
-                                            <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                                              <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
-                                            </div>
-                                            <span className="truncate">{proj.name}</span>
-                                          </div>
-                                          <span className="text-[10px] text-zinc-400 shrink-0">{projTagCount}</span>
-                                        </div>
-                                      );
-                                    })}
-
-                                    {/* Folders */}
-                                    {spaceFolders.map((fold) => {
-                                      const isFoldSelected =
-                                        activeLocation.id === fold.id && activeLocation.type === "FOLDER";
-                                      const foldTagCount = getTagCountForLocation("FOLDER", fold.id);
-                                      const foldLists = lists.filter((l) => l.folderId === fold.id);
-                                      const foldHasChildren = foldLists.length > 0;
-                                      const isFoldExpanded = !collapsedNodes[fold.id] || isSearching;
-
-                                      return (
-                                        <div key={fold.id} className="space-y-0.5">
-                                          <div
-                                            onClick={() => {
-                                              setSelectedLocation({ id: fold.id, type: "FOLDER", name: fold.name });
-                                              setSelectedTagIds([]);
-                                              setIsCreatingInline(false);
-                                            }}
-                                            className={cn(
-                                              "group/folder flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                              isFoldSelected
-                                                ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                            )}
-                                          >
-                                            <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
-                                              <div className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center">
-                                                <div className={cn("h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0", foldHasChildren && "group-hover/folder:hidden")}>
-                                                  <Folder className="h-3 w-3 text-blue-600 shrink-0" />
-                                                </div>
-                                                {foldHasChildren && (
-                                                  <div
-                                                    className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
-                                                    onClick={(e) => toggleCollapse(fold.id, e)}
-                                                  >
-                                                    <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", isFoldExpanded && "rotate-90")} />
-                                                  </div>
-                                                )}
-                                              </div>
-                                              <span className="truncate">{fold.name}</span>
-                                            </div>
-                                            <span className="text-[10px] text-zinc-400 shrink-0">{foldTagCount}</span>
-                                          </div>
-
-                                          {isFoldExpanded && foldHasChildren && (
-                                            <div className="space-y-0.5 pl-3 border-l border-zinc-200/60 ml-2.5">
-                                              {foldLists.map((lst) => {
-                                                const isLstSelected = activeLocation.id === lst.id && activeLocation.type === "LIST";
-                                                const lstTagCount = getTagCountForLocation("LIST", lst.id);
-                                                return (
-                                                  <div
-                                                    key={lst.id}
-                                                    onClick={() => {
-                                                      setSelectedLocation({ id: lst.id, type: "LIST", name: lst.name });
-                                                      setSelectedTagIds([]);
-                                                      setIsCreatingInline(false);
-                                                    }}
-                                                    className={cn(
-                                                      "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                                      isLstSelected
-                                                        ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                                        : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                                    )}
-                                                  >
-                                                    <div className="flex items-center gap-1.5 truncate">
-                                                      <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <List size={12} className="text-emerald-600" />
-                                                      </div>
-                                                      <span className="truncate">{lst.name}</span>
-                                                    </div>
-                                                    <span className="text-[10px] text-zinc-400 shrink-0">{lstTagCount}</span>
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    })}
-
-                                    {/* Direct Lists under Space */}
-                                    {spaceLists.map((lst) => {
-                                      const isLstSelected =
-                                        activeLocation.id === lst.id && activeLocation.type === "LIST";
-                                      const lstTagCount = getTagCountForLocation("LIST", lst.id);
-                                      return (
-                                        <div
-                                          key={lst.id}
-                                          onClick={() => {
-                                            setSelectedLocation({ id: lst.id, type: "LIST", name: lst.name });
-                                            setSelectedTagIds([]);
-                                            setIsCreatingInline(false);
-                                          }}
-                                          className={cn(
-                                            "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                            isLstSelected
-                                              ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                              : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                          )}
-                                        >
-                                          <div className="flex items-center gap-1.5 truncate">
-                                            <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                              <List size={12} className="text-emerald-600" />
-                                            </div>
-                                            <span className="truncate">{lst.name}</span>
-                                          </div>
-                                          <span className="text-[10px] text-zinc-400 shrink-0">{lstTagCount}</span>
-                                        </div>
-                                      );
-                                    })}
+                                <DestinationTreeRow
+                                  selected={isSpaceSelected}
+                                  kind="space"
+                                  entity={space}
+                                  label={space.name}
+                                  hasChildren={hasSpaceChildren}
+                                  expanded={isSpaceExpanded}
+                                  onToggle={(e) => toggleCollapse(space.id, e)}
+                                  onClick={() => pick(space.id, "SPACE", space.name)}
+                                  trailing={<span className="text-[11px] font-medium text-zinc-400">{spaceTagCount}</span>}
+                                />
+                                {isSpaceExpanded && hasSpaceChildren && (
+                                  <div className={ENTITY_TREE_NEST}>
+                                    {spaceProjects.map(renderProjectBranch)}
+                                    {spaceFolders.map(renderFolderBranch)}
+                                    {spaceLists.map((lst) => (
+                                      <DestinationTreeRow
+                                        key={lst.id}
+                                        selected={activeLocation.id === lst.id && activeLocation.type === "LIST"}
+                                        kind="list"
+                                        entity={lst}
+                                        label={lst.name}
+                                        onClick={() => pick(lst.id, "LIST", lst.name)}
+                                        trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("LIST", lst.id)}</span>}
+                                      />
+                                    ))}
                                   </div>
                                 )}
                               </div>
                             );
                           })}
-
-                          {/* Direct Workspace Projects */}
-                          {wsProjects.map((proj) => {
-                            const isProjSelected = activeLocation.id === proj.id && activeLocation.type === "PROJECT";
-                            const projTagCount = getTagCountForLocation("PROJECT", proj.id);
+                          {wsProjects.map(renderProjectBranch)}
+                          {wsTeams.map((team) => {
+                            const teamFolders = folders.filter((f) => f.teamId === team.id && !f.projectId);
+                            const teamLists = lists.filter((l) => l.teamId === team.id && !l.projectId && !l.folderId);
+                            const hasTeamChildren = teamFolders.length > 0 || teamLists.length > 0;
+                            const isTeamExpanded = !collapsedNodes[team.id] || isSearching;
                             return (
-                              <div
-                                key={proj.id}
-                                onClick={() => {
-                                  setSelectedLocation({ id: proj.id, type: "PROJECT", name: proj.name });
-                                  setSelectedTagIds([]);
-                                  setIsCreatingInline(false);
-                                }}
-                                className={cn(
-                                  "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                  isProjSelected
-                                    ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                )}
-                              >
-                                <div className="flex items-center gap-1.5 truncate">
-                                  <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                                    <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                              <div key={team.id} className="space-y-0.5">
+                                <DestinationTreeRow
+                                  selected={activeLocation.id === team.id && activeLocation.type === "TEAM"}
+                                  kind="team"
+                                  entity={team}
+                                  label={team.name}
+                                  hasChildren={hasTeamChildren}
+                                  expanded={isTeamExpanded}
+                                  onToggle={(e) => toggleCollapse(team.id, e)}
+                                  onClick={() => pick(team.id, "TEAM", team.name)}
+                                  trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("TEAM", team.id)}</span>}
+                                />
+                                {isTeamExpanded && hasTeamChildren && (
+                                  <div className={ENTITY_TREE_NEST}>
+                                    {teamFolders.map(renderFolderBranch)}
+                                    {teamLists.map((lst) => (
+                                      <DestinationTreeRow
+                                        key={lst.id}
+                                        selected={activeLocation.id === lst.id && activeLocation.type === "LIST"}
+                                        kind="list"
+                                        entity={lst}
+                                        label={lst.name}
+                                        onClick={() => pick(lst.id, "LIST", lst.name)}
+                                        trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("LIST", lst.id)}</span>}
+                                      />
+                                    ))}
                                   </div>
-                                  <span className="truncate">{proj.name}</span>
-                                </div>
-                                <span className="text-[10px] text-zinc-400 shrink-0">{projTagCount}</span>
+                                )}
                               </div>
                             );
                           })}
-
-                          {/* Direct Workspace Folders */}
-                          {wsFolders.map((fold) => {
-                            const isFoldSelected = activeLocation.id === fold.id && activeLocation.type === "FOLDER";
-                            const foldTagCount = getTagCountForLocation("FOLDER", fold.id);
-                            return (
-                              <div
-                                key={fold.id}
-                                onClick={() => {
-                                  setSelectedLocation({ id: fold.id, type: "FOLDER", name: fold.name });
-                                  setSelectedTagIds([]);
-                                  setIsCreatingInline(false);
-                                }}
-                                className={cn(
-                                  "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                  isFoldSelected
-                                    ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                )}
-                              >
-                                <div className="flex items-center gap-1.5 truncate">
-                                  <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                    <Folder className="h-3 w-3 text-blue-600 shrink-0" />
-                                  </div>
-                                  <span className="truncate">{fold.name}</span>
-                                </div>
-                                <span className="text-[10px] text-zinc-400 shrink-0">{foldTagCount}</span>
-                              </div>
-                            );
-                          })}
-
-                          {/* Direct Workspace Lists */}
-                          {wsLists.map((lst) => {
-                            const isLstSelected = activeLocation.id === lst.id && activeLocation.type === "LIST";
-                            const lstTagCount = getTagCountForLocation("LIST", lst.id);
-                            return (
-                              <div
-                                key={lst.id}
-                                onClick={() => {
-                                  setSelectedLocation({ id: lst.id, type: "LIST", name: lst.name });
-                                  setSelectedTagIds([]);
-                                  setIsCreatingInline(false);
-                                }}
-                                className={cn(
-                                  "flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors",
-                                  isLstSelected
-                                    ? "bg-zinc-200/80 font-semibold text-zinc-900"
-                                    : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                                )}
-                              >
-                                <div className="flex items-center gap-1.5 truncate">
-                                  <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                    <List size={12} className="text-emerald-600" />
-                                  </div>
-                                  <span className="truncate">{lst.name}</span>
-                                </div>
-                                <span className="text-[10px] text-zinc-400 shrink-0">{lstTagCount}</span>
-                              </div>
-                            );
-                          })}
+                          {wsFolders.map(renderFolderBranch)}
+                          {wsLists.map((lst) => (
+                            <DestinationTreeRow
+                              key={lst.id}
+                              selected={activeLocation.id === lst.id && activeLocation.type === "LIST"}
+                              kind="list"
+                              entity={lst}
+                              label={lst.name}
+                              onClick={() => pick(lst.id, "LIST", lst.name)}
+                              trailing={<span className="text-[10px] text-zinc-400">{getTagCountForLocation("LIST", lst.id)}</span>}
+                            />
+                          ))}
                         </div>
                       )}
                     </div>

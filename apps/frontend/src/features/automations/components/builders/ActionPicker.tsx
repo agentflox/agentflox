@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronRight, Search, PlusCircle, Bot } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Search, PlusCircle, Bot, Lock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ interface ActionPickerProps {
   integrationValue?: { provider: string; action: string } | null;
   actionConfig?: any;
   scope?: AutomationScope;
+  disabled?: boolean;
   onChange: (type: AutomationActionTypeV1, extraConfig?: any) => void;
   onIntegrationChange?: (provider: string, action: string) => void;
 }
@@ -55,6 +56,7 @@ export function ActionPicker({
   integrationValue,
   actionConfig,
   scope,
+  disabled,
   onChange,
   onIntegrationChange,
 }: ActionPickerProps) {
@@ -181,13 +183,15 @@ export function ActionPicker({
   };
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange} modal={false}>
+    <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : handleOpenChange} modal={false}>
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           className={cn(
             "w-full h-10 rounded-lg border border-zinc-200 bg-white px-3",
-            "flex items-center gap-2 text-sm text-left hover:bg-zinc-50 cursor-pointer transition-colors",
+            "flex items-center gap-2 text-sm text-left transition-colors",
+            disabled ? "cursor-not-allowed bg-zinc-50/70 opacity-90" : "hover:bg-zinc-50 cursor-pointer",
           )}
         >
           {integrationValue ? (
@@ -208,7 +212,11 @@ export function ActionPicker({
           >
             {displayLabel}
           </span>
-          <ChevronDown className={cn("h-4 w-4 text-zinc-400 shrink-0 transition-transform", open && "rotate-180")} />
+          {disabled ? (
+            <Lock className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+          ) : (
+            <ChevronDown className={cn("h-4 w-4 text-zinc-400 shrink-0 transition-transform", open && "rotate-180")} />
+          )}
         </button>
       </PopoverTrigger>
 

@@ -1,9 +1,9 @@
 /**
- * Agent Skill Service - Manages agent skills and skill-based tool access
+ * AI Skill Service - Manages AI skills for agents and chat contexts
  */
 
 import { prisma } from '@agentflox/database';
-import type { AgentSkill, SystemTool } from '@agentflox/database';
+import type { AiSkill, SystemTool } from '@agentflox/database';
 
 export class AgentSkillService {
     /**
@@ -11,7 +11,7 @@ export class AgentSkillService {
      */
     async assignSkillsToAgent(agentId: string, skillIds: string[]): Promise<void> {
         // Create agent-skill relationships
-        await prisma.agentToSkill.createMany({
+        await prisma.aiAgentToSkill.createMany({
             data: skillIds.map(skillId => ({
                 agentId,
                 skillId,
@@ -25,7 +25,7 @@ export class AgentSkillService {
      * Remove skills from an agent
      */
     async removeSkillsFromAgent(agentId: string, skillIds: string[]): Promise<void> {
-        await prisma.agentToSkill.deleteMany({
+        await prisma.aiAgentToSkill.deleteMany({
             where: {
                 agentId,
                 skillId: { in: skillIds },
@@ -37,7 +37,7 @@ export class AgentSkillService {
      * Enable/disable a skill for an agent
      */
     async toggleAgentSkill(agentId: string, skillId: string, isEnabled: boolean): Promise<void> {
-        await prisma.agentToSkill.updateMany({
+        await prisma.aiAgentToSkill.updateMany({
             where: { agentId, skillId },
             data: { isEnabled },
         });
@@ -46,8 +46,8 @@ export class AgentSkillService {
     /**
      * Get all skills assigned to an agent (enabled and disabled)
      */
-    async getAgentSkills(agentId: string): Promise<AgentSkill[]> {
-        const agentSkills = await prisma.agentToSkill.findMany({
+    async getAgentSkills(agentId: string): Promise<AiSkill[]> {
+        const agentSkills = await prisma.aiAgentToSkill.findMany({
             where: { agentId },
             include: {
                 skill: true,
@@ -60,8 +60,8 @@ export class AgentSkillService {
     /**
      * Get only enabled skills for an agent
      */
-    async getEnabledAgentSkills(agentId: string): Promise<AgentSkill[]> {
-        const agentSkills = await prisma.agentToSkill.findMany({
+    async getEnabledAgentSkills(agentId: string): Promise<AiSkill[]> {
+        const agentSkills = await prisma.aiAgentToSkill.findMany({
             where: {
                 agentId,
                 isEnabled: true,
@@ -75,82 +75,54 @@ export class AgentSkillService {
     }
 
     /**
-     * Get tools available to an agent based on their enabled skills
+     * Get tools available to an agent based on their assigned tools
      */
     async getAvailableTools(agentId: string): Promise<SystemTool[]> {
-        // Get agent's enabled skills AND explicitly allowlisted tools
-        const agent = await prisma.aiAgent.findUnique({
-            where: { id: agentId },
-            include: {
-                agentSkills: {
-                    where: { isEnabled: true },
-                    include: {
-                        skill: {
-                            include: {
-                                toolSkills: {
-                                    include: {
-                                        tool: true,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
-        if (!agent) return [];
-
-        // Collect unique tools from all skills
-        const toolSet = new Map<string, SystemTool>();
-
-        if (agent.agentSkills) {
-            for (const agentSkill of agent.agentSkills) {
-                for (const skillTool of agentSkill.skill.toolSkills) {
-                    if (!toolSet.has(skillTool.tool.id)) {
-                        toolSet.set(skillTool.tool.id, skillTool.tool);
-                    }
-                }
-            }
-        }
-
-        // Add explicitly assigned AgentTool records and default tools
+        // Fetch explicitly assigned AgentTool records
         const agentToolRecords = await prisma.agentTool.findMany({
             where: {
                 agentId,
                 isActive: true,
+                isEnabled: true,
             },
             select: { name: true },
         });
         const agentToolNames = agentToolRecords.map(t => t.name);
 
-        const explicitTools = await prisma.systemTool.findMany({
-            where: {
-                name: { in: agentToolNames }
-            }
-        });
-        for (const tool of explicitTools) {
-            if (!toolSet.has(tool.id)) {
-                toolSet.set(tool.id, tool);
-            }
+        if (agentToolNames.length === 0) {
+            return [];
         }
 
-        return Array.from(toolSet.values());
+        const explicitTools = await prisma.systemTool.findMany({
+            where: {
+                name: { in: agentToolNames },
+                isActive: true,
+            }
+        });
+
+        return explicitTools;
     }
 
     /**
      * Get tool names available to an agent (for LLM function calling)
      */
     async getAvailableToolNames(agentId: string): Promise<string[]> {
-        const tools = await this.getAvailableTools(agentId);
-        return tools.map(tool => tool.name);
+        const agentToolRecords = await prisma.agentTool.findMany({
+            where: {
+                agentId,
+                isActive: true,
+                isEnabled: true,
+            },
+            select: { name: true },
+        });
+        return agentToolRecords.map(t => t.name);
     }
 
     /**
      * Check if an agent has a specific skill
      */
     async hasSkill(agentId: string, skillName: string): Promise<boolean> {
-        const skillAssignment = await prisma.agentToSkill.findFirst({
+        const skillAssignment = await prisma.aiAgentToSkill.findFirst({
             where: {
                 agentId,
                 isEnabled: true,
@@ -167,7 +139,7 @@ export class AgentSkillService {
      * Get all agents with a specific skill
      */
     async getAgentsWithSkill(skillName: string): Promise<string[]> {
-        const agentSkills = await prisma.agentToSkill.findMany({
+        const agentSkills = await prisma.aiAgentToSkill.findMany({
             where: {
                 isEnabled: true,
                 skill: {

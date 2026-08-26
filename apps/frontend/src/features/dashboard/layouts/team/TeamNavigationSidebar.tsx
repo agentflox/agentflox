@@ -26,7 +26,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export type TeamView =
     | "overview"
     | "personal"
-    | "projects"
     | "lists"
     | "docs"
     | "chats"
@@ -50,7 +49,6 @@ const navigationItems: Array<{
 }> = [
         { id: "overview", label: "Overview", icon: LayoutDashboard },
         { id: "personal", label: "Personal", icon: User },
-        { id: "projects", label: "Projects", icon: FolderKanban },
         { id: "lists", label: "Lists", icon: List },
         { id: "docs", label: "Docs", icon: FileText },
         { id: "chats", label: "Chats", icon: MessageSquare },

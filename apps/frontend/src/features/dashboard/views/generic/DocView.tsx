@@ -45,7 +45,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import {
     Tooltip,
@@ -56,7 +56,7 @@ import {
 import { useRef } from "react";
 import { DynamicLucideIcon } from "@/lib/lucideIcon";
 import { getAgentMemoryTag, isPreferencesMemoryDoc } from "@/lib/agentMemory/memoryPolicy";
-import { parseDashboardState } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 
 import {
     DndContext,
@@ -134,7 +134,8 @@ interface DocViewProps {
 
 export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, workspaceId: workspaceIdProp, isMainSidebarCollapsed }: DocViewProps) {
     const params = useParams();
-    const searchParams = useSearchParams();
+    const router = useRouter();
+    const { searchParams, parsedState } = useDashboardState();
     const workspaceId = workspaceIdProp || (params?.workspaceId as string | undefined);
 
     // Derive scope from most-specific context available
@@ -354,7 +355,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
         nextParams.delete("dc");
         const qs = nextParams.toString();
         if (typeof history !== "undefined") {
-            history.replaceState(null, "", qs ? `${nextPath}?${qs}` : nextPath);
+            router.replace(qs ? `${nextPath}?${qs}` : nextPath, { scroll: false });
         }
     }, [searchParams]);
 
@@ -407,9 +408,7 @@ export function DocView({ listId, spaceId, projectId, viewId, teamId, folderId, 
         return checkChildren(actualPages);
     }, [selectedDocId, actualPages]);
 
-    const subpath = Array.isArray(params?.subpath) ? params.subpath : undefined;
-    const parsedDashboardState = useMemo(() => parseDashboardState(searchParams, subpath), [searchParams, subpath]);
-    const urlDocId = parsedDashboardState.docItemId || searchParams.get("dc") || searchParams.get("doc") || searchParams.get("page");
+    const urlDocId = parsedState.docItemId || searchParams.get("dc") || searchParams.get("doc") || searchParams.get("page");
 
     // Auto-select first doc or sync with URL
     useEffect(() => {

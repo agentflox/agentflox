@@ -10,16 +10,44 @@ type FilterState = {
 	status?: WorkspaceStatusFilter;
 };
 
+export interface UseWorkspaceListOptions {
+	initialScope?: WorkspaceScope;
+	initialPage?: number;
+	pageSize?: number;
+	includeCounts?: boolean;
+	syncWithUrl?: boolean;
+	initialFilters?: FilterState;
+}
+
 export function useWorkspaceList(
-	initialScope: WorkspaceScope = "owned",
-	options: { includeCounts?: boolean } = {}
+	initialScopeOrOptions: WorkspaceScope | UseWorkspaceListOptions = "owned",
+	legacyOptions: { includeCounts?: boolean } = {}
 ) {
-	const { includeCounts = true } = options;
-	const [page, setPage] = useState(1);
-	const pageSize = 12;
+	const options: UseWorkspaceListOptions =
+		typeof initialScopeOrOptions === "string"
+			? { initialScope: initialScopeOrOptions, ...legacyOptions }
+			: initialScopeOrOptions;
+
+	const {
+		initialScope = "owned",
+		initialPage = 1,
+		pageSize: initialPageSize = 12,
+		includeCounts = true,
+		syncWithUrl = true,
+		initialFilters = { status: "active" },
+	} = options;
+
+	const [page, setPage] = useState(initialPage);
+	const [pageSize, setPageSize] = useState(initialPageSize);
 	const [query, setQuery] = useState("");
 	const [scope, setScope] = useState<WorkspaceScope>(initialScope);
-	const [filters, setFilters] = useState<FilterState>({ status: "active" });
+	const [filters, setFilters] = useState<FilterState>(initialFilters);
+
+	useEffect(() => {
+		if (options.pageSize && options.pageSize !== pageSize) {
+			setPageSize(options.pageSize);
+		}
+	}, [options.pageSize]);
 
 	const listInput = useMemo(() => {
 		const trimmedQuery = query.trim();
@@ -45,10 +73,6 @@ export function useWorkspaceList(
 	const utils = trpc.useUtils();
 
 	useEffect(() => {
-		setPage(1);
-	}, [query, scope, filters.status]);
-
-	useEffect(() => {
 		const prefetchInput = { ...listInput, page: 1 };
 		utils.workspace.list.prefetch(prefetchInput);
 	}, [utils, listInput.query, listInput.scope, listInput.status]);
@@ -60,22 +84,31 @@ export function useWorkspaceList(
 	}, [utils, queryResult.data?.items?.length, pageSize, page, listInput]);
 
 	useEffect(() => {
-		const params = new URLSearchParams();
-		if (query) params.set("q", query);
-		if (scope) params.set("scope", scope);
-		if (filters.status) params.set("status", filters.status);
-		params.set("page", String(page));
+		if (!syncWithUrl) return;
+		const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+		if (query) params.set("q", query); else params.delete("q");
+		if (scope && scope !== "owned") params.set("scope", scope); else params.delete("scope");
+		if (filters.status) params.set("status", filters.status); else params.delete("status");
+		if (page > 1) params.set("page", String(page)); else params.delete("page");
+		if (pageSize !== 12) params.set("pageSize", String(pageSize)); else params.delete("pageSize");
 		if (typeof window !== "undefined") {
-			const url = `${window.location.pathname}?${params.toString()}`;
-			window.history.replaceState(null, "", url);
+			const search = params.toString();
+			const newUrl = search ? `${window.location.pathname}?${search}` : window.location.pathname;
+			window.history.replaceState(null, "", newUrl);
 		}
-	}, [query, scope, filters.status, page]);
+	}, [query, scope, filters.status, page, pageSize, syncWithUrl]);
+
+	const total = queryResult.data?.total ?? 0;
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	return {
 		...queryResult,
 		page,
 		pageSize,
 		setPage,
+		setPageSize,
+		totalPages,
+		total,
 		scope,
 		setScope,
 		query,

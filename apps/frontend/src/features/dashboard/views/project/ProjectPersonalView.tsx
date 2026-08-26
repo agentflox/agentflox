@@ -1,47 +1,86 @@
 "use client";
 
-import { useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
-import { Bell, Inbox, Activity, FileText, CheckSquare, MessageSquare, MessageCircle, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+    Bell, Inbox, Activity, FileText, CheckSquare, MessageCircle,
+    User, ChevronLeft, ChevronRight, ChevronDown,
+    Briefcase, UserCheck, ListTodo
+} from 'lucide-react';
 import { NotificationsView } from '@/features/dashboard/components/personal/NotificationsView';
 import { RequestsView } from '@/features/dashboard/components/personal/RequestsView';
 import { ActivitiesView } from '@/features/dashboard/components/personal/ActivitiesView';
 import { PostsView } from '@/features/dashboard/components/personal/PostsView';
-import { TasksView } from '@/features/dashboard/components/personal/TasksView';
-import { MessagesView } from '@/features/dashboard/components/personal/MessagesView';
+import { TasksView, type TaskSubView } from '@/features/dashboard/components/personal/TasksView';
 import { CommentsView } from '@/features/dashboard/components/personal/CommentsView';
+import { buildDashboardPath } from '@/features/dashboard/utils/dashboardUrl';
 
-type PersonalTab = 'notifications' | 'requests' | 'activities' | 'posts' | 'tasks' | 'messages' | 'comments';
+type PersonalTab = 'notifications' | 'requests' | 'activities' | 'posts' | 'tasks' | 'comments';
+
+const TASK_SUB_ITEMS: { value: TaskSubView; label: string; icon: React.ElementType }[] = [
+    { value: 'my-work', label: 'My Work', icon: Briefcase },
+    { value: 'assigned', label: 'Assigned to Me', icon: UserCheck },
+    { value: 'personal-list', label: 'Personal List', icon: ListTodo },
+];
+
+const NAV_ITEMS: { id: PersonalTab; label: string; icon: React.ElementType; description: string }[] = [
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare, description: 'Assigned to me & lists' },
+    { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Updates & alerts' },
+    { id: 'comments', label: 'Comments', icon: MessageCircle, description: 'Discussions & replies' },
+    { id: 'requests', label: 'Requests', icon: Inbox, description: 'Pending invitations' },
+    { id: 'activities', label: 'Activities', icon: Activity, description: 'Recent actions' },
+    { id: 'posts', label: 'Posts', icon: FileText, description: 'Your posts' },
+];
 
 interface ProjectPersonalViewProps {
     projectId: string;
     workspaceId: string;
+    personalTab?: string;
+    taskSubView?: string;
+    viewId?: string;
 }
 
-export default function ProjectPersonalView({ projectId, workspaceId }: ProjectPersonalViewProps) {
-    const searchParams = useSearchParams();
+export default function ProjectPersonalView({ projectId, workspaceId, personalTab, taskSubView, viewId }: ProjectPersonalViewProps) {
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(false);
-    const activeTab = (searchParams.get("ptab") as PersonalTab) || "tasks";
+    const [tasksExpanded, setTasksExpanded] = useState(true);
 
-    const navItems = [
-        { id: 'tasks', label: 'Tasks', icon: CheckSquare, description: 'Assigned to me & lists' },
-        { id: 'notifications', label: 'Notifications', icon: Bell, description: 'Updates & alerts' },
-        { id: 'messages', label: 'Messages', icon: MessageSquare, description: 'Direct messages' },
-        { id: 'comments', label: 'Comments', icon: MessageCircle, description: 'Discussions & replies' },
-        { id: 'requests', label: 'Requests', icon: Inbox, description: 'Pending invitatons' },
-        { id: 'activities', label: 'Activities', icon: Activity, description: 'Recent actions' },
-        { id: 'posts', label: 'Posts', icon: FileText, description: 'Your posts' },
-    ] as const;
+    const activeTab: PersonalTab = (personalTab as PersonalTab) || "tasks";
+    const activeTaskSub: TaskSubView = (taskSubView as TaskSubView) || "my-work";
+
+    const basePath = `/projects/${projectId}`;
+
+    useEffect(() => {
+        if (!personalTab) {
+            router.replace(buildDashboardPath({
+                basePath,
+                tab: "personal",
+                personalTab: "tasks",
+                taskSubView: "my-work",
+            }), { scroll: false });
+        } else if (personalTab === "tasks" && !taskSubView) {
+            router.replace(buildDashboardPath({
+                basePath,
+                tab: "personal",
+                personalTab: "tasks",
+                taskSubView: "my-work",
+            }), { scroll: false });
+        }
+    }, [personalTab, taskSubView, basePath]);
 
     const handleTabChange = (tab: PersonalTab) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("ptab", tab);
-        router.push(`?${params.toString()}`, { scroll: false });
+        if (tab === "tasks") {
+            router.push(buildDashboardPath({ basePath, tab: "personal", personalTab: "tasks", taskSubView: activeTaskSub }), { scroll: false });
+        } else {
+            router.push(buildDashboardPath({ basePath, tab: "personal", personalTab: tab }), { scroll: false });
+        }
+    };
+
+    const handleTaskSubViewChange = (subView: TaskSubView) => {
+        router.push(buildDashboardPath({ basePath, tab: "personal", personalTab: "tasks", taskSubView: subView }), { scroll: false });
     };
 
     const renderContent = () => {
@@ -51,16 +90,14 @@ export default function ProjectPersonalView({ projectId, workspaceId }: ProjectP
             case 'requests': return <RequestsView {...props} />;
             case 'activities': return <ActivitiesView {...props} />;
             case 'posts': return <PostsView {...props} />;
-            case 'tasks': return <TasksView {...props} />;
-            case 'messages': return <MessagesView {...props} />;
+            case 'tasks': return <TasksView subView={activeTaskSub} {...props} />;
             case 'comments': return <CommentsView {...props} />;
-            default: return <TasksView {...props} />;
+            default: return <TasksView subView={activeTaskSub} {...props} />;
         }
     };
 
     return (
         <div className="flex h-full w-full bg-zinc-50/50">
-            {/* Inner Sidebar for Personal View */}
             <aside
                 className={cn(
                     "flex-shrink-0 flex flex-col bg-white border-r border-zinc-200 h-full transition-all duration-300 ease-in-out",
@@ -91,68 +128,142 @@ export default function ProjectPersonalView({ projectId, workspaceId }: ProjectP
 
                 <TooltipProvider delayDuration={0}>
                     <ScrollArea className="flex-1 py-4">
-                        <div className="px-2 space-y-1">
-                            {navItems.map((item) => {
+                        <div className="px-2 space-y-0.5">
+                            {NAV_ITEMS.map((item) => {
                                 const Icon = item.icon;
                                 const isActive = activeTab === item.id;
+                                const isTasksItem = item.id === 'tasks';
 
                                 const buttonContent = (
                                     <button
                                         type="button"
-                                        onClick={() => handleTabChange(item.id as PersonalTab)}
+                                        onClick={() => {
+                                            if (isTasksItem) {
+                                                setTasksExpanded(!tasksExpanded);
+                                                if (!isActive) handleTabChange('tasks');
+                                            } else {
+                                                handleTabChange(item.id);
+                                            }
+                                        }}
                                         className={cn(
-                                            "w-full flex items-center gap-3 rounded-lg text-sm font-medium transition-colors mb-1 text-left cursor-pointer",
-                                            collapsed ? "justify-center px-2 py-2.5" : "px-3 py-2.5",
+                                            "group flex w-full items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-all duration-200 outline-none cursor-pointer",
                                             isActive
-                                                ? "bg-indigo-50 text-indigo-700"
-                                                : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                                                ? "bg-primary/10 text-primary"
+                                                : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+                                            collapsed && "flex-col justify-center gap-1.5 px-1 py-2.5 text-[10px] leading-tight"
                                         )}
+                                        title={collapsed ? item.label : undefined}
                                     >
-                                        <Icon className={cn("h-5 w-5 shrink-0", isActive ? "text-indigo-600" : "text-zinc-400 group-hover:text-zinc-600")} />
+                                        <Icon size={18} className={cn("shrink-0", isActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-900")} />
                                         {!collapsed && (
-                                            <div className="flex flex-col items-start overflow-hidden">
-                                                <span className="truncate w-full">{item.label}</span>
-                                                {isActive && <span className="text-[10px] text-indigo-500/80 font-normal truncate w-full text-left">{item.description}</span>}
-                                            </div>
+                                            <>
+                                                <span className="flex-1 text-left">{item.label}</span>
+                                                {isTasksItem && (
+                                                    <ChevronDown
+                                                        size={14}
+                                                        className={cn("text-zinc-400 transition-transform duration-200", tasksExpanded && "rotate-180")}
+                                                    />
+                                                )}
+                                            </>
                                         )}
+                                        {collapsed && <span className="text-center max-w-[52px] truncate">{item.label}</span>}
                                     </button>
                                 );
 
                                 if (collapsed) {
                                     return (
-                                        <Tooltip key={item.id}>
-                                            <TooltipTrigger asChild>
-                                                {buttonContent}
-                                            </TooltipTrigger>
-                                            <TooltipContent side="right">
-                                                <div className="text-xs">
-                                                    <div className="font-semibold">{item.label}</div>
-                                                    <div className="text-muted-foreground text-[10px]">{item.description}</div>
-                                                </div>
-                                            </TooltipContent>
-                                        </Tooltip>
+                                        <div key={item.id}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    {buttonContent}
+                                                </TooltipTrigger>
+                                                <TooltipContent side="right">
+                                                    <div className="text-xs">
+                                                        <div className="font-semibold">{item.label}</div>
+                                                        <div className="text-muted-foreground text-[10px]">{item.description}</div>
+                                                    </div>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </div>
                                     );
                                 }
 
-                                return <div key={item.id}>{buttonContent}</div>;
+                                return (
+                                    <div key={item.id}>
+                                        {buttonContent}
+                                        {isTasksItem && activeTab === 'tasks' && tasksExpanded && !collapsed && (
+                                            <div className="ml-2 mt-0.5 space-y-0.5 border-l border-zinc-200 pl-3">
+                                                {TASK_SUB_ITEMS.map((sub) => {
+                                                    const SubIcon = sub.icon;
+                                                    const isSubActive = activeTab === 'tasks' && activeTaskSub === sub.value;
+                                                    return (
+                                                        <button
+                                                            key={sub.value}
+                                                            onClick={() => handleTaskSubViewChange(sub.value)}
+                                                            className={cn(
+                                                                "group flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-all duration-200 cursor-pointer",
+                                                                isSubActive
+                                                                    ? "bg-primary/10 text-primary font-medium"
+                                                                    : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 font-normal"
+                                                            )}
+                                                        >
+                                                            <SubIcon size={15} className={cn("shrink-0", isSubActive ? "text-primary" : "text-zinc-400 group-hover:text-zinc-700")} />
+                                                            <span>{sub.label}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
                             })}
                         </div>
                     </ScrollArea>
                 </TooltipProvider>
             </aside>
 
-            {/* Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 bg-zinc-50">
+            <div className="flex-1 flex flex-col min-w-0 bg-white">
                 <header className="h-14 border-b border-zinc-200 flex items-center px-6 bg-white sticky top-0 z-10">
-                    <h2 className="text-lg font-semibold text-zinc-900 capitalize">
-                        {navItems.find(i => i.id === activeTab)?.label || activeTab}
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        {(() => {
+                            const navItem = NAV_ITEMS.find(n => n.id === activeTab);
+                            const Icon = navItem?.icon ?? User;
+                            const isTasks = activeTab === 'tasks';
+                            return (
+                                <>
+                                    <div className="flex items-center gap-2 text-zinc-400">
+                                        <Icon size={18} />
+                                        <span className={cn("text-base font-medium", !isTasks && "text-zinc-900 font-semibold")}>
+                                            {navItem?.label ?? activeTab}
+                                        </span>
+                                    </div>
+                                    {isTasks && (
+                                        <>
+                                            <ChevronRight size={16} className="text-zinc-300" />
+                                            <h2 className="text-base font-semibold text-zinc-900">
+                                                {TASK_SUB_ITEMS.find(s => s.value === activeTaskSub)?.label ?? 'My Work'}
+                                            </h2>
+                                        </>
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </div>
                 </header>
-                <div className="flex-1 overflow-auto p-6">
-                    {renderContent()}
+                <div className="flex-1 min-h-0 relative">
+                    {activeTab === 'tasks' ? (
+                        <div className="absolute inset-0 overflow-hidden">
+                            {renderContent()}
+                        </div>
+                    ) : (
+                        <ScrollArea className="h-full">
+                            <main className="p-6">
+                                {renderContent()}
+                            </main>
+                        </ScrollArea>
+                    )}
                 </div>
             </div>
         </div>
     );
 }
-

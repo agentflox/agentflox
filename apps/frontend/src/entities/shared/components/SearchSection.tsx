@@ -6,15 +6,18 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface SearchSectionProps {
-  searchValue: string;
+  searchValue?: string;
+  query?: string;
   searchPlaceholder?: string;
+  placeholder?: string;
   resultsCount?: number;
   sortBy?: string;
   sortOptions?: Array<{ value: string; label: string }>;
-  onSearchChange: (value: string) => void;
-  onSearchSubmit: () => void;
+  onSearchChange?: (value: string) => void;
+  onQueryChange?: (value: string) => void;
+  onSearchSubmit?: () => void;
   onSortChange?: (value: string) => void;
-  onCreateNew: () => void;
+  onCreateNew?: () => void;
   onFilterToggle?: () => void;
   createButtonText?: string;
   showFilters?: boolean;
@@ -26,7 +29,9 @@ interface SearchSectionProps {
 
 export const SearchSection: React.FC<SearchSectionProps> = ({
   searchValue,
-  searchPlaceholder = "Search...",
+  query,
+  searchPlaceholder,
+  placeholder,
   resultsCount = 0,
   sortBy,
   sortOptions = [
@@ -35,6 +40,7 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
     { value: "oldest", label: "Oldest First" },
   ],
   onSearchChange,
+  onQueryChange,
   onSearchSubmit,
   onSortChange,
   onCreateNew,
@@ -46,6 +52,11 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
   onViewModeChange,
   children,
 }) => {
+  const currentSearchValue = searchValue ?? query ?? "";
+  const currentPlaceholder = searchPlaceholder ?? placeholder ?? "Search...";
+  const handleSearchChange = onSearchChange ?? onQueryChange ?? (() => {});
+  const handleSearchSubmit = onSearchSubmit ?? (() => {});
+
   return (
     <div className="pt-4 pb-1">
       <div className="flex flex-col gap-3">
@@ -56,10 +67,10 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
               <Search className="h-4 w-4 shrink-0 text-zinc-400 transition-colors focus-within:text-zinc-600" />
               <Input
                 variant="ghost"
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && onSearchSubmit()}
-                placeholder={searchPlaceholder}
+                value={currentSearchValue}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit()}
+                placeholder={currentPlaceholder}
                 className="h-full bg-transparent pl-2 pr-0 focus:outline-none focus:ring-0 focus-visible:ring-0"
               />
             </div>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -11,6 +10,8 @@ import {
     ChevronsLeft,
     ChevronsRight,
     X,
+    LayoutGrid,
+    MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,9 +19,18 @@ import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import DashboardProjectView from "@/features/dashboard/views/generic/DashboardProjectView";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
-import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
-import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
+import { ProjectSidebarItem } from "@/features/dashboard/components/sidebar/ProjectSidebarItem";
+import { SharedManageProjectsView } from "@/features/dashboard/views/shared/SharedManageProjectsView";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 
 interface TeamProjectViewProps {
     teamId: string;
@@ -40,7 +50,7 @@ export default function TeamProjectView({
     onTaskSelect,
 }: TeamProjectViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
 
     // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -48,8 +58,9 @@ export default function TeamProjectView({
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, setDebouncedQuery] = useState("");
 
-    // Modal States
+    // Modal / view states
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+    const [isManageView, setIsManageView] = useState(false);
 
     // Debounce search
     useEffect(() => {
@@ -58,15 +69,15 @@ export default function TeamProjectView({
     }, [searchQuery]);
 
     // URL-derived active items
-    const activeProjectId = searchParams.get("pj") || selectedProjectId || null;
+    const activeProjectId = !isManageView ? (selectedProjectId || parsedState.projectId || null) : null;
 
     // Fetch team to get spaceId
     const { data: teamData } = trpc.team.get.useQuery({ id: teamId }, { enabled: !!teamId });
 
     // Fetch projects scoped to this team
     const { data: projectsData, isLoading: isLoadingProjects, refetch: refetchProjects } = trpc.project.list.useQuery(
-        { workspaceId, teamId, scope: "owned", pageSize: 50 } as any,
-        { enabled: !!(workspaceId && teamId) }
+        { workspaceId, teamId, scope: "all", pageSize: 50 } as any,
+        { enabled: !!(workspaceId || teamId), staleTime: 60_000, gcTime: 5 * 60_000 }
     );
     const projectsRaw = projectsData?.items ?? [];
 
@@ -78,8 +89,11 @@ export default function TeamProjectView({
 
     // --- Handlers ---
     const handleProjectClick = useCallback((projectId: string) => {
+        setIsManageView(false);
         if (onProjectSelect) {
             onProjectSelect(projectId);
+        } else if (teamId) {
+            router.push(buildDashboardPath({ basePath: `/teams/${teamId}`, type: "pj", id: projectId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "projects",
@@ -89,17 +103,20 @@ export default function TeamProjectView({
             });
             router.push(`?${clean.toString()}`, { scroll: false });
         }
-    }, [searchParams, router, onProjectSelect]);
+    }, [searchParams, router, onProjectSelect, teamId]);
 
     // Auto-select first project when no selection exists
     useEffect(() => {
-        if (!activeProjectId && projectsRaw.length > 0) {
+        if (!activeProjectId && !isManageView && projectsRaw.length > 0) {
             handleProjectClick(projectsRaw[0].id);
         }
-    }, [projectsRaw, activeProjectId]);
+    }, [projectsRaw, activeProjectId, isManageView]);
 
     // Render main content
     const renderMainContent = () => {
+        if (isManageView) {
+            return <SharedManageProjectsView workspaceId={workspaceId} teamId={teamId} onProjectCreated={handleProjectClick} />;
+        }
         if (activeProjectId) {
             return (
                 <div className={cn("flex-1 overflow-hidden bg-zinc-50 h-full", isSidebarCollapsed && "[&_[role=tablist]]:pl-6")}>
@@ -173,8 +190,26 @@ export default function TeamProjectView({
                                 </div>
                             ) : (
                                 <div className="flex items-center justify-between px-4 h-full">
-                                    <h2 className="text-sm font-semibold text-foreground">Projects</h2>
+                                    <h2 className={cn("text-sm font-semibold", isManageView ? "text-indigo-600" : "text-foreground")}>
+                                        {isManageView ? "Manage Projects" : "Projects"}
+                                    </h2>
                                     <div className="flex items-center gap-1">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="More options">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48">
+                                                <DropdownMenuItem onClick={() => setIsProjectModalOpen(true)}>
+                                                    <Plus className="mr-2 h-4 w-4" />Create Project
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => setIsManageView(true)}>
+                                                    <LayoutGrid className="mr-2 h-4 w-4" />Manage Projects
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
@@ -252,48 +287,16 @@ export default function TeamProjectView({
                             ) : (
                                 <div className="space-y-1">
                                     {projects.map((project: any) => {
-                                        const isProjectActive = activeProjectId === project.id;
+                                        const isProjectActive = !isManageView && activeProjectId === project.id;
 
                                         return (
-                                            <div key={project.id} className="relative select-none">
-                                                {/* Project Row */}
-                                                <div
-                                                    className={cn(
-                                                        "group/project flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors cursor-pointer",
-                                                        "hover:bg-slate-50",
-                                                        isProjectActive && "bg-slate-100"
-                                                    )}
-                                                    onClick={() => handleProjectClick(project.id)}
-                                                >
-                                                    <span
-                                                        className="h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center ml-0.5"
-                                                        style={{ backgroundColor: project.icon ? (project.color || "#6366f1") : "transparent" }}
-                                                    >
-                                                        <ProjectIcon
-                                                            icon={project.icon}
-                                                            className={cn(project.icon ? "text-white" : isProjectActive ? "text-indigo-500" : "text-indigo-500/80")}
-                                                            size={14}
-                                                            fill
-                                                        />
-                                                    </span>
-                                                    <span className={cn(
-                                                        "flex-1 truncate text-sm",
-                                                        isProjectActive ? "font-normal text-foreground" : "text-zinc-600 group-hover/project:text-foreground"
-                                                    )}>
-                                                        {project.name}
-                                                    </span>
-
-                                                    <div
-                                                        className="opacity-0 group-hover/project:opacity-100 transition-opacity flex items-center gap-0.5"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <ProjectActionsMenu
-                                                            workspaceId={workspaceId}
-                                                            projectId={project.id}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <ProjectSidebarItem
+                                                key={project.id}
+                                                workspaceId={workspaceId}
+                                                project={project}
+                                                isActive={isProjectActive}
+                                                onSelectProject={handleProjectClick}
+                                            />
                                         );
                                     })}
                                 </div>
@@ -307,15 +310,21 @@ export default function TeamProjectView({
             <div className="flex-1 overflow-hidden relative flex flex-col">
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-3 z-30">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                            onClick={() => setIsSidebarCollapsed(false)}
-                            title="Expand Sidebar"
-                        >
-                            <ChevronsRight className="h-4 w-4 text-muted-foreground" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                >
+                                    <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Expand Sidebar</p>
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                 )}
                 <div className="flex-1 overflow-hidden">

@@ -1,11 +1,18 @@
+import { AiSkillContent } from './skillSchema';
+
+export type { AiSkillContent, AgentSkillContent, SkillWorkflowStep } from './skillSchema';
+export { AiSkillContentSchema, AgentSkillContentSchema, SkillWorkflowStepSchema, TASK_CLEANUP_SKILL_EXAMPLE } from './skillSchema';
+
 export interface SkillDefinition {
     name: string;
     displayName: string;
     description: string;
-    category: 'creative' | 'technical' | 'automation' | 'business';
+    category: 'creative' | 'technical' | 'automation' | 'business' | string;
     icon?: string;
+    schema?: AiSkillContent | Record<string, any>; // Follows the AiSkill.schema JSON shape
+    metadata?: Record<string, any>;
+    tags?: string[];
     isBuiltIn: boolean;
-    tools?: string[]; // Native tool binding to this skill
 }
 
 export class SkillRegistryManager {

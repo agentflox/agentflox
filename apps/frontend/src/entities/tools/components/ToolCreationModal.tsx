@@ -72,7 +72,7 @@ export function ToolCreationModal({ open, onOpenChange, onCreated }: ToolCreatio
       });
       onOpenChange(false);
       onCreated?.(data.id);
-      router.push(`/dashboard/tools/build/flow/${data.id}`);
+      router.push(`/tools/flow/${data.id}`);
     },
     onError: (error) => {
       toast({
@@ -86,7 +86,7 @@ export function ToolCreationModal({ open, onOpenChange, onCreated }: ToolCreatio
   const handleSelect = (mode: ToolCreationMode) => {
     if (mode === "AI") {
       onOpenChange(false);
-      router.push("/dashboard/tools/build/ai");
+      router.push("/tools/new");
     } else if (mode === "FLOW") {
       const defaultName = "Untitled";
 

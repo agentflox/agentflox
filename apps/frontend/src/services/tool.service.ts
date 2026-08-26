@@ -23,6 +23,10 @@ export const toolService = {
         conversationId: string;
         toolId: string;
         message: string;
+        contexts?: Array<{ type: string; id: string }>;
+        mentions?: Array<{ id: string; name: string; type: string }>;
+        attachments?: Array<{ type: string; filename: string; content?: string }>;
+        modelId?: string | null;
       }, session?: any) =>
         sendBackendRequest(`/v1/tools/${data.toolId}/builder/message`, {
           method: 'POST',

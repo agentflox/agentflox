@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
-import { Loader2, MoveRight, ChevronDown, Search, Building, Check } from "lucide-react";
+import { Loader2, MoveRight, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DestinationTreeRow } from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 interface SpaceMoveToModalProps {
     spaceId: string;
@@ -100,23 +101,14 @@ export function SpaceMoveToModal({ spaceId, spaceName, open, onOpenChange, onSuc
                                 </div>
                                 <div className="overflow-y-auto flex-1 py-1 max-h-[320px] px-1">
                                     {workspaces.filter((w: any) => !destinationSearch.trim() || w.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((workspace: any) => (
-                                        <button
+                                        <DestinationTreeRow
                                             key={workspace.id}
-                                            type="button"
+                                            selected={destinationKey === workspace.id}
+                                            kind="workspace"
+                                            entity={workspace}
+                                            label={workspace.name}
                                             onClick={() => { setDestinationKey(workspace.id); setDestinationOpen(false); }}
-                                            className={cn(
-                                                "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                                destinationKey === workspace.id ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                                            )}
-                                        >
-                                            <div className="flex items-center gap-2 truncate">
-                                                <div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 flex items-center justify-center shrink-0">
-                                                    <Building className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
-                                                </div>
-                                                <span className="truncate">{workspace.name}</span>
-                                            </div>
-                                            {destinationKey === workspace.id && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                        </button>
+                                        />
                                     ))}
                                 </div>
                             </PopoverContent>

@@ -53,7 +53,6 @@ export interface UserContext {
     id: string;
     name: string;
     description: string;
-    tools: string[];
   }>;
   connectedIntegrations: string[];
   existingAgents: Array<{
@@ -919,7 +918,6 @@ export class AgentBuilderContextService {
       id: skill.id,
       name: skill.name,
       description: skill.description || '',
-      tools: skill.tools
     }));
   }
 

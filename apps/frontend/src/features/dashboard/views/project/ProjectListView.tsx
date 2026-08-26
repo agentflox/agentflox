@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams, parseDashboardState, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Plus, Play, List as ListIcon, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Folder, CheckSquare, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ interface ProjectListViewProps {
 
 export default function ProjectListView({ projectId, workspaceId, selectedListId, onListSelect, selectedTaskIdFromParent, onTaskSelect }: ProjectListViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
 
     // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -68,9 +69,8 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
     const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
     const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
     const [targetFolderId, setTargetFolderId] = useState<string | undefined>(undefined);
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
 
-    const basePath = projectId ? `/dashboard/projects/${projectId}` : (workspaceId ? `/dashboard/workspaces/${workspaceId}` : null);
+    const basePath = projectId ? `/projects/${projectId}` : (workspaceId ? `/workspaces/${workspaceId}` : null);
 
     const handleFolderClick = (folderId: string) => {
         if (basePath) {
@@ -140,14 +140,14 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
         // Only auto-select if neither list nor folder is selected and we have lists
         if (!hasListParam && !hasFolderParam && lists.length > 0) {
             if (basePath) {
-                history.replaceState(null, "", buildDashboardPath({ basePath, type: "lt", id: lists[0].id }));
+                router.replace(buildDashboardPath({ basePath, type: "lt", id: lists[0].id }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "lists",
                     entityKey: "list",
                     entityId: lists[0].id,
                 });
-                history.replaceState(null, "", `?${clean.toString()}`);
+                router.replace(`?${clean.toString()}`, { scroll: false });
             }
         }
     }, [parsedState, lists, basePath]);
@@ -365,19 +365,18 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                             <DropdownMenuContent align="end" className="w-48">
                                                 <DropdownMenuItem onClick={() => {
                                                     setTargetFolderId(activeFolderId || undefined);
-                                                    setIsListModalOpen(true);
-                                                }}>
-                                                    <ListIcon className="mr-2 h-4 w-4" />
-                                                    List
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => {
-                                                    setTargetFolderId(activeFolderId || undefined);
                                                     setIsFolderModalOpen(true);
                                                 }}>
                                                     <Folder className="mr-2 h-4 w-4" />
                                                     Folder
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => {
+                                                    setTargetFolderId(activeFolderId || undefined);
+                                                    setIsListModalOpen(true);
+                                                }}>
+                                                    <ListIcon className="mr-2 h-4 w-4" />
+                                                    List
+                                                </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => {
                                                     setDocTargetListId(undefined);
                                                     setDocTargetFolderId(activeFolderId || undefined);
@@ -529,10 +528,6 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                                 <DropdownMenuContent align="end" className="w-48">
-                                                                    <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
-                                                                        <ListIcon className="mr-2 h-4 w-4" />
-                                                                        List
-                                                                    </DropdownMenuItem>
                                                                     <DropdownMenuItem onClick={() => {
                                                                         setTargetFolderId(item.id);
                                                                         setIsFolderModalOpen(true);
@@ -540,7 +535,10 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                                         <Folder className="mr-2 h-4 w-4" />
                                                                         Folder
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem onClick={() => handleOpenCreateListInFolder(item.id)}>
+                                                                        <ListIcon className="mr-2 h-4 w-4" />
+                                                                        List
+                                                                    </DropdownMenuItem>
                                                                     <DropdownMenuItem onClick={() => {
                                                                         setDocTargetListId(undefined);
                                                                         setDocTargetFolderId(item.id);
@@ -651,7 +649,6 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                                                             <ListIcon className="mr-2 h-4 w-4" />
                                                                                             List
                                                                                         </DropdownMenuItem>
-                                                                                        <DropdownMenuSeparator />
                                                                                         <DropdownMenuItem onClick={() => {
                                                                                             setDocTargetListId(list.id);
                                                                                             setDocTargetFolderId(undefined);
@@ -787,7 +784,6 @@ export default function ProjectListView({ projectId, workspaceId, selectedListId
                                                                         <ListIcon className="mr-2 h-4 w-4" />
                                                                         List
                                                                     </DropdownMenuItem>
-                                                                    <DropdownMenuSeparator />
                                                                     <DropdownMenuItem onClick={() => {
                                                                         setDocTargetListId(list.id);
                                                                         setDocTargetFolderId(undefined);

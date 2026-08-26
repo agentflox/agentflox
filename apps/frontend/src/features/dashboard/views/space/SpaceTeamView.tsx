@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Plus, ChevronRight, Users, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Settings, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,9 @@ import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
 import { TeamImportModal } from "@/entities/teams/components/TeamImportModal";
-import { TeamActionsMenu } from "@/features/dashboard/components/sidebar/TeamActionsMenu";
-import { TeamIcon } from "@/entities/teams/components/TeamIcon";
+import { TeamSidebarItem } from "@/features/dashboard/components/sidebar/TeamSidebarItem";
 import DashboardTeamView from "@/features/dashboard/views/generic/DashboardTeamView";
 import { SharedManageTeamsView } from "@/features/dashboard/views/shared/SharedManageTeamsView";
-
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -24,6 +22,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 
 interface SpaceTeamViewProps {
     spaceId: string;
@@ -41,7 +40,7 @@ function formatNumber(value: number | null | undefined) {
 
 export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, onTeamSelect }: SpaceTeamViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [isManageView, setIsManageView] = useState(false);
@@ -60,15 +59,15 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const activeTeamId = !isManageView ? selectedTeamId : undefined;
+    const activeTeamId = !isManageView ? (selectedTeamId || parsedState.teamId) : undefined;
 
     // Fetch teams list for this space
     const { data: teamsData, isLoading: isLoadingList, refetch: refetchList } = trpc.team.list.useQuery({
         workspaceId,
         spaceId,
-        scope: "owned",
+        scope: "all",
         pageSize: 50
-    }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    }, { enabled: !!(spaceId || workspaceId), staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const teamsRaw = teamsData?.items ?? [];
 
@@ -263,42 +262,14 @@ export default function SpaceTeamView({ spaceId, workspaceId, selectedTeamId, on
                                     {teams.map((team) => {
                                         const isActive = !isManageView && activeTeamId === team.id;
                                         return (
-                                            <div
+                                            <TeamSidebarItem
                                                 key={team.id}
-                                                className={cn(
-                                                    "group/team flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors cursor-pointer",
-                                                    "hover:bg-slate-50",
-                                                    isActive && "bg-slate-100"
-                                                )}
-                                                onClick={() => handleTeamClick(team.id)}
-                                            >
-                                                <span
-                                                    className="h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center ml-0.5"
-                                                    style={{ backgroundColor: team.icon ? (team.color || "#8b5cf6") : "transparent" }}
-                                                >
-                                                    <TeamIcon
-                                                        icon={team.icon}
-                                                        className={cn(team.icon ? "text-white" : isActive ? "text-violet-500" : "text-violet-500/80")}
-                                                        size={14}
-                                                        fill
-                                                    />
-                                                </span>
-                                                <span className={cn(
-                                                    "flex-1 truncate text-sm",
-                                                    isActive ? "font-normal text-foreground" : "text-zinc-600 group-hover/team:text-foreground"
-                                                )}>
-                                                    {team.name}
-                                                </span>
-                                                <div
-                                                    className="opacity-0 group-hover/team:opacity-100 transition-opacity flex items-center gap-0.5"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <TeamActionsMenu
-                                                        workspaceId={workspaceId}
-                                                        teamId={team.id}
-                                                    />
-                                                </div>
-                                            </div>
+                                                workspaceId={workspaceId}
+                                                team={team}
+                                                isActive={isActive}
+                                                onSelectTeam={handleTeamClick}
+                                                spaceId={spaceId}
+                                            />
                                         );
                                     })}
                                 </div>

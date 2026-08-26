@@ -23,7 +23,10 @@ import { FolderIcon as FolderEntityIcon } from "@/entities/folders/components/Fo
 import { ListCreationModal } from "@/entities/lists/components/ListCreationModal";
 import { FolderCreationModal } from "@/entities/folders/components/FolderCreationModal";
 import { ProjectCreationModal } from "@/entities/projects/components/ProjectCreationModal";
+import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
 import { DocumentCreationModal } from "@/entities/documents/components/DocumentCreationModal";
+import { ProjectSidebarItem } from "@/features/dashboard/components/sidebar/ProjectSidebarItem";
+import { TeamSidebarItem } from "@/features/dashboard/components/sidebar/TeamSidebarItem";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -76,6 +79,7 @@ export function SpaceSidebarItem({
 
     // Modals state
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+    const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
     const [isListModalOpen, setIsListModalOpen] = useState(false);
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [isDocModalOpen, setIsDocModalOpen] = useState(false);
@@ -260,21 +264,18 @@ export function SpaceSidebarItem({
                                     </DropdownMenuTrigger>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                    <p>Create Projects, Lists, Folders, Docs and more</p>
+                                    <p>Create Teams, Projects, Lists, Folders, Docs and more</p>
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
                         <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => setIsTeamModalOpen(true)}>
+                                <Users className="mr-2 h-4 w-4" />
+                                Team
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setIsProjectModalOpen(true)}>
                                 <Briefcase className="mr-2 h-4 w-4" />
                                 Project
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                                setTargetFolderId(undefined);
-                                setIsListModalOpen(true);
-                            }}>
-                                <ListIcon className="mr-2 h-4 w-4" />
-                                List
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                                 setTargetFolderId(undefined);
@@ -283,7 +284,13 @@ export function SpaceSidebarItem({
                                 <FolderIcon className="mr-2 h-4 w-4" />
                                 Folder
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => {
+                                setTargetFolderId(undefined);
+                                setIsListModalOpen(true);
+                            }}>
+                                <ListIcon className="mr-2 h-4 w-4" />
+                                List
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                                 setTargetDocFolderId(undefined);
                                 setTargetDocListId(undefined);
@@ -302,22 +309,17 @@ export function SpaceSidebarItem({
                 <div className="ml-[1.125rem] pl-2 border-l border-slate-200 mt-1 space-y-1">
                     {/* Direct Projects */}
                     {projects.map((project: any) => (
-                        <div key={project.id} className="relative select-none">
-                            <div
-                                className="group/project flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-purple-50 text-sm cursor-pointer"
-                                onClick={() => handleItemClick("project", project.id)}
-                            >
-                                <div className="h-5 w-5 rounded shrink-0 flex items-center justify-center">
-                                    <Briefcase className="h-3.5 w-3.5 text-purple-600 shrink-0" />
-                                </div>
-                                <span className="flex-1 truncate text-xs text-slate-700 group-hover/project:text-purple-800">
-                                    {project.name}
-                                </span>
-                                <span className="text-[10px] text-purple-600 font-medium px-1.5 py-0.5 bg-purple-100/80 rounded">
-                                    Project
-                                </span>
-                            </div>
-                        </div>
+                        <ProjectSidebarItem
+                            key={project.id}
+                            workspaceId={workspaceId}
+                            project={project}
+                            isActive={false}
+                            onSelectProject={(id) => handleItemClick("project", id)}
+                            onSelectList={onSelectList}
+                            onSelectFolder={onSelectFolder}
+                            onSelectDoc={onSelectDoc}
+                            onSelectTeam={onSelectTeam}
+                        />
                     ))}
 
                     {/* Direct Folders */}
@@ -501,27 +503,33 @@ export function SpaceSidebarItem({
 
                     {/* Direct Teams */}
                     {teams.map((team: any) => (
-                        <div key={team.id} className="relative select-none">
-                            <div
-                                className="group/team flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-emerald-50 text-sm cursor-pointer"
-                                onClick={() => handleItemClick("team", team.id)}
-                            >
-                                <div className="h-5 w-5 rounded shrink-0 flex items-center justify-center">
-                                    <Users className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                </div>
-                                <span className="flex-1 truncate text-xs text-slate-700 group-hover/team:text-emerald-800">
-                                    {team.name}
-                                </span>
-                                <span className="text-[10px] text-emerald-600 font-medium px-1.5 py-0.5 bg-emerald-100/80 rounded">
-                                    Team
-                                </span>
-                            </div>
-                        </div>
+                        <TeamSidebarItem
+                            key={team.id}
+                            workspaceId={workspaceId}
+                            team={team}
+                            isActive={false}
+                            onSelectTeam={(id) => handleItemClick("team", id)}
+                            onSelectList={onSelectList}
+                            onSelectFolder={onSelectFolder}
+                            onSelectDoc={onSelectDoc}
+                            onSelectProject={onSelectProject}
+                            spaceId={space.id}
+                        />
                     ))}
                 </div>
             )}
 
             {/* Modals */}
+            <TeamCreationModal
+                open={isTeamModalOpen}
+                onOpenChange={setIsTeamModalOpen}
+                workspaceId={workspaceId}
+                defaultSpaceId={space.id}
+                onCreated={() => {
+                    utils.team.list.invalidate();
+                }}
+            />
+
             <ProjectCreationModal
                 open={isProjectModalOpen}
                 onOpenChange={setIsProjectModalOpen}

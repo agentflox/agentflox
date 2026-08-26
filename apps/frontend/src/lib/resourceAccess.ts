@@ -60,6 +60,7 @@ export async function assertChannelAccess(userId: string, channelId: string): Pr
   });
   if (!channel) forbidden('Channel not found');
   if (channel.type === 'PUBLIC') {
+    if (!channel.workspaceId) forbidden('Channel has no workspace');
     await assertWorkspaceAccess(userId, channel.workspaceId);
     return;
   }

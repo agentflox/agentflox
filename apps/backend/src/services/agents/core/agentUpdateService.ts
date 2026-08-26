@@ -144,7 +144,7 @@ export class AgentUpdateService {
     if (request.updates.skills !== undefined) {
       // 1. Resolve skill names/IDs to actual Skill IDs
       const skillIds: string[] = [];
-      const skills = await prisma.agentSkill.findMany({
+      const skills = await prisma.aiSkill.findMany({
         where: {
           OR: [
             { id: { in: request.updates.skills } },
@@ -157,12 +157,12 @@ export class AgentUpdateService {
 
       if (skillIds.length > 0) {
         // 2. Remove existing skills
-        await prisma.agentToSkill.deleteMany({
+        await prisma.aiAgentToSkill.deleteMany({
           where: { agentId: request.agentId }
         });
 
         // 3. Add new skills
-        await prisma.agentToSkill.createMany({
+        await prisma.aiAgentToSkill.createMany({
           data: skillIds.map(skillId => ({
             agentId: request.agentId,
             skillId,

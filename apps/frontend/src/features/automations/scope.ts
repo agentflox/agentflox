@@ -5,21 +5,18 @@ export type LocationPin = {
   projectId?: string | null;
 };
 
-/** Exactly one of team/space/project plus workspaceId. */
 export function normalizeAgentLocation(input: LocationPin): LocationPin {
   const workspaceId = input.workspaceId ?? null;
-  const pins = [
-    input.projectId ? { projectId: input.projectId } : null,
-    !input.projectId && input.spaceId ? { spaceId: input.spaceId } : null,
-    !input.projectId && !input.spaceId && input.teamId ? { teamId: input.teamId } : null,
-  ].filter(Boolean) as Array<Record<string, string>>;
-  const pin = pins[0] ?? {};
-  return {
-    workspaceId,
-    teamId: (pin as any).teamId ?? null,
-    spaceId: (pin as any).spaceId ?? null,
-    projectId: (pin as any).projectId ?? null,
-  };
+  if (input.projectId) {
+    return { workspaceId, projectId: input.projectId, teamId: null, spaceId: null };
+  }
+  if (input.spaceId) {
+    return { workspaceId, spaceId: input.spaceId, teamId: null, projectId: null };
+  }
+  if (input.teamId) {
+    return { workspaceId, teamId: input.teamId, spaceId: null, projectId: null };
+  }
+  return { workspaceId, teamId: null, spaceId: null, projectId: null };
 }
 
 export function isInScopeAgent(

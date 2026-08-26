@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import {
+    clearAllSubParams,
+    buildCleanDashboardParams,
+    setCleanViewParam,
+    buildDashboardPath,
+} from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -49,7 +55,7 @@ export default function WorkspaceSpaceView({
     onTaskSelect,
 }: WorkspaceSpaceViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
 
     // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -68,12 +74,12 @@ export default function WorkspaceSpaceView({
     }, [searchQuery]);
 
     // URL-derived active items
-    const activeSpaceId = !isManageView ? (searchParams.get("sp") || selectedSpaceId || null) : null;
+    const activeSpaceId = !isManageView ? (selectedSpaceId || parsedState.spaceId || null) : null;
 
     // Fetch spaces for this workspace
     const { data: spacesData, isLoading: isLoadingSpaces, refetch: refetchSpaces } = trpc.space.list.useQuery(
-        { workspaceId, scope: "owned", pageSize: 50 },
-        { enabled: !!workspaceId }
+        { workspaceId, scope: "all", pageSize: 50 },
+        { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 }
     );
     const spacesRaw = spacesData?.items ?? [];
 
@@ -89,7 +95,7 @@ export default function WorkspaceSpaceView({
         if (onSpaceSelect) {
             onSpaceSelect(spaceId);
         } else if (workspaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, type: "sp", id: spaceId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/workspaces/${workspaceId}`, type: "sp", id: spaceId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "spaces",

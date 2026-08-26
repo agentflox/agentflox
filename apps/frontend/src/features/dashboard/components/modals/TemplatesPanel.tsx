@@ -229,7 +229,7 @@ export function TemplatesPanel({
                 spaceId,
                 projectId,
                 listId,
-                viewId: viewId ?? null,
+                viewId: viewId || "",
                 parentId: parentDocId ?? null,
             });
         }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams, parseDashboardState, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -39,7 +40,7 @@ interface ProjectDocsViewProps {
 
 export default function ProjectDocsView({ projectId }: ProjectDocsViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -59,22 +60,21 @@ export default function ProjectDocsView({ projectId }: ProjectDocsViewProps) {
         ? allViews.filter(v => v.name.toLowerCase().includes(searchQuery.toLowerCase()))
         : allViews;
 
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
     const activeViewId = parsedState.docViewId || views[0]?.id;
-    const basePath = projectId ? `/dashboard/projects/${projectId}` : null;
+    const basePath = projectId ? `/projects/${projectId}` : null;
 
     // Auto-select first view
     useEffect(() => {
         if (!parsedState.docViewId && views.length > 0) {
             if (basePath) {
-                history.replaceState(null, "", buildDashboardPath({ basePath, type: "dv", id: views[0].id }));
+                router.replace(buildDashboardPath({ basePath, type: "dv", id: views[0].id }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "docs",
                     entityKey: "dv",
                     entityId: views[0].id,
                 });
-                history.replaceState(null, "", `?${clean.toString()}`);
+                router.replace(`?${clean.toString()}`, { scroll: false });
             }
         }
     }, [views, parsedState.docViewId, basePath, searchParams]);

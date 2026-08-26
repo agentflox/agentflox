@@ -79,7 +79,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         setIsConnected(false);
       };
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handleConnectError = (error: any) => {
         console.error('Socket connection error:', error);
         if (!toastShownRef.current) {

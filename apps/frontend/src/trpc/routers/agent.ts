@@ -230,19 +230,19 @@ export const agentRouter = router({
       where.AND = [{ OR: accessOr }];
 
       if (!input.includeAutomationAgents) {
-        where.AND.push({
-          OR: [
-            { metadata: { equals: null } },
-            {
-              NOT: {
-                metadata: {
-                  path: ["createdByAutomation"],
-                  equals: true,
-                },
-              },
+        const automationAgents = await prisma.aiAgent.findMany({
+          where: {
+            deletedAt: null,
+            metadata: {
+              path: ["createdByAutomation"],
+              equals: true,
             },
-          ],
+          },
+          select: { id: true },
         });
+        if (automationAgents.length > 0) {
+          where.id = { notIn: automationAgents.map((a) => a.id) };
+        }
       }
 
       if (input.query) {
@@ -462,31 +462,31 @@ export const agentRouter = router({
 
       const defaultToolsToCreate = dbSystemTools.length > 0
         ? dbSystemTools.map((st) => ({
-            id: randomUUID(),
-            name: st.name,
-            description: st.description,
-            category: st.category,
-            toolType: "SYSTEM_TOOL" as const,
-            functionSchema: (st.functionSchema as any) || { type: "object", properties: {}, required: [] },
-            parameters: {},
-            returns: {},
-            isEnabled: true,
-            isActive: true,
-            tags: st.tags || ["system", "default"],
-          }))
+          id: randomUUID(),
+          name: st.name,
+          description: st.description,
+          category: st.category,
+          toolType: "SYSTEM_TOOL" as const,
+          functionSchema: (st.functionSchema as any) || { type: "object", properties: {}, required: [] },
+          parameters: {},
+          returns: {},
+          isEnabled: true,
+          isActive: true,
+          tags: st.tags || ["system", "default"],
+        }))
         : DEFAULT_SYSTEM_TOOLS.map((st) => ({
-            id: randomUUID(),
-            name: st.name,
-            description: st.description,
-            category: st.category,
-            toolType: st.toolType,
-            functionSchema: { type: "object", properties: {}, required: [] },
-            parameters: {},
-            returns: {},
-            isEnabled: true,
-            isActive: true,
-            tags: ["system", "default"],
-          }));
+          id: randomUUID(),
+          name: st.name,
+          description: st.description,
+          category: st.category,
+          toolType: st.toolType,
+          functionSchema: { type: "object", properties: {}, required: [] },
+          parameters: {},
+          returns: {},
+          isEnabled: true,
+          isActive: true,
+          tags: ["system", "default"],
+        }));
 
       // Create agent
       const agent = await prisma.aiAgent.create({
@@ -691,7 +691,7 @@ export const agentRouter = router({
         },
         include: {
           tools: true,
-          skills: true,
+          agentSkills: true,
           triggers: true,
         },
       });
@@ -780,10 +780,10 @@ export const agentRouter = router({
             create: (source.triggers.length > 0
               ? source.triggers
               : DEFAULT_TRIGGERS.map((t) => ({
-                  ...t,
-                  id: '',
-                  triggerConfig: t.triggerConfig as any,
-                }))
+                ...t,
+                id: '',
+                triggerConfig: t.triggerConfig as any,
+              }))
             ).map((trigger: any) => ({
               id: randomUUID(),
               triggerType: trigger.triggerType,
@@ -796,8 +796,8 @@ export const agentRouter = router({
               updatedAt: new Date(),
             })),
           },
-          skills: {
-            create: source.skills.map((skill) => ({
+          agentSkills: {
+            create: source.agentSkills.map((skill) => ({
               id: randomUUID(),
               skillId: skill.skillId,
               isEnabled: skill.isEnabled,
@@ -1093,17 +1093,13 @@ export const agentRouter = router({
         throw new Error('Agent not found or permission denied');
       }
 
-      const agentSkills = await prisma.agentToSkill.findMany({
+      const agentSkills = await prisma.aiAgentToSkill.findMany({
         where: {
           agentId: input.agentId,
           isEnabled: true,
         },
         include: {
-          skill: {
-            include: {
-              toolSkills: true,
-            },
-          },
+          skill: true,
         },
         orderBy: {
           createdAt: 'asc',
@@ -1119,13 +1115,16 @@ export const agentRouter = router({
         category: as.skill.category,
         icon: as.skill.icon,
         isBuiltIn: as.skill.isBuiltIn,
-        toolCount: as.skill.toolSkills.length,
+        schema: as.skill.schema,
+        tags: as.skill.tags,
+        config: as.config,
+        toolCount: 0,
       }));
     }),
 
   listSkills: protectedProcedure
     .query(async () => {
-      const skills = await prisma.agentSkill.findMany({
+      const skills = await prisma.aiSkill.findMany({
         where: {
           isActive: true,
         },
@@ -1142,6 +1141,8 @@ export const agentRouter = router({
         category: skill.category,
         icon: skill.icon,
         isBuiltIn: skill.isBuiltIn,
+        schema: skill.schema,
+        tags: skill.tags,
       }));
     }),
 
@@ -1171,7 +1172,7 @@ export const agentRouter = router({
         throw new Error('Agent not found or permission denied');
       }
 
-      const skill = await prisma.agentSkill.findFirst({
+      const skill = await prisma.aiSkill.findFirst({
         where: {
           id: input.skillId,
           isActive: true,
@@ -1182,8 +1183,8 @@ export const agentRouter = router({
         throw new Error('Skill not found or inactive');
       }
 
-      // Enable or create AgentToSkill link
-      const existingLink = await prisma.agentToSkill.findFirst({
+      // Enable or create AiAgentToSkill link
+      const existingLink = await prisma.aiAgentToSkill.findFirst({
         where: {
           agentId: input.agentId,
           skillId: input.skillId,
@@ -1192,13 +1193,13 @@ export const agentRouter = router({
 
       if (existingLink) {
         if (!existingLink.isEnabled) {
-          await prisma.agentToSkill.update({
+          await prisma.aiAgentToSkill.update({
             where: { id: existingLink.id },
             data: { isEnabled: true },
           });
         }
       } else {
-        await prisma.agentToSkill.create({
+        await prisma.aiAgentToSkill.create({
           data: {
             agentId: input.agentId,
             skillId: input.skillId,
@@ -1207,89 +1208,14 @@ export const agentRouter = router({
         });
       }
 
-      // Seed default tools for this skill onto the agent
-      const skillTools = await prisma.skillToTool.findMany({
-        where: {
-          skillId: input.skillId,
-          isDefault: true,
-        },
-        include: {
-          tool: true,
-        },
-      });
-
-      const toolNames = skillTools.map(st => st.tool.name);
-
-      // Fetch any existing agent tools and system tools once
-      const [existingAgentTools, systemToolsByName] = await Promise.all([
-        prisma.agentTool.findMany({
-          where: {
-            agentId: input.agentId,
-            name: { in: toolNames },
-          },
-        }),
-        prisma.systemTool.findMany({
-          where: {
-            name: { in: toolNames },
-            isActive: true,
-          },
-        }),
-      ]);
-
-      const existingByName = new Map(existingAgentTools.map(t => [t.name, t]));
-      const systemByName = new Map(systemToolsByName.map(t => [t.name, t]));
-
-      for (const st of skillTools) {
-        const systemTool = systemByName.get(st.tool.name);
-        if (!systemTool) continue;
-
-        const existing = existingByName.get(systemTool.name);
-        if (existing) {
-          if (!existing.isActive || !existing.isEnabled) {
-            await prisma.agentTool.update({
-              where: { id: existing.id },
-              data: {
-                isActive: true,
-                isEnabled: true,
-              },
-            });
-          }
-        } else {
-          await prisma.agentTool.create({
-            data: {
-              id: randomUUID(),
-              agentId: input.agentId,
-              name: systemTool.name,
-              description: systemTool.description,
-              toolType: 'INTEGRATION' as any,
-              category: systemTool.category,
-              functionSchema: systemTool.functionSchema as any,
-              parameters: (systemTool.functionSchema as any)?.parameters || {},
-              returns: (systemTool.functionSchema as any)?.returns || {},
-              requiresAuth: systemTool.requiresAuth,
-              rateLimit: systemTool.rateLimit,
-              timeout: systemTool.timeout,
-              tags: systemTool.tags || [],
-              isActive: true,
-              isEnabled: true,
-              updatedAt: new Date(),
-            },
-          });
-        }
-      }
-
       // Return updated skills for convenience
-      const updatedSkills = await prisma.agentToSkill.findMany({
+      const updatedSkills = await prisma.aiAgentToSkill.findMany({
         where: {
           agentId: input.agentId,
           isEnabled: true,
         },
         include: {
-          skill: {
-            include: {
-              toolSkills: true,
-            },
-          },
+          skill: true,
         },
         orderBy: { createdAt: 'asc' },
       });
@@ -1303,7 +1229,7 @@ export const agentRouter = router({
         category: as.skill.category,
         icon: as.skill.icon,
         isBuiltIn: as.skill.isBuiltIn,
-        toolCount: as.skill.toolSkills.length,
+        toolCount: 0,
       }));
     }),
 
@@ -1327,16 +1253,13 @@ export const agentRouter = router({
             },
           ],
         },
-        include: {
-          agentSkills: true,
-        },
       });
 
       if (!agent) {
         throw new Error('Agent not found or permission denied');
       }
 
-      const link = await prisma.agentToSkill.findFirst({
+      const link = await prisma.aiAgentToSkill.findFirst({
         where: {
           agentId: input.agentId,
           skillId: input.skillId,
@@ -1349,70 +1272,10 @@ export const agentRouter = router({
       }
 
       // Disable the link instead of hard delete for auditability
-      await prisma.agentToSkill.update({
+      await prisma.aiAgentToSkill.update({
         where: { id: link.id },
         data: { isEnabled: false },
       });
-
-      // Determine tools that are unique to this skill for this agent
-      const [removedSkillTools, remainingSkillLinks] = await Promise.all([
-        prisma.skillToTool.findMany({
-          where: { skillId: input.skillId },
-          include: { tool: true },
-        }),
-        prisma.agentToSkill.findMany({
-          where: {
-            agentId: input.agentId,
-            isEnabled: true,
-            skillId: { not: input.skillId },
-          },
-          include: {
-            skill: {
-              include: {
-                toolSkills: true,
-              },
-            },
-          },
-        }),
-      ]);
-
-      const remainingToolIds = new Set<string>();
-      for (const s of remainingSkillLinks) {
-        for (const ts of s.skill.toolSkills) {
-          remainingToolIds.add(ts.toolId);
-        }
-      }
-
-      const toolNamesToDisable: string[] = [];
-      for (const st of removedSkillTools) {
-        if (!remainingToolIds.has(st.toolId)) {
-          toolNamesToDisable.push(st.tool.name);
-        }
-      }
-
-      if (toolNamesToDisable.length > 0) {
-        // Disable agent tools
-        const affectedAgentTools = await prisma.agentTool.findMany({
-          where: {
-            agentId: input.agentId,
-            name: { in: toolNamesToDisable },
-          },
-        });
-
-        const affectedIds = affectedAgentTools.map(t => t.id);
-
-        if (affectedIds.length > 0) {
-          await prisma.agentTool.updateMany({
-            where: {
-              id: { in: affectedIds },
-            },
-            data: {
-              isActive: false,
-              isEnabled: false,
-            },
-          });
-        }
-      }
 
       return { success: true };
     }),
@@ -1435,19 +1298,6 @@ export const agentRouter = router({
               },
             },
           ],
-        },
-        include: {
-          agentSkills: {
-            include: {
-              skill: {
-                include: {
-                  toolSkills: {
-                    include: { tool: true },
-                  },
-                },
-              },
-            },
-          },
         },
       });
 
@@ -1474,19 +1324,6 @@ export const agentRouter = router({
 
       const systemByName = new Map(systemTools.map(t => [t.name, t]));
 
-      // Map tool name -> skills
-      const skillsByToolName = new Map<string, { id: string; displayName: string }[]>();
-      for (const at of agent.agentSkills) {
-        if (!at.isEnabled) continue;
-        for (const ts of at.skill.toolSkills) {
-          const toolName = (ts as any).tool?.name;
-          if (!toolName) continue;
-          const list = skillsByToolName.get(toolName) || [];
-          list.push({ id: at.skillId, displayName: at.skill.displayName });
-          skillsByToolName.set(toolName, list);
-        }
-      }
-
       const result = agentTools.map(t => {
         const systemTool = systemByName.get(t.name);
         return {
@@ -1498,7 +1335,7 @@ export const agentRouter = router({
           isActive: t.isActive,
           isEnabled: t.isEnabled,
           systemToolId: systemTool?.id,
-          skills: skillsByToolName.get(t.name) || [],
+          skills: [] as { id: string; displayName: string }[],
         };
       });
 
@@ -1693,8 +1530,8 @@ export const agentRouter = router({
 
       const prevConfig =
         existing?.triggerConfig &&
-        typeof existing.triggerConfig === "object" &&
-        !Array.isArray(existing.triggerConfig)
+          typeof existing.triggerConfig === "object" &&
+          !Array.isArray(existing.triggerConfig)
           ? { ...(existing.triggerConfig as Record<string, unknown>) }
           : { scope: "all" };
 
@@ -1711,11 +1548,11 @@ export const agentRouter = router({
           data: {
             ...(input.isActive !== undefined
               ? {
-                  isActive: input.isActive,
-                  ...(input.isActive
-                    ? { activatedAt: new Date(), deactivatedAt: null }
-                    : { deactivatedAt: new Date() }),
-                }
+                isActive: input.isActive,
+                ...(input.isActive
+                  ? { activatedAt: new Date(), deactivatedAt: null }
+                  : { deactivatedAt: new Date() }),
+              }
               : {}),
             triggerConfig: nextConfig as any,
           },

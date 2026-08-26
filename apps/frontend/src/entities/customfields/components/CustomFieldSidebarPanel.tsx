@@ -1,10 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PanelRightClose, ChevronDown, Plus, Pencil, Trash2, Search, Briefcase, Folder, List, Layers, Globe, Check, ChevronRight, PlusCircle, MousePointer2, Eye, Lock, X, User, Users, Play } from "lucide-react";
-import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
-import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
-import { WorkspaceIcon } from "@/entities/workspace/components/WorkspaceIcon";
+import { PanelRightClose, ChevronDown, Plus, Pencil, Trash2, Search, Globe, Check, ChevronRight, PlusCircle, MousePointer2, Eye, Lock, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +28,13 @@ import { ALL_FIELDS, type FieldTypeOption } from "../../task/constants/fieldType
 import { CustomFieldConfigForm, useCustomFieldConfigState } from "../../task/components/SharedCustomFieldConfig";
 import { Info, ChevronUp } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+    breadcrumbItemClass,
+    ExpandControl,
+    EntityTypeBadge,
+    EntityTreeIcon,
+    ENTITY_TREE_NEST,
+} from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 const PERMISSION_OPTIONS = [
     { value: "workspace", label: "Workspace default", description: "Inherit permissions from your Workspace settings" },
@@ -97,24 +101,24 @@ function resolveLocation(loc: any, workspaces: any[], spaces: any[], projects: a
     const item = maps[type]?.get(loc.id);
 
     if (type === "WORKSPACE") {
-        return { name: item?.name ?? "Workspace", type: "WORKSPACE", icon: WorkspaceIcon, iconColor: "text-indigo-500" };
+        return { name: item?.name ?? "Workspace", type: "WORKSPACE", icon: <EntityTreeIcon kind="workspace" entity={item} /> };
     }
     if (type === "SPACE") {
-        return { name: item?.name ?? "Space", type: "SPACE", icon: SpaceIcon, iconColor: "text-violet-500" };
+        return { name: item?.name ?? "Space", type: "SPACE", icon: <EntityTreeIcon kind="space" entity={item} /> };
     }
     if (type === "PROJECT") {
-        return { name: item?.name ?? "Project", type: "PROJECT", icon: ProjectIcon, iconColor: "text-indigo-500" };
+        return { name: item?.name ?? "Project", type: "PROJECT", icon: <EntityTreeIcon kind="project" entity={item} /> };
     }
     if (type === "FOLDER") {
-        return { name: item?.name ?? "Folder", type: "FOLDER", icon: Folder, iconColor: "text-zinc-500" };
+        return { name: item?.name ?? "Folder", type: "FOLDER", icon: <EntityTreeIcon kind="folder" entity={item} /> };
     }
     if (type === "LIST") {
-        return { name: item?.name ?? "List", type: "LIST", icon: List, iconColor: "text-zinc-500" };
+        return { name: item?.name ?? "List", type: "LIST", icon: <EntityTreeIcon kind="list" entity={item} /> };
     }
     if (type === "TEAM") {
-        return { name: item?.name ?? "Team", type: "TEAM", icon: Users, iconColor: "text-blue-500" };
+        return { name: item?.name ?? "Team", type: "TEAM", icon: <EntityTreeIcon kind="team" entity={item} /> };
     }
-    return { name: "Unknown", type: loc.type, icon: Globe, iconColor: "text-zinc-400" };
+    return { name: "Unknown", type: loc.type, icon: <Globe className="h-3.5 w-3.5 text-zinc-400" /> };
 }
 
 function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders, lists, teams, search, onSearch }: any) {
@@ -126,36 +130,23 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
         setCollapsedRows(prev => ({ ...prev, [id]: !prev[id] }));
     };
 
-    const renderItem = (item: any, type: string, icon: any, indentLevel = 1, children: React.ReactNode = null, hasChildren = false, id: string) => {
+    const renderItem = (item: any, type: string, icon: any, _indentLevel = 1, children: React.ReactNode = null, hasChildren = false, id: string) => {
         const isExpanded = !collapsedRows[id] || !!search;
         return (
             <div key={item.id} className="space-y-0.5 w-full">
                 <div
-                    className={cn(
-                        "group/item w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-left transition-all cursor-pointer relative",
-                        indentLevel === 1 && "pl-6",
-                        indentLevel === 2 && "pl-10",
-                        indentLevel === 3 && "pl-14",
-                        "hover:bg-zinc-100/80 text-zinc-600 hover:text-zinc-900 font-medium"
-                    )}
+                    className={cn("group/item", breadcrumbItemClass(false))}
                     onClick={() => onSelect({ id: item.id, type, name: item.name })}
                 >
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
-                            <span className={cn("flex items-center justify-center", hasChildren && "group-hover/item:hidden")}>
-                                {icon}
-                            </span>
-                            {hasChildren && (
-                                <div
-                                    className="hidden group-hover/item:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
-                                    onClick={(e) => toggleRow(id, e)}
-                                >
-                                    <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
-                                </div>
-                            )}
-                        </div>
-                        <span className="truncate">{item.name}</span>
-                    </div>
+                    <ExpandControl
+                        expanded={isExpanded}
+                        hasChildren={hasChildren}
+                        onToggle={(e) => toggleRow(id, e)}
+                    >
+                        {icon}
+                    </ExpandControl>
+                    <span className="truncate flex-1 text-zinc-700">{item.name}</span>
+                    <EntityTypeBadge type={type} />
                     <Button
                         variant="ghost"
                         size="sm"
@@ -169,7 +160,7 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                     </Button>
                 </div>
                 {isExpanded && children && (
-                    <div className="space-y-0.5">
+                    <div className={ENTITY_TREE_NEST}>
                         {children}
                     </div>
                 )}
@@ -199,8 +190,8 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                     const wsTeams = teams?.filter((t: any) => t.workspaceId === ws.id) || [];
                     const wsSpaces = spaces.filter((s: any) => s.workspaceId === ws.id);
                     const wsProjects = projects.filter((p: any) => p.workspaceId === ws.id && !p.spaceId);
-                    const wsFolders = folders?.filter((f: any) => f.workspaceId === ws.id && !f.spaceId && !f.projectId) || [];
-                    const wsLists = lists?.filter((l: any) => l.workspaceId === ws.id && !l.spaceId && !l.projectId && !l.folderId) || [];
+                    const wsFolders = folders?.filter((f: any) => f.workspaceId === ws.id && !f.spaceId && !f.projectId && !f.teamId) || [];
+                    const wsLists = lists?.filter((l: any) => l.workspaceId === ws.id && !l.spaceId && !l.projectId && !l.teamId && !l.folderId) || [];
 
                     const hasChildren = wsTeams.length > 0 || wsSpaces.length > 0 || wsProjects.length > 0 || wsFolders.length > 0 || wsLists.length > 0;
                     const isExpanded = !collapsedRows[ws.id] || !!search;
@@ -208,25 +199,18 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                     return (
                         <div key={ws.id} className="space-y-0.5 w-full">
                             <div
-                                className="group/ws w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-left transition-all cursor-pointer relative hover:bg-zinc-100/80 text-zinc-600 hover:text-zinc-900 font-medium"
+                                className={cn("group/ws", breadcrumbItemClass(false))}
                                 onClick={() => onSelect({ id: ws.id, type: "WORKSPACE", name: ws.name })}
                             >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                    <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
-                                        <span className={cn("flex items-center justify-center", hasChildren && "group-hover/ws:hidden")}>
-                                            <WorkspaceIcon icon={ws.avatar ?? null} size={18} className="text-zinc-400 group-hover:text-indigo-500 transition-colors" />
-                                        </span>
-                                        {hasChildren && (
-                                            <div
-                                                className="hidden group-hover/ws:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
-                                                onClick={(e) => toggleRow(ws.id, e)}
-                                            >
-                                                <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <span className="truncate">{ws.name}</span>
-                                </div>
+                                <ExpandControl
+                                    expanded={isExpanded}
+                                    hasChildren={hasChildren}
+                                    onToggle={(e) => toggleRow(ws.id, e)}
+                                >
+                                    <EntityTreeIcon kind="workspace" entity={ws} />
+                                </ExpandControl>
+                                <span className="truncate flex-1 text-zinc-700">{ws.name}</span>
+                                <EntityTypeBadge type="workspace" />
                                 <Button
                                     variant="ghost"
                                     size="sm"
@@ -241,163 +225,150 @@ function LocationPickerContent({ onSelect, workspaces, spaces, projects, folders
                             </div>
 
                             {isExpanded && (
-                                <div className="space-y-0.5">
-                                    {wsTeams.map((team: any) => renderItem(
-                                        team, "TEAM",
-                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                            <Users size={12} className="text-emerald-600" />
-                                        </div>,
-                                        1, null, false, team.id
-                                    ))}
+                                <div className={ENTITY_TREE_NEST}>
                                     {wsSpaces.map((space: any) => {
                                         const spaceProjects = projects.filter((p: any) => p.spaceId === space.id);
-                                        const spaceFolders = folders?.filter((f: any) => f.spaceId === space.id && !f.projectId) || [];
-                                        const spaceLists = lists?.filter((l: any) => l.spaceId === space.id && !l.projectId && !l.folderId) || [];
+                                        const spaceFolders = folders?.filter((f: any) => f.spaceId === space.id && !f.projectId && !f.teamId) || [];
+                                        const spaceLists = lists?.filter((l: any) => l.spaceId === space.id && !l.projectId && !l.teamId && !l.folderId) || [];
 
                                         const renderFolder = (folder: any, level: number) => {
                                             const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
-                                            const hasFolderChildren = folderLists.length > 0;
                                             return renderItem(
                                                 folder, "FOLDER",
-                                                <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                                    <Folder size={12} className="text-blue-600" />
-                                                </div>,
+                                                <EntityTreeIcon kind="folder" entity={folder} />,
                                                 level,
                                                 folderLists.map((list: any) => renderItem(
                                                     list, "LIST",
-                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <List size={12} className="text-emerald-600" />
-                                                    </div>,
+                                                    <EntityTreeIcon kind="list" entity={list} />,
                                                     level + 1, null, false, list.id
                                                 )),
-                                                hasFolderChildren,
+                                                folderLists.length > 0,
                                                 folder.id
                                             );
                                         };
 
                                         const renderProject = (project: any, level: number) => {
-                                            const projectFolders = folders?.filter((f: any) => f.projectId === project.id) || [];
-                                            const projectLists = lists?.filter((l: any) => l.projectId === project.id && !l.folderId) || [];
-                                            const hasProjChildren = projectFolders.length > 0 || projectLists.length > 0;
-
+                                            const projectFolders = folders?.filter((f: any) => f.projectId === project.id && !f.teamId) || [];
+                                            const projectLists = lists?.filter((l: any) => l.projectId === project.id && !l.folderId && !l.teamId) || [];
                                             return renderItem(
                                                 project, "PROJECT",
-                                                <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                                                    <Briefcase size={12} className="text-purple-600" />
-                                                </div>,
+                                                <EntityTreeIcon kind="project" entity={project} />,
                                                 level,
                                                 <>
                                                     {projectFolders.map((f: any) => renderFolder(f, level + 1))}
                                                     {projectLists.map((l: any) => renderItem(
                                                         l, "LIST",
-                                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                            <List size={12} className="text-emerald-600" />
-                                                        </div>,
+                                                        <EntityTreeIcon kind="list" entity={l} />,
                                                         level + 1, null, false, l.id
                                                     ))}
                                                 </>,
-                                                hasProjChildren,
+                                                projectFolders.length > 0 || projectLists.length > 0,
                                                 project.id
                                             );
                                         };
 
-                                        const hasSpaceChildren = spaceProjects.length > 0 || spaceFolders.length > 0 || spaceLists.length > 0;
-
                                         return renderItem(
                                             space, "SPACE",
-                                            <div className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center">
-                                                <span
-                                                    className="h-4 w-4 rounded shrink-0 overflow-hidden grid place-items-center bg-indigo-500 text-white"
-                                                    style={{ backgroundColor: space.color || "#6366f1" }}
-                                                >
-                                                    <SpaceIcon icon={space.icon} size={11} className="text-white" fill />
-                                                </span>
-                                            </div>,
+                                            <EntityTreeIcon kind="space" entity={space} />,
                                             1,
                                             <>
                                                 {spaceProjects.map((p: any) => renderProject(p, 2))}
                                                 {spaceFolders.map((f: any) => renderFolder(f, 2))}
                                                 {spaceLists.map((l: any) => renderItem(
                                                     l, "LIST",
-                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <List size={12} className="text-emerald-600" />
-                                                    </div>,
+                                                    <EntityTreeIcon kind="list" entity={l} />,
                                                     2, null, false, l.id
                                                 ))}
                                             </>,
-                                            hasSpaceChildren,
+                                            spaceProjects.length > 0 || spaceFolders.length > 0 || spaceLists.length > 0,
                                             space.id
                                         );
                                     })}
                                     {wsProjects.map((project: any) => {
-                                        const projectFolders = folders?.filter((f: any) => f.projectId === project.id) || [];
-                                        const projectLists = lists?.filter((l: any) => l.projectId === project.id && !l.folderId) || [];
-                                        const hasProjChildren = projectFolders.length > 0 || projectLists.length > 0;
+                                        const projectFolders = folders?.filter((f: any) => f.projectId === project.id && !f.teamId) || [];
+                                        const projectLists = lists?.filter((l: any) => l.projectId === project.id && !l.folderId && !l.teamId) || [];
                                         const renderFolder = (folder: any, level: number) => {
                                             const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
-                                            const hasFolderChildren = folderLists.length > 0;
                                             return renderItem(
                                                 folder, "FOLDER",
-                                                <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                                    <Folder size={12} className="text-blue-600" />
-                                                </div>,
+                                                <EntityTreeIcon kind="folder" entity={folder} />,
                                                 level,
                                                 folderLists.map((list: any) => renderItem(
                                                     list, "LIST",
-                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <List size={12} className="text-emerald-600" />
-                                                    </div>,
+                                                    <EntityTreeIcon kind="list" entity={list} />,
                                                     level + 1, null, false, list.id
                                                 )),
-                                                hasFolderChildren,
+                                                folderLists.length > 0,
                                                 folder.id
                                             );
                                         };
                                         return renderItem(
                                             project, "PROJECT",
-                                            <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                                                <Briefcase size={12} className="text-purple-600" />
-                                            </div>,
+                                            <EntityTreeIcon kind="project" entity={project} />,
                                             1,
                                             <>
                                                 {projectFolders.map((f: any) => renderFolder(f, 2))}
                                                 {projectLists.map((l: any) => renderItem(
                                                     l, "LIST",
-                                                    <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <List size={12} className="text-emerald-600" />
-                                                    </div>,
+                                                    <EntityTreeIcon kind="list" entity={l} />,
                                                     2, null, false, l.id
                                                 ))}
                                             </>,
-                                            hasProjChildren,
+                                            projectFolders.length > 0 || projectLists.length > 0,
                                             project.id
+                                        );
+                                    })}
+                                    {wsTeams.map((team: any) => {
+                                        const teamFolders = folders?.filter((f: any) => f.teamId === team.id && !f.projectId) || [];
+                                        const teamLists = lists?.filter((l: any) => l.teamId === team.id && !l.projectId && !l.folderId) || [];
+                                        return renderItem(
+                                            team, "TEAM",
+                                            <EntityTreeIcon kind="team" entity={team} />,
+                                            1,
+                                            <>
+                                                {teamFolders.map((folder: any) => {
+                                                    const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
+                                                    return renderItem(
+                                                        folder, "FOLDER",
+                                                        <EntityTreeIcon kind="folder" entity={folder} />,
+                                                        2,
+                                                        folderLists.map((list: any) => renderItem(
+                                                            list, "LIST",
+                                                            <EntityTreeIcon kind="list" entity={list} />,
+                                                            3, null, false, list.id
+                                                        )),
+                                                        folderLists.length > 0,
+                                                        folder.id
+                                                    );
+                                                })}
+                                                {teamLists.map((l: any) => renderItem(
+                                                    l, "LIST",
+                                                    <EntityTreeIcon kind="list" entity={l} />,
+                                                    2, null, false, l.id
+                                                ))}
+                                            </>,
+                                            teamFolders.length > 0 || teamLists.length > 0,
+                                            team.id
                                         );
                                     })}
                                     {wsFolders.map((folder: any) => {
                                         const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
-                                        const hasFolderChildren = folderLists.length > 0;
                                         return renderItem(
                                             folder, "FOLDER",
-                                            <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                                <Folder size={12} className="text-blue-600" />
-                                            </div>,
+                                            <EntityTreeIcon kind="folder" entity={folder} />,
                                             1,
                                             folderLists.map((list: any) => renderItem(
                                                 list, "LIST",
-                                                <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                    <List size={12} className="text-emerald-600" />
-                                                </div>,
+                                                <EntityTreeIcon kind="list" entity={list} />,
                                                 2, null, false, list.id
                                             )),
-                                            hasFolderChildren,
+                                            folderLists.length > 0,
                                             folder.id
                                         );
                                     })}
                                     {wsLists.map((list: any) => renderItem(
                                         list, "LIST",
-                                        <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                            <List size={12} className="text-emerald-600" />
-                                        </div>,
+                                        <EntityTreeIcon kind="list" entity={list} />,
                                         1, null, false, list.id
                                     ))}
                                 </div>
@@ -1251,14 +1222,11 @@ export function CustomFieldSidebarPanel({
                                         <div className="space-y-1">
                                             {fieldLocations.map((loc, idx) => {
                                                 const resolved = resolveLocation(loc, workspaces, spaces, projects, folders, lists, teams);
-                                                const LocIcon = resolved.icon;
                                                 const isOnly = fieldLocations.length === 1;
                                                 return (
                                                     <div key={idx} className="group flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-zinc-50 transition-all">
                                                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                                            <div className={cn("h-6 w-6 rounded flex items-center justify-center shrink-0", resolved.iconColor)}>
-                                                                <LocIcon className="h-3.5 w-3.5" />
-                                                            </div>
+                                                            {resolved.icon}
                                                             <span className="text-[13px] font-medium text-zinc-800 truncate">{resolved.name}</span>
                                                         </div>
 

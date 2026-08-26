@@ -11,15 +11,21 @@ import { cn } from "@/lib/utils";
 
 interface DataTableSkeletonProps {
   columnCount?: number;
+  columns?: number;
   rowCount?: number;
+  rows?: number;
   showBorder?: boolean;
 }
 
 export function DataTableSkeleton({
-  columnCount = 6,
-  rowCount = 10,
+  columnCount,
+  columns,
+  rowCount,
+  rows,
   showBorder = false,
 }: DataTableSkeletonProps) {
+  const finalColumnCount = columnCount ?? columns ?? 6;
+  const finalRowCount = rowCount ?? rows ?? 10;
   return (
     <div className={cn(
         "bg-white transition-all duration-500 overflow-hidden",
@@ -28,7 +34,7 @@ export function DataTableSkeleton({
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent border-b border-zinc-50">
-            {Array.from({ length: columnCount }).map((_, i) => (
+            {Array.from({ length: finalColumnCount }).map((_, i) => (
               <TableHead key={i} className="py-4">
                 <Skeleton className={cn(
                     "h-4 rounded-md bg-zinc-100/80 animate-pulse",
@@ -39,9 +45,9 @@ export function DataTableSkeleton({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {Array.from({ length: rowCount }).map((_, i) => (
+          {Array.from({ length: finalRowCount }).map((_, i) => (
             <TableRow key={i} className="hover:bg-transparent border-b border-zinc-50/50">
-              {Array.from({ length: columnCount }).map((_, j) => (
+              {Array.from({ length: finalColumnCount }).map((_, j) => (
                 <TableCell key={j} className="py-4">
                     <div className="flex items-center gap-3">
                         {/* Variety logic based on common table patterns */}

@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
     clearAllSubParams,
     buildCleanDashboardParams,
     setCleanViewParam,
-    parseDashboardState,
     buildDashboardPath,
 } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { DashboardEntityProvider } from "@/features/dashboard/context/DashboardEntityContext";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
@@ -129,6 +129,7 @@ type LayoutMode = "sidebar" | "top";
 
 interface WorkspaceViewProps {
     workspaceId: string;
+    subpath?: string[];
 }
 
 const viewConfig: Partial<Record<
@@ -193,7 +194,7 @@ const viewConfig: Partial<Record<
 } as Partial<Record<ViewType, { label: string; icon: React.ComponentType<{ className?: string; size?: number }>; description: string }>>;
 
 export default function WorkspaceDashboardView({ workspaceId, subpath }: WorkspaceViewProps) {
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState(subpath);
     const router = useRouter();
     const utils = trpc.useUtils();
 
@@ -213,7 +214,6 @@ export default function WorkspaceDashboardView({ workspaceId, subpath }: Workspa
     const [viewToTemplate, setViewToTemplate] = useState<any | null>(null);
 
     // URL-based selection states (supports query params and path-based routing)
-    const parsedState = useMemo(() => parseDashboardState(searchParams, subpath), [searchParams, subpath]);
     const selectedSpaceId = parsedState.spaceId;
     const selectedProjectId = parsedState.projectId;
     const selectedTeamId = parsedState.teamId;
@@ -334,7 +334,7 @@ export default function WorkspaceDashboardView({ workspaceId, subpath }: Workspa
     const handleTabChange = useCallback(
         (viewId: string) => {
             if (workspaceId) {
-                router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
+                router.push(buildDashboardPath({ basePath: `/workspaces/${workspaceId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "overview",
@@ -357,7 +357,7 @@ export default function WorkspaceDashboardView({ workspaceId, subpath }: Workspa
         if (targetTab === "overview") {
             const firstViewId = views.length > 0 ? views[0].id : null;
             if (workspaceId && firstViewId) {
-                router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, viewId: firstViewId, taskId: parsedState.taskId }), { scroll: false });
+                router.push(buildDashboardPath({ basePath: `/workspaces/${workspaceId}`, viewId: firstViewId, taskId: parsedState.taskId }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "overview",
@@ -369,19 +369,23 @@ export default function WorkspaceDashboardView({ workspaceId, subpath }: Workspa
             return;
         }
 
-        const entityKey = (targetTab === "spaces" ? "sp" : targetTab === "projects" ? "pj" : targetTab === "teams" ? "tm" : undefined);
-        const entityId = targetTab === "spaces" && (workspace as any)?.spaces?.length > 0
-            ? (workspace as any).spaces[0].id
-            : targetTab === "projects" && (workspace as any)?.projects?.length > 0
-            ? (workspace as any).projects[0].id
-            : targetTab === "teams" && (workspace as any)?.teams?.length > 0
-            ? (workspace as any).teams[0].id
-            : null;
+        if (workspaceId) {
+            if (targetTab === "personal") {
+                router.push(buildDashboardPath({
+                    basePath: `/workspaces/${workspaceId}`,
+                    tab: "personal",
+                    personalTab: "tasks",
+                    taskSubView: "my-work",
+                    taskId: parsedState.taskId
+                }), { scroll: false });
+                return;
+            }
+            router.push(buildDashboardPath({ basePath: `/workspaces/${workspaceId}`, tab: targetTab, taskId: parsedState.taskId }), { scroll: false });
+            return;
+        }
 
         const clean = buildCleanDashboardParams(searchParams, {
             tab: targetTab,
-            entityKey,
-            entityId,
             keepTask: true,
         });
         router.push(`?${clean.toString()}`, { scroll: false });
@@ -401,7 +405,7 @@ export default function WorkspaceDashboardView({ workspaceId, subpath }: Workspa
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}/dashboard/workspaces/${workspaceId}/v/${view.id}`;
+        const url = `${window.location.origin}/workspaces/${workspaceId}/v/${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -455,14 +459,14 @@ export default function WorkspaceDashboardView({ workspaceId, subpath }: Workspa
     useEffect(() => {
         if (isViewsTab && !urlTabId && views.length > 0) {
             if (workspaceId) {
-                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, viewId: views[0].id, taskId: parsedState.taskId }));
+                router.replace(buildDashboardPath({ basePath: `/workspaces/${workspaceId}`, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "overview",
                     viewId: views[0].id,
                     keepTask: true,
                 });
-                history.replaceState(null, "", `?${clean.toString()}`);
+                router.replace(`?${clean.toString()}`, { scroll: false });
             }
         }
     }, [urlTabId, views, isViewsTab, workspaceId, parsedState.taskId, searchParams]);
@@ -701,7 +705,7 @@ export default function WorkspaceDashboardView({ workspaceId, subpath }: Workspa
                                 />
                             </div>
                         ) : currentTab === "personal" ? (
-                            <WorkspacePersonalView workspaceId={workspaceId} />
+                            <WorkspacePersonalView workspaceId={workspaceId} personalTab={parsedState.personalTab} taskSubView={parsedState.taskSubView} viewId={parsedState.viewId} />
                         ) : (currentTab === "spaces" || currentTab === "space") ? (
                             <WorkspaceSpaceView
                                 workspaceId={workspaceId}

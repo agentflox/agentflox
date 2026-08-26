@@ -17,6 +17,7 @@ import { useWorkforceEditorAssistantStream } from "@/entities/workforce/hooks/us
 import { useDefaultModel } from "@/entities/models/hooks/useModels";
 import { formatModelErrorMessage } from "@/entities/models/utils/formatModelError";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 
 function formatOp(op: WorkforceOp): string {
   const anyOp: any = op as any;
@@ -47,6 +48,7 @@ export function WorkforceEditorAssistantPanel({
   context,
   onApplyOps,
   onPersist,
+  onClose,
   className,
 }: {
   title: string;
@@ -55,6 +57,7 @@ export function WorkforceEditorAssistantPanel({
   context: unknown;
   onApplyOps: (ops: WorkforceOp[]) => void;
   onPersist?: () => Promise<void> | void;
+  onClose?: () => void;
   className?: string;
 }) {
   const [messages, setMessages] = React.useState<RenderedMessage[]>([]);
@@ -196,11 +199,23 @@ export function WorkforceEditorAssistantPanel({
 
   return (
     <div className={cn("flex h-full flex-col", className)}>
-      <div className="border-b border-zinc-200 px-4 py-3">
-        <div className="text-sm font-semibold text-zinc-900">{title}</div>
-        <div className="text-xs text-zinc-500 mt-0.5">
-          Ask questions or request workflow changes. You’ll review and apply suggested edits.
+      <div className="border-b border-zinc-200 px-4 py-3 flex items-start justify-between">
+        <div>
+          <div className="text-sm font-semibold text-zinc-900">{title}</div>
+          <div className="text-xs text-zinc-500 mt-0.5">
+            Ask questions or request workflow changes. You’ll review and apply suggested edits.
+          </div>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-7 w-7 rounded-md hover:bg-zinc-100 text-zinc-500 hover:text-zinc-900 flex items-center justify-center cursor-pointer -mr-1 -mt-1"
+            aria-label="Close assistant"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 min-h-0">

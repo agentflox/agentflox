@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams, parseDashboardState, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { DashboardLoadingState, DashboardErrorState } from "@/features/dashboard/components/shared/DashboardStates";
 import ProjectNavigationSidebar, { type ProjectView } from "@/features/dashboard/layouts/project/ProjectNavigationSidebar";
@@ -61,7 +62,7 @@ import type { TaskLayoutMode } from "@/entities/task/components/TaskDetailModal"
 import { TaskDetailModal, TaskDetailContent } from "@/entities/task/components/TaskDetailModal";
 const ChatView = dynamic(() => import("@/features/dashboard/views/shared/ChatView"));
 const AIChatView = dynamic(() => import("@/features/dashboard/views/shared/AIChatView").then(mod => mod.AIChatView));
-const ProjectTeamView = dynamic(() => import("@/features/dashboard/views/project/ProjectTeamView"));
+
 const ProjectPersonalView = dynamic(() => import("@/features/dashboard/views/project/ProjectPersonalView"));
 const ProjectDocsView = dynamic(() => import("@/features/dashboard/views/project/ProjectDocsView"));
 import { ProjectActionsMenu } from "@/features/dashboard/components/sidebar/ProjectActionsMenu";
@@ -128,6 +129,7 @@ interface ProjectDashboardViewProps {
     projectId?: string;
     selectedTaskIdFromParent?: string | null;
     onTaskSelect?: (taskId: string | null) => void;
+    subpath?: string[];
 }
 
 const viewConfig: Partial<Record<
@@ -182,17 +184,20 @@ const viewConfig: Partial<Record<
     VIEWS: { label: "Views", icon: LayoutDashboard, description: "Views" },
 };
 
-export default function ProjectDashboardView({ projectId, selectedTaskIdFromParent, onTaskSelect }: ProjectDashboardViewProps) {
-    const searchParams = useSearchParams();
+export default function ProjectDashboardView({ projectId, selectedTaskIdFromParent, onTaskSelect, subpath }: ProjectDashboardViewProps) {
+    const { searchParams, parsedState } = useDashboardState(subpath);
     const router = useRouter();
     const utils = trpc.useUtils();
 
-    const selectedTaskId = searchParams.get("task");
-    const selectedListId = searchParams.get("list");
-    const selectedFolderId = searchParams.get("folder");
-    const selectedTeamId = searchParams.get("tm") || searchParams.get("team") || undefined;
+    const selectedTaskId = parsedState.taskId || searchParams.get("task");
+    const selectedListId = parsedState.listId || null;
+    const selectedFolderId = parsedState.folderId || null;
+
     const selectedAIChatId = searchParams.get("aid") || undefined;
     const selectedChatId = searchParams.get("ch") || undefined;
+    const currentTab = parsedState.tab;
+    const isViewsTab = currentTab === "overview" || !currentTab;
+    const isListsTab = currentTab === "lists" || !!selectedListId;
 
     const clearSubParams = (params: URLSearchParams) => {
         [
@@ -246,9 +251,8 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
     const aiChatContext = useMemo(() => {
         if (selectedFolderId) return { contextType: "FOLDER" as const, contextId: selectedFolderId, contextName: "Folder" };
         if (selectedListId) return { contextType: "LIST" as const, contextId: selectedListId, contextName: "List" };
-        if (selectedTeamId) return { contextType: "TEAM" as const, contextId: selectedTeamId, contextName: "Team" };
         return { contextType: "PROJECT" as const, contextId: projectId!, contextName: project?.name || "Project" };
-    }, [selectedFolderId, selectedListId, selectedTeamId, projectId, project?.name]);
+    }, [selectedFolderId, selectedListId, projectId, project?.name]);
 
     // Refs for tracking multi-view creation so we redirect to the last created view
     const pendingViewCreatesRef = useRef(0);
@@ -331,12 +335,6 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
         });
     }, [project?.views]);
 
-    // Check tabs
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
-    const currentTab = parsedState.tab;
-    const isViewsTab = currentTab === "overview" || !currentTab;
-    const isListsTab = currentTab === "lists" || !!selectedListId;
-
     // Active Tab Logic
     const urlTabId = parsedState.viewId;
     const activeView = views.find((v: any) => v.id === urlTabId) || views[0];
@@ -344,7 +342,7 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
 
     const handleTabChange = useCallback((viewId: string) => {
         if (projectId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/projects/${projectId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/projects/${projectId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "overview",
@@ -372,7 +370,7 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}/dashboard/projects/${projectId}/v/${view.id}`;
+        const url = `${window.location.origin}/projects/${projectId}/v/${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -420,13 +418,7 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
         router.push(`?${clean.toString()}`, { scroll: false });
     }, [searchParams, router]);
 
-    const handleTeamSelect = useCallback((teamId: string) => {
-        const params = new URLSearchParams(searchParams.toString());
-        clearSubParams(params);
-        params.set("tab", "teams");
-        if (teamId) params.set("tm", teamId);
-        router.push(`?${params.toString()}`, { scroll: false });
-    }, [searchParams, router]);
+
 
     const togglePin = (view: any) => updateViewMutation.mutate({ id: view.id, isPinned: !view.isPinned });
     const togglePrivate = (view: any) => updateViewMutation.mutate({ id: view.id, isPrivate: !view.isPrivate });
@@ -437,14 +429,14 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
     useEffect(() => {
         if (isViewsTab && !urlTabId && views.length > 0) {
             if (projectId) {
-                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/projects/${projectId}`, viewId: views[0].id, taskId: parsedState.taskId }));
+                router.replace(buildDashboardPath({ basePath: `/projects/${projectId}`, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "overview",
                     viewId: views[0].id,
                     keepTask: true,
                 });
-                history.replaceState(null, "", `?${clean.toString()}`);
+                router.replace(`?${clean.toString()}`, { scroll: false });
             }
         }
     }, [urlTabId, views, isViewsTab, projectId, parsedState.taskId, searchParams]);
@@ -703,27 +695,35 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                             projectId={projectId!}
                             activeView={(currentTab as any) || (activeView?.type?.toLowerCase() || 'overview') as any}
                             onViewChange={(viewId) => {
-                                const targetTab = (viewId as string) === "team" ? "teams" : viewId;
+                                const targetTab = viewId as string;
 
                                 if (targetTab === "overview") {
-                                    const clean = buildCleanDashboardParams(searchParams, {
-                                        tab: "overview",
-                                        viewId: views.length > 0 ? views[0].id : null,
-                                        keepTask: true,
-                                    });
-                                    router.push(`?${clean.toString()}`, { scroll: false });
+                                    const firstViewId = views.length > 0 ? views[0].id : null;
+                                    if (projectId && firstViewId) {
+                                        router.push(buildDashboardPath({ basePath: `/projects/${projectId}`, viewId: firstViewId, taskId: parsedState.taskId }), { scroll: false });
+                                    } else {
+                                        router.push(projectId ? `/projects/${projectId}` : `?tab=overview`, { scroll: false });
+                                    }
                                     return;
                                 }
 
-                                const entityKey = targetTab === "teams" ? "tm" : undefined;
-                                const entityId = targetTab === "teams" && (project as any)?.teams?.length > 0
-                                    ? (project as any).teams[0].id
-                                    : null;
+                                if (projectId) {
+                                    if (targetTab === "personal") {
+                                        router.push(buildDashboardPath({
+                                            basePath: `/projects/${projectId}`,
+                                            tab: "personal",
+                                            personalTab: "tasks",
+                                            taskSubView: "my-work",
+                                            taskId: parsedState.taskId
+                                        }), { scroll: false });
+                                        return;
+                                    }
+                                    router.push(buildDashboardPath({ basePath: `/projects/${projectId}`, tab: targetTab, taskId: parsedState.taskId }), { scroll: false });
+                                    return;
+                                }
 
                                 const clean = buildCleanDashboardParams(searchParams, {
                                     tab: targetTab,
-                                    entityKey,
-                                    entityId,
                                     keepTask: true,
                                 });
                                 router.push(`?${clean.toString()}`, { scroll: false });
@@ -744,18 +744,12 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                     projectId={projectId!}
                                     projectName={project.name || "Untitled Project"}
                                     currentTab={currentTab ?? ""}
-                                    selectedTeamId={selectedTeamId || undefined}
+
                                     selectedListId={selectedListId || undefined}
                                     selectedFolderId={selectedFolderId || undefined}
                                     selectedChatId={selectedChatId || undefined}
                                     selectedAiChatId={selectedAIChatId || undefined}
-                                    onSelectTeam={(id) => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        clearSubParams(params);
-                                        params.set("tab", "teams");
-                                        params.set("tm", id);
-                                        router.push(`?${params.toString()}`, { scroll: false });
-                                    }}
+
                                     onSelectList={(id) => {
                                         const params = new URLSearchParams(searchParams.toString());
                                         clearSubParams(params);
@@ -798,7 +792,7 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                             workspaceId={resolvedWorkspaceId || project.workspaceId || undefined}
                             spaceId={project.spaceId || undefined}
                             projectId={projectId}
-                            teamId={selectedTeamId || undefined}
+
                             currentScope="project"
                             askAIDisabled={currentTab === "ai-chat"}
                             onAskAIClick={() => {
@@ -1135,14 +1129,8 @@ export default function ProjectDashboardView({ projectId, selectedTaskIdFromPare
                                         ) : (currentTab === "docs" || currentTab === "doc") ? (
                                             <ProjectDocsView projectId={projectId!} />
                                         ) : currentTab === "personal" ? (
-                                            <ProjectPersonalView projectId={projectId!} workspaceId={resolvedWorkspaceId!} />
-                                        ) : (currentTab === "teams" || currentTab === "team") ? (
-                                            <ProjectTeamView
-                                                projectId={projectId!}
-                                                workspaceId={resolvedWorkspaceId!}
-                                                selectedTeamId={selectedTeamId}
-                                                onTeamSelect={handleTeamSelect}
-                                            />
+                                            <ProjectPersonalView projectId={projectId!} workspaceId={resolvedWorkspaceId!} personalTab={parsedState.personalTab} taskSubView={parsedState.taskSubView} viewId={parsedState.viewId} />
+
                                         ) : (currentTab === "chats" || currentTab === "chat") ? (
                                             <ChatView
                                                 workspaceId={resolvedWorkspaceId!}

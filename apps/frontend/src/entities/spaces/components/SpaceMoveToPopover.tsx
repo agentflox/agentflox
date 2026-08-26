@@ -4,8 +4,8 @@ import { useState } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
-import { Loader2, LogOut, ChevronRight, Search, Network } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Loader2, LogOut, ChevronRight, Search } from "lucide-react";
+import { DestinationTreeRow } from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 interface SpaceMoveToPopoverProps {
     spaceId: string;
@@ -96,27 +96,17 @@ export function SpaceMoveToPopover({ spaceId, spaceName, onSuccess }: SpaceMoveT
                         <div className="px-3 py-2 text-sm text-zinc-500 text-center italic">No workspaces found</div>
                     ) : (
                         workspaces.filter((w: any) => !destinationSearch.trim() || w.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((workspace: any) => (
-                            <button
+                            <DestinationTreeRow
                                 key={workspace.id}
-                                type="button"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
+                                selected={isMoving && movingToId === workspace.id}
+                                kind="workspace"
+                                entity={workspace}
+                                label={workspace.name}
+                                onClick={() => {
                                     handleMove(workspace.id);
                                 }}
-                                disabled={isMoving}
-                                className={cn(
-                                    "w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-sm rounded-lg text-zinc-800 hover:bg-zinc-100 hover:text-zinc-900 cursor-pointer transition-colors font-normal",
-                                    isMoving && movingToId === workspace.id && "bg-indigo-50 text-indigo-700 pointer-events-none"
-                                )}
-                            >
-                                {isMoving && movingToId === workspace.id ? (
-                                    <Loader2 className="size-3.5 text-indigo-500 shrink-0 animate-spin" />
-                                ) : (
-                                    <Network className="size-3.5 text-zinc-400 shrink-0" />
-                                )}
-                                <span className="font-medium truncate flex-1">{workspace.name}</span>
-                            </button>
+                                trailing={isMoving && movingToId === workspace.id ? <Loader2 className="size-3.5 text-zinc-500 shrink-0 animate-spin" /> : undefined}
+                            />
                         ))
                     )}
                 </div>

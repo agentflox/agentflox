@@ -1,9 +1,7 @@
-"use client";
-
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   ChevronLeft, Hammer, FileText, Share2, Globe, MoreHorizontal,
-  Wrench, Copy, Download, Trash2, HelpCircle, Bot, Check,
+  Wrench, Copy, Download, Trash2, HelpCircle, Bot, Check, History,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -24,14 +22,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { trpc } from "@/trpc/client";
+import { trpc } from "@/lib/trpc";
 import { useMarketplaceGuard } from "@/features/marketplace/hooks/useMarketplaceGuard";
 import { PublishEntityModal } from "@/features/marketplace/components/PublishEntityModal";
 import { MarketplaceGuardDialog } from "@/features/marketplace/components/MarketplaceGuardDialog";
 import { BugReportModal } from "../../../entities/tools/components/BugReportModal";
 import { ToolNoCodeView } from "../../dashboard/views/tools/ToolNoCodeView";
 import { ToolCodeView } from "../../dashboard/views/tools/ToolCodeView";
-import { ToolLog } from "./ToolLog";
+import { ToolLogView } from "../../dashboard/views/tools/ToolLogView";
+import { useToolRun } from "@/entities/tools/hooks/useToolRun";
+import { useToolRunHistory } from "@/entities/tools/hooks/useToolRunHistory";
+import type { BuilderInputField } from "@/entities/tools/types/builder";
 import { SupportAssistantModal } from "@/components/assistant/SupportAssistantModal";
 import { ToolVersionsSheet } from "../../../entities/tools/components/ToolVersionsSheet";
 
@@ -72,6 +73,13 @@ export function ToolBuilder({
   const [agentPromptDraft, setAgentPromptDraft] = useState(
     (initialTool?.functionSchema as any)?.["x-agentPrompt"] ?? ""
   );
+
+  // ── Tool run state ────────────────────────────────────────────────────────
+  const [inputs, setInputs] = useState<BuilderInputField[]>(
+    Array.isArray(initialTool?.inputs) ? initialTool.inputs : []
+  );
+  const toolRunState = useToolRun({ initialTool, inputs });
+  const toolRunHistory = useToolRunHistory(initialTool?.id);
 
   // ── Publish guard ─────────────────────────────────────────────────────────
   const { checkProfileAndProceed, isGuardOpen, setIsGuardOpen } = useMarketplaceGuard();
@@ -307,10 +315,45 @@ export function ToolBuilder({
 
       {/* ── Main Content ── */}
       <main className="flex-1 overflow-hidden">
-        {activeTab === "build"
-          ? viewCode ? <ToolCodeView /> : <ToolNoCodeView />
-          : <ToolLog toolId={initialTool?.id} />
-        }
+        {activeTab === "build" ? (
+          viewCode ? (
+            <ToolCodeView
+              toolData={initialTool}
+              inputs={inputs}
+              setInputs={setInputs}
+              runInput={toolRunState.runInput}
+              setRunInput={toolRunState.setRunInput}
+              isRunningTool={toolRunState.isRunningTool}
+              runCompositeTool={toolRunState.runCompositeTool}
+              runHistory={toolRunState.runHistory}
+            />
+          ) : (
+            <ToolNoCodeView
+              toolData={initialTool}
+              inputs={inputs}
+              runInput={toolRunState.runInput}
+              setRunInput={toolRunState.setRunInput}
+              isRunningTool={toolRunState.isRunningTool}
+              runCompositeTool={toolRunState.runCompositeTool}
+              runHistory={toolRunState.runHistory}
+            />
+          )
+        ) : (
+          <ToolLogView
+            inputs={inputs}
+            runHistory={toolRunState.runHistory}
+            setRunHistory={toolRunState.setRunHistory}
+            selectedRunId={toolRunState.selectedRunId}
+            setSelectedRunId={toolRunState.setSelectedRunId}
+            runInput={toolRunState.runInput}
+            setRunInput={toolRunState.setRunInput}
+            selectedRun={toolRunState.selectedRun}
+            isRunningTool={toolRunState.isRunningTool}
+            runCompositeTool={toolRunState.runCompositeTool}
+            cancelCompositeTool={toolRunState.cancelCompositeTool}
+            onDeleteRun={toolRunHistory.deleteRun}
+          />
+        )}
       </main>
 
       {/* ── Modals ── */}
@@ -426,7 +469,7 @@ export function ToolBuilder({
           initialDescription={initialTool?.description ?? ""}
         />
       )}
-      <MarketplaceGuardDialog open={isGuardOpen} onOpenChange={setIsGuardOpen} />
+      <MarketplaceGuardDialog isOpen={isGuardOpen} onOpenChange={setIsGuardOpen} />
     </div>
   );
 }

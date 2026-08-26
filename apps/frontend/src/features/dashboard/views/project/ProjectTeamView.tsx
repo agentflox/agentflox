@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { Loader2, Plus, ChevronRight, Users, MoreHorizontal, Search, ChevronsLeft, ChevronsRight, X, Settings, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,8 +11,7 @@ import { LoadingContainer } from "@/components/ui/loading";
 import { cn } from "@/lib/utils";
 import { TeamCreationModal } from "@/entities/teams/components/TeamCreationModal";
 import { TeamImportModal } from "@/entities/teams/components/TeamImportModal";
-import { TeamActionsMenu } from "@/features/dashboard/components/sidebar/TeamActionsMenu";
-import { TeamIcon } from "@/entities/teams/components/TeamIcon";
+import { TeamSidebarItem } from "@/features/dashboard/components/sidebar/TeamSidebarItem";
 import DashboardTeamView from "@/features/dashboard/views/generic/DashboardTeamView";
 import { SharedManageTeamsView } from "@/features/dashboard/views/shared/SharedManageTeamsView";
 import {
@@ -24,6 +22,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
 
 interface ProjectTeamViewProps {
     projectId: string;
@@ -41,7 +41,7 @@ function formatNumber(value: number | null | undefined) {
 
 export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId, onTeamSelect }: ProjectTeamViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [settingsTeamId, setSettingsTeamId] = useState<string | null>(null);
@@ -62,10 +62,10 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const activeTeamId = !isManageView ? selectedTeamId : undefined;
+    const activeTeamId = !isManageView ? (selectedTeamId || parsedState.teamId) : undefined;
 
     // Fetch teams linked to this project
-    const { data: projectData, isLoading: isLoadingList, refetch: refetchList } = trpc.project.get.useQuery({ id: projectId }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    const { data: projectData, isLoading: isLoadingList, refetch: refetchList } = trpc.project.get.useQuery({ id: projectId }, { enabled: !!projectId, staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const teamsRaw = useMemo(
         () => (projectData?.teams ?? []).map((link) => link.team),
@@ -89,6 +89,8 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
         setIsManageView(false);
         if (onTeamSelect) {
             onTeamSelect(teamId);
+        } else if (projectId) {
+            router.push(buildDashboardPath({ basePath: `/projects/${projectId}`, type: "tm", id: teamId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "teams",
@@ -272,42 +274,14 @@ export default function ProjectTeamView({ projectId, workspaceId, selectedTeamId
                                     {teams.map((team) => {
                                         const isActive = !isManageView && activeTeamId === team.id;
                                         return (
-                                            <div
+                                            <TeamSidebarItem
                                                 key={team.id}
-                                                className={cn(
-                                                    "group/team flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors cursor-pointer",
-                                                    "hover:bg-slate-50",
-                                                    isActive && "bg-slate-100"
-                                                )}
-                                                onClick={() => handleTeamClick(team.id)}
-                                            >
-                                                <span
-                                                    className="h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center ml-0.5"
-                                                    style={{ backgroundColor: team.icon ? (team.color || "#8b5cf6") : "transparent" }}
-                                                >
-                                                    <TeamIcon
-                                                        icon={team.icon}
-                                                        className={cn(team.icon ? "text-white" : isActive ? "text-violet-500" : "text-violet-500/80")}
-                                                        size={14}
-                                                        fill
-                                                    />
-                                                </span>
-                                                <span className={cn(
-                                                    "flex-1 truncate text-sm",
-                                                    isActive ? "font-normal text-foreground" : "text-zinc-600 group-hover/team:text-foreground"
-                                                )}>
-                                                    {team.name}
-                                                </span>
-                                                <div
-                                                    className="opacity-0 group-hover/team:opacity-100 transition-opacity flex items-center gap-0.5"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                >
-                                                    <TeamActionsMenu
-                                                        workspaceId={workspaceId}
-                                                        teamId={team.id}
-                                                    />
-                                                </div>
-                                            </div>
+                                                workspaceId={workspaceId}
+                                                team={team}
+                                                isActive={isActive}
+                                                onSelectTeam={handleTeamClick}
+                                                spaceId={projectData?.spaceId ?? undefined}
+                                            />
                                         );
                                     })}
                                 </div>

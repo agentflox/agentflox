@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { setCleanViewParam, parseDashboardState } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { setCleanViewParam, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -152,9 +153,24 @@ const viewConfig: Record<
 };
 
 export default function DashboardSpaceView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect, context = "space" }: DashboardSpaceViewProps) {
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
     const router = useRouter();
     const utils = trpc.useUtils();
+
+    const basePath = useMemo(() => {
+        if (workspaceId && spaceId) return `/workspaces/${workspaceId}/sp/${spaceId}`;
+        if (spaceId) return `/spaces/${spaceId}`;
+        return null;
+    }, [workspaceId, spaceId]);
+
+    const navigateToView = useCallback((viewId: string, taskId?: string | null) => {
+        if (basePath) {
+            router.push(buildDashboardPath({ basePath, viewId, taskId: taskId ?? parsedState.taskId }), { scroll: false });
+        } else {
+            const clean = setCleanViewParam(searchParams, viewId);
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
+    }, [basePath, parsedState.taskId, searchParams, router]);
 
     // Dialog states
     const [addViewModalOpen, setAddViewModalOpen] = useState(false);
@@ -214,23 +230,19 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
         onSuccess: async (data) => {
             if (spaceId) await utils.space.get.invalidate({ id: spaceId });
             toast.success("View created from template");
-
-            const clean = setCleanViewParam(searchParams, data.id);
-            router.push(`?${clean.toString()}`, { scroll: false });
+            navigateToView(data.id);
         },
         onError: (err) => toast.error(`Failed to create view: ${err.message}`)
     });
 
     // Active Tab Logic
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
     const urlViewId = parsedState.viewId;
     const activeView = views.find(v => v.id === urlViewId) || views[0];
     const activeTab = activeView?.id;
 
     const handleTabChange = useCallback((viewId: string) => {
-        const clean = setCleanViewParam(searchParams, viewId);
-        router.push(`?${clean.toString()}`, { scroll: false });
-    }, [searchParams, router]);
+        navigateToView(viewId);
+    }, [navigateToView]);
 
     const handleRenameView = (name: string) => {
         if (viewToRename) {
@@ -280,8 +292,7 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
 
         if (lastCreatedViewId) {
             await utils.space.get.invalidate({ id: spaceId });
-            const clean = setCleanViewParam(searchParams, lastCreatedViewId);
-            router.push(`?${clean.toString()}`, { scroll: false });
+            navigateToView(lastCreatedViewId);
         }
     };
 
@@ -304,10 +315,14 @@ export default function DashboardSpaceView({ listId, spaceId, projectId, teamId,
 
     useEffect(() => {
         if (!urlViewId && views.length > 0) {
-            const clean = setCleanViewParam(searchParams, views[0].id);
-            history.replaceState(null, "", `?${clean.toString()}`);
+            if (basePath) {
+                router.replace(buildDashboardPath({ basePath, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, views[0].id);
+                router.replace(`?${clean.toString()}`, { scroll: false });
+            }
         }
-    }, [urlViewId, views, searchParams]);
+    }, [urlViewId, views, searchParams, basePath, parsedState.taskId, router]);
 
     const renderViewContent = (view: any) => {
         if (!view) return null;

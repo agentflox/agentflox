@@ -197,7 +197,7 @@ export function ChannelMessageItem({ message, mentionItems = [], channelName = "
     setShowActions(false);
   }, [isAnnouncement, isDiscussion, isIdea, isUpdate]);
 
-  let displayContent = message.content;
+  const displayContent = message.content;
 
   const derivedReplies = useMemo(() => {
     if (replyCount !== undefined) return [];

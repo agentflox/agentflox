@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const TOOL_CREATION_STEPS = [
+const STEPS = [
   { 
     label: "Defining tool interface", 
     log: "Establishing semantic name and descriptive prompt..." 

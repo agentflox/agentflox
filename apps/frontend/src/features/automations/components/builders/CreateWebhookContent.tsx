@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { AutomationScope } from "../types";
+import type { AutomationScope } from "../../types";
 
 type KvPair = { key: string; value: string };
 type WebhookFormValues = {

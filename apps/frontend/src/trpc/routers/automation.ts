@@ -256,7 +256,7 @@ export const automationRouter = router({
           status: "ACTIVE",
           triggers: {
             create: input.triggers.map((t) => ({
-              triggerType: t.triggerType,
+              triggerType: t.triggerType as any,
               triggerConfig: t.triggerConfig,
               conditions: t.conditions,
               name: t.name,
@@ -326,7 +326,7 @@ export const automationRouter = router({
             isScheduled: input.triggers.some((t) => t.triggerType === "EVERY_SCHEDULED_TIME"),
             triggers: {
               create: input.triggers.map((t) => ({
-                triggerType: t.triggerType,
+                triggerType: t.triggerType as any,
                 triggerConfig: t.triggerConfig,
                 conditions: t.conditions,
                 name: t.name,

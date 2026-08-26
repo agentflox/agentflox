@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { formatDistanceToNow } from "date-fns";
-import { Play, Briefcase, ChevronDown, ChevronRight, Filter, Folder, Layers, List, Plus, Search, Settings2, Sparkles, User, X, Info, Trash2, Check, MoreHorizontal, PlusCircle, Pencil, Copy, RefreshCw, Layout, CopyPlus, Building } from "lucide-react";
+import { Briefcase, ChevronDown, ChevronRight, Filter, Folder, Layers, List, Plus, Search, Settings2, Sparkles, User, X, Info, Trash2, Check, MoreHorizontal, PlusCircle, Pencil, Copy, RefreshCw, Layout, CopyPlus, Building } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,9 +21,13 @@ import { DataTableColumnHeader } from "@/components/ui/data-table-column-header"
 import { DataTableSkeleton } from "@/components/ui/data-table-skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
-import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
-import { WorkspaceIcon } from "@/entities/workspace/components/WorkspaceIcon";
+import {
+    breadcrumbItemClass,
+    ExpandControl,
+    EntityTypeBadge,
+    EntityTreeIcon,
+    ENTITY_TREE_NEST,
+} from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 type ContextPathPart = {
     icon: React.ReactNode;
@@ -190,16 +194,16 @@ export function CustomFieldsManagerModal({
         { enabled: open, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
     const { data: foldersData } = trpc.folder.byContext.useQuery(
-        { workspaceId, archived: false },
-        { enabled: open && !!workspaceId, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+        { archived: false } as any,
+        { enabled: open, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
     const { data: listsData } = trpc.list.byContext.useQuery(
-        { workspaceId, archived: false },
-        { enabled: open && !!workspaceId, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+        { archived: false } as any,
+        { enabled: open, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
     const { data: teamsData } = trpc.team.list.useQuery(
-        { workspaceId },
-        { enabled: open && !!workspaceId, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
+        {} as any,
+        { enabled: open, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false }
     );
     const { data: customFieldsRaw = EMPTY_ARRAY, isLoading: isLoadingCustomFields, isFetching: isFetchingCustomFields } = trpc.customFields.list.useQuery(
         {},
@@ -219,9 +223,9 @@ export function CustomFieldsManagerModal({
     const workspaceProjects = (projectsData?.items ?? EMPTY_ARRAY) as any[];
     // Reuse workspaceProjects for allProjects to avoid duplicate queries
     const allProjects = workspaceProjects;
-    const folders = (foldersData?.items ?? EMPTY_ARRAY) as any[];
-    const lists = (listsData?.items ?? EMPTY_ARRAY) as any[];
-    const teams = (teamsData?.items ?? EMPTY_ARRAY) as any[];
+    const folders = (Array.isArray(foldersData) ? foldersData : (foldersData as any)?.items ?? EMPTY_ARRAY) as any[];
+    const lists = (Array.isArray(listsData) ? listsData : (listsData as any)?.items ?? EMPTY_ARRAY) as any[];
+    const teams = (Array.isArray(teamsData) ? teamsData : (teamsData as any)?.items ?? EMPTY_ARRAY) as any[];
     const customFields = customFieldsRaw as any[];
     const deleteCustomField = trpc.customFields.delete.useMutation({
         onSuccess: async () => {
@@ -243,6 +247,7 @@ export function CustomFieldsManagerModal({
     const workspaceMap = React.useMemo(() => new Map(workspaces.map((w) => [w.id, w])), [workspaces]);
     const folderMap = React.useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders]);
     const listMap = React.useMemo(() => new Map(lists.map((l) => [l.id, l])), [lists]);
+    const teamMap = React.useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
 
     // Auto-expand sidebar tree for initial location
     React.useEffect(() => {
@@ -373,6 +378,9 @@ export function CustomFieldsManagerModal({
         } else if (selectedView.startsWith("project:")) {
             const id = selectedView.split(":")[1];
             fields = fields.filter((f) => (f.projectId === id && (!f.locationType || f.locationType === "PROJECT")) || f.locations?.some((l: any) => l.projectId === id));
+        } else if (selectedView.startsWith("team:")) {
+            const id = selectedView.split(":")[1];
+            fields = fields.filter((f) => (f.teamId === id && (!f.locationType || f.locationType === "TEAM")) || f.locations?.some((l: any) => l.teamId === id));
         } else if (selectedView.startsWith("folder:")) {
             const id = selectedView.split(":")[1];
             fields = fields.filter((f) => (f.folderId === id && (!f.locationType || f.locationType === "FOLDER")) || f.locations?.some((l: any) => l.folderId === id));
@@ -438,6 +446,7 @@ export function CustomFieldsManagerModal({
                             if (locType === "workspace") match = f.locationType === "WORKSPACE" || Boolean(f.workspaceId);
                             else if (locType === "space") match = f.spaceId === locId;
                             else if (locType === "project") match = f.projectId === locId;
+                            else if (locType === "team") match = f.teamId === locId;
                             else if (locType === "folder") match = f.folderId === locId;
                             else if (locType === "list") match = f.listId === locId;
                             else if (locType === "personal") match = f.isPersonalResolved;
@@ -595,6 +604,11 @@ export function CustomFieldsManagerModal({
             const p = projectMap.get(id);
             return { workspaceId: p?.workspaceId ?? null, projectId: id, locationType: "PROJECT" as const };
         }
+        if (selectedView.startsWith("team:")) {
+            const id = selectedView.split(":")[1];
+            const t = teamMap.get(id);
+            return { workspaceId: t?.workspaceId ?? null, teamId: id, locationType: "TEAM" as const };
+        }
         if (selectedView.startsWith("folder:")) {
             const id = selectedView.split(":")[1];
             const f = folderMap.get(id);
@@ -606,7 +620,7 @@ export function CustomFieldsManagerModal({
             return { workspaceId: l?.workspaceId ?? null, listId: id, locationType: "LIST" as const };
         }
         return { workspaceId, locationType: "WORKSPACE" as const };
-    }, [selectedView, workspaceId, spaceMap, projectMap, folderMap, listMap]);
+    }, [selectedView, workspaceId, spaceMap, projectMap, teamMap, folderMap, listMap]);
 
     const columns = React.useMemo<ColumnDef<any>[]>(() => [
         {
@@ -701,21 +715,21 @@ export function CustomFieldsManagerModal({
                 } else if (f.workspaceId) {
                     view = `workspace:${f.workspaceId}` as LeftViewKey;
                     const w = workspaceMap.get(f.workspaceId);
-                    icon = <WorkspaceIcon icon={w?.avatar ?? null} size={14} className="text-indigo-500" />;
+                    icon = <EntityTreeIcon kind="workspace" entity={w} />;
                 } else if (f.spaceId) {
                     view = `space:${f.spaceId}` as LeftViewKey;
                     const s = spaceMap.get(f.spaceId);
-                    icon = <SpaceIcon icon={s?.icon ?? null} size={14} className="text-violet-500" />;
+                    icon = <EntityTreeIcon kind="space" entity={s} />;
                 } else if (f.projectId) {
                     view = `project:${f.projectId}` as LeftViewKey;
                     const p = projectMap.get(f.projectId);
-                    icon = <ProjectIcon icon={p?.logo ?? null} size={14} className="text-indigo-500" />;
+                    icon = <EntityTreeIcon kind="project" entity={p} />;
                 } else if (f.folderId) {
                     view = `folder:${f.folderId}` as LeftViewKey;
-                    icon = <Folder className="h-3.5 w-3.5 text-zinc-500" />;
+                    icon = <EntityTreeIcon kind="folder" entity={folderMap.get(f.folderId)} />;
                 } else if (f.listId) {
                     view = `list:${f.listId}` as LeftViewKey;
-                    icon = <List className="h-3.5 w-3.5 text-zinc-500" />;
+                    icon = <EntityTreeIcon kind="list" entity={listMap.get(f.listId)} />;
                 }
 
                 return (
@@ -908,16 +922,10 @@ export function CustomFieldsManagerModal({
                 </div>
             ),
         },
-    ], [handleEditField, workspaceMap, spaceMap, projectMap]);
+    ], [handleEditField, workspaceMap, spaceMap, projectMap, folderMap, listMap]);
 
-    const leftItemClass = (isActive: boolean, indent = false) =>
-        cn(
-            "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-left transition-all cursor-pointer group relative overflow-hidden",
-            indent && "pl-9",
-            isActive
-                ? "bg-indigo-50 text-indigo-700 font-semibold shadow-sm border-indigo-100/50 border"
-                : "text-zinc-500 hover:bg-zinc-100/80 hover:text-zinc-900 font-medium"
-        );
+    const leftItemClass = (isActive: boolean) =>
+        cn(breadcrumbItemClass(isActive), "w-full");
 
     const toggleLocation = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -937,7 +945,7 @@ export function CustomFieldsManagerModal({
         if (selectedView.startsWith("workspace:")) {
             const id = selectedView.split(":")[1];
             const w = workspaceMap.get(id);
-            return [{ icon: <Briefcase className="h-4 w-4 text-indigo-500" />, name: w?.name ?? "Workspace", isLast: true }];
+            return [{ icon: <EntityTreeIcon kind="workspace" entity={w} />, name: w?.name ?? "Workspace", isLast: true }];
         }
         if (selectedView === "personal") {
             return [{ icon: <User className="h-4 w-4 text-indigo-500" />, name: "Personal List", isLast: true }];
@@ -954,9 +962,9 @@ export function CustomFieldsManagerModal({
             const space = spaceMap.get(id);
             const w = space?.workspaceId ? workspaceMap.get(space.workspaceId) : null;
             const parts: ContextPathPart[] = [];
-            if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
+            if (w) parts.push({ icon: <EntityTreeIcon kind="workspace" entity={w} />, name: w.name });
             parts.push({
-                icon: space?.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <div className="p-0.5 rounded-sm bg-violet-500 text-white flex items-center justify-center"><Briefcase className="h-3 w-3" /></div>,
+                icon: <EntityTreeIcon kind="space" entity={space} />,
                 name: space?.name ?? "Space",
                 isLast: true
             });
@@ -966,35 +974,46 @@ export function CustomFieldsManagerModal({
         if (selectedView.startsWith("project:")) {
             const id = selectedView.split(":")[1];
             const project = projectMap.get(id);
-            if (!project) return [{ icon: <Briefcase className="h-4 w-4 text-indigo-500" />, name: "Project", isLast: true }];
+            if (!project) return [{ icon: <EntityTreeIcon kind="project" />, name: "Project", isLast: true }];
 
             const space = project.spaceId ? spaceMap.get(project.spaceId) : null;
             const w = project.workspaceId ? workspaceMap.get(project.workspaceId) : (space?.workspaceId ? workspaceMap.get(space.workspaceId) : null);
             const parts: ContextPathPart[] = [];
-            if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
-            if (space) parts.push({ icon: space.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <Briefcase className="h-3.5 w-3.5 text-violet-500" />, name: space.name });
-            parts.push({ icon: <ProjectIcon icon={project.logo} size={16} className="text-indigo-500" />, name: project.name, isLast: true });
+            if (w) parts.push({ icon: <EntityTreeIcon kind="workspace" entity={w} />, name: w.name });
+            if (space) parts.push({ icon: <EntityTreeIcon kind="space" entity={space} />, name: space.name });
+            parts.push({ icon: <EntityTreeIcon kind="project" entity={project} />, name: project.name, isLast: true });
+            return parts;
+        }
+
+        if (selectedView.startsWith("team:")) {
+            const id = selectedView.split(":")[1];
+            const team = teamMap.get(id);
+            if (!team) return [{ icon: <EntityTreeIcon kind="team" />, name: "Team", isLast: true }];
+            const w = team.workspaceId ? workspaceMap.get(team.workspaceId) : null;
+            const parts: ContextPathPart[] = [];
+            if (w) parts.push({ icon: <EntityTreeIcon kind="workspace" entity={w} />, name: w.name });
+            parts.push({ icon: <EntityTreeIcon kind="team" entity={team} />, name: team.name, isLast: true });
             return parts;
         }
 
         if (selectedView.startsWith("folder:")) {
             const id = selectedView.split(":")[1];
             const folder = folderMap.get(id);
-            if (!folder) return [{ icon: <Folder className="h-4 w-4 text-indigo-500" />, name: "Folder", isLast: true }];
+            if (!folder) return [{ icon: <EntityTreeIcon kind="folder" />, name: "Folder", isLast: true }];
 
             const space = folder.spaceId ? spaceMap.get(folder.spaceId) : null;
-            const w = space?.workspaceId ? workspaceMap.get(space.workspaceId) : null;
+            const w = folder.workspaceId ? workspaceMap.get(folder.workspaceId) : (space?.workspaceId ? workspaceMap.get(space.workspaceId) : null);
             const parts: ContextPathPart[] = [];
-            if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
-            if (space) parts.push({ icon: space.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <Briefcase className="h-3.5 w-3.5 text-violet-500" />, name: space.name });
-            parts.push({ icon: <Folder className="h-4 w-4 text-amber-500" />, name: folder.name, isLast: true });
+            if (w) parts.push({ icon: <EntityTreeIcon kind="workspace" entity={w} />, name: w.name });
+            if (space) parts.push({ icon: <EntityTreeIcon kind="space" entity={space} />, name: space.name });
+            parts.push({ icon: <EntityTreeIcon kind="folder" entity={folder} />, name: folder.name, isLast: true });
             return parts;
         }
 
         if (selectedView.startsWith("list:")) {
             const id = selectedView.split(":")[1];
             const list = listMap.get(id);
-            if (!list) return [{ icon: <List className="h-4 w-4 text-indigo-500" />, name: "List", isLast: true }];
+            if (!list) return [{ icon: <EntityTreeIcon kind="list" />, name: "List", isLast: true }];
 
             const folder = list.folderId ? folderMap.get(list.folderId) : null;
             const project = list.projectId ? projectMap.get(list.projectId) : null;
@@ -1002,16 +1021,16 @@ export function CustomFieldsManagerModal({
             const w = list.workspaceId ? workspaceMap.get(list.workspaceId) : (space?.workspaceId ? workspaceMap.get(space.workspaceId) : null);
 
             const parts: ContextPathPart[] = [];
-            if (w) parts.push({ icon: <WorkspaceIcon icon={w.avatar} size={14} className="text-indigo-400" />, name: w.name });
-            if (space) parts.push({ icon: space.icon ? <span className="text-[14px] leading-none">{space.icon}</span> : <Briefcase className="h-3.5 w-3.5 text-violet-500" />, name: space.name });
-            if (project) parts.push({ icon: <ProjectIcon icon={project.logo} size={16} className="text-indigo-500" />, name: project.name });
-            if (folder) parts.push({ icon: <Folder className="h-4 w-4 text-amber-500" />, name: folder.name });
-            parts.push({ icon: <List className="h-4 w-4 text-indigo-500" />, name: list.name, isLast: true });
+            if (w) parts.push({ icon: <EntityTreeIcon kind="workspace" entity={w} />, name: w.name });
+            if (space) parts.push({ icon: <EntityTreeIcon kind="space" entity={space} />, name: space.name });
+            if (project) parts.push({ icon: <EntityTreeIcon kind="project" entity={project} />, name: project.name });
+            if (folder) parts.push({ icon: <EntityTreeIcon kind="folder" entity={folder} />, name: folder.name });
+            parts.push({ icon: <EntityTreeIcon kind="list" entity={list} />, name: list.name, isLast: true });
             return parts;
         }
 
         return [];
-    }, [selectedView, workspaceMap, spaceMap, projectMap, folderMap, listMap]);
+    }, [selectedView, workspaceMap, spaceMap, projectMap, teamMap, folderMap, listMap]);
 
     const currentContextPathText = React.useMemo(() => {
         if (currentContextPathParts.length === 0) return "Custom Fields";
@@ -1041,7 +1060,7 @@ export function CustomFieldsManagerModal({
                 ))}
             </div>
         );
-    }, [currentContextPathParts]);;
+    }, [currentContextPathParts]);
 
     return (
         <>
@@ -1128,63 +1147,248 @@ export function CustomFieldsManagerModal({
                                                 const wsProjects = workspaceProjects.filter(
                                                     (p) =>
                                                         (!isSearchingLocation || p.name?.toLowerCase().includes(locationSearchLower)) &&
-                                                        p.workspaceId === ws.id
+                                                        p.workspaceId === ws.id &&
+                                                        !p.spaceId
+                                                );
+                                                const wsTeams = teams.filter(
+                                                    (tm) =>
+                                                        (!isSearchingLocation || tm.name?.toLowerCase().includes(locationSearchLower)) &&
+                                                        tm.workspaceId === ws.id
+                                                );
+                                                const wsFolders = folders.filter(
+                                                    (f) =>
+                                                        (!isSearchingLocation || f.name?.toLowerCase().includes(locationSearchLower)) &&
+                                                        f.workspaceId === ws.id &&
+                                                        !f.spaceId &&
+                                                        !f.projectId &&
+                                                        !f.teamId
+                                                );
+                                                const wsLists = lists.filter(
+                                                    (l) =>
+                                                        (!isSearchingLocation || l.name?.toLowerCase().includes(locationSearchLower)) &&
+                                                        l.workspaceId === ws.id &&
+                                                        !l.spaceId &&
+                                                        !l.projectId &&
+                                                        !l.teamId &&
+                                                        !l.folderId
                                                 );
 
-                                                const isExpanded = !!expandedLocations[ws.id];
-                                                const hasChildren = wsSpaces.length > 0 || wsProjects.length > 0;
+                                                const isExpanded = !!expandedLocations[ws.id] || isSearchingLocation;
+                                                const hasChildren =
+                                                    wsSpaces.length > 0 ||
+                                                    wsProjects.length > 0 ||
+                                                    wsTeams.length > 0 ||
+                                                    wsFolders.length > 0 ||
+                                                    wsLists.length > 0;
 
-                                                if (!hasChildren && isSearchingLocation) return null;
+                                                if (!hasChildren && isSearchingLocation && !ws.name?.toLowerCase().includes(locationSearchLower)) return null;
+
+                                                const renderFolderNode = (folder: any) => {
+                                                    const folderLists = lists.filter((l) => l.folderId === folder.id);
+                                                    const folderKey = `folder:${folder.id}`;
+                                                    const folderExpanded = !!expandedLocations[folderKey] || isSearchingLocation;
+                                                    const folderHasChildren = folderLists.length > 0;
+                                                    return (
+                                                        <div key={folder.id} className="space-y-0.5">
+                                                            <button
+                                                                type="button"
+                                                                className={leftItemClass(selectedView === folderKey)}
+                                                                onClick={() => setSelectedView(folderKey as LeftViewKey)}
+                                                            >
+                                                                <ExpandControl
+                                                                    expanded={folderExpanded}
+                                                                    hasChildren={folderHasChildren}
+                                                                    onToggle={(e) => toggleLocation(folderKey, e)}
+                                                                >
+                                                                    <EntityTreeIcon kind="folder" entity={folder} />
+                                                                </ExpandControl>
+                                                                <span className="truncate flex-1 text-zinc-700">{folder.name}</span>
+                                                                <EntityTypeBadge type="folder" />
+                                                            </button>
+                                                            {folderExpanded && folderHasChildren && (
+                                                                <div className={ENTITY_TREE_NEST}>
+                                                                    {folderLists.map((list: any) => (
+                                                                        <button
+                                                                            key={list.id}
+                                                                            type="button"
+                                                                            className={leftItemClass(selectedView === `list:${list.id}`)}
+                                                                            onClick={() => setSelectedView(`list:${list.id}` as LeftViewKey)}
+                                                                        >
+                                                                            <EntityTreeIcon kind="list" entity={list} />
+                                                                            <span className="truncate flex-1 text-zinc-700">{list.name}</span>
+                                                                            <EntityTypeBadge type="list" />
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                };
+
+                                                const renderProjectNode = (project: any) => {
+                                                    const projectFolders = folders.filter((f) => f.projectId === project.id && !f.teamId);
+                                                    const projectLists = lists.filter((l) => l.projectId === project.id && !l.folderId && !l.teamId);
+                                                    const projectKey = `project:${project.id}`;
+                                                    const projectExpanded = !!expandedLocations[projectKey] || isSearchingLocation;
+                                                    const projectHasChildren = projectFolders.length > 0 || projectLists.length > 0;
+                                                    return (
+                                                        <div key={project.id} className="space-y-0.5">
+                                                            <button
+                                                                type="button"
+                                                                className={leftItemClass(selectedView === projectKey)}
+                                                                onClick={() => setSelectedView(projectKey as LeftViewKey)}
+                                                            >
+                                                                <ExpandControl
+                                                                    expanded={projectExpanded}
+                                                                    hasChildren={projectHasChildren}
+                                                                    onToggle={(e) => toggleLocation(projectKey, e)}
+                                                                >
+                                                                    <EntityTreeIcon kind="project" entity={project} />
+                                                                </ExpandControl>
+                                                                <span className="truncate flex-1 text-zinc-700">{project.name}</span>
+                                                                <EntityTypeBadge type="project" />
+                                                            </button>
+                                                            {projectExpanded && projectHasChildren && (
+                                                                <div className={ENTITY_TREE_NEST}>
+                                                                    {projectFolders.map(renderFolderNode)}
+                                                                    {projectLists.map((list: any) => (
+                                                                        <button
+                                                                            key={list.id}
+                                                                            type="button"
+                                                                            className={leftItemClass(selectedView === `list:${list.id}`)}
+                                                                            onClick={() => setSelectedView(`list:${list.id}` as LeftViewKey)}
+                                                                        >
+                                                                            <EntityTreeIcon kind="list" entity={list} />
+                                                                            <span className="truncate flex-1 text-zinc-700">{list.name}</span>
+                                                                            <EntityTypeBadge type="list" />
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                };
 
                                                 return (
                                                     <div key={ws.id} className="space-y-0.5 w-full">
                                                         <button
                                                             type="button"
-                                                            className={leftItemClass(selectedView === `workspace:${ws.id}`)}
+                                                            className={cn("group/ws", leftItemClass(selectedView === `workspace:${ws.id}`))}
                                                             onClick={() => setSelectedView(`workspace:${ws.id}`)}
                                                         >
-                                                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                                <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
-                                                                    <span className={cn("h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center bg-zinc-100 border border-zinc-200/60 ml-0.5", hasChildren && "group-hover:hidden")}>
-                                                                        <WorkspaceIcon icon={ws.avatar ?? null} size={14} className="text-zinc-700" />
-                                                                    </span>
-                                                                    {hasChildren && (
-                                                                        <div
-                                                                            className="hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors cursor-pointer"
-                                                                            onClick={(e) => toggleLocation(ws.id, e)}
-                                                                        >
-                                                                            <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                <span className="truncate font-medium">{ws.name}</span>
-                                                            </div>
+                                                            <ExpandControl
+                                                                expanded={isExpanded}
+                                                                hasChildren={hasChildren}
+                                                                onToggle={(e) => toggleLocation(ws.id, e)}
+                                                            >
+                                                                <EntityTreeIcon kind="workspace" entity={ws} />
+                                                            </ExpandControl>
+                                                            <span className="truncate flex-1 font-medium text-zinc-700">{ws.name}</span>
+                                                            <EntityTypeBadge type="workspace" />
                                                         </button>
 
-                                                        {(isExpanded || isSearchingLocation) && (
-                                                            <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
-                                                                {wsSpaces.map((space) => (
-                                                                    <button
-                                                                        key={space.id}
-                                                                        type="button"
-                                                                        className={leftItemClass(selectedView === `space:${space.id}`, true)}
-                                                                        onClick={() => setSelectedView(`space:${space.id}`)}
-                                                                    >
-                                                                        <SpaceIcon icon={space.icon} size={14} className="text-indigo-500 shrink-0" />
-                                                                        <span className="truncate">{space.name}</span>
-                                                                    </button>
-                                                                ))}
-                                                                {wsProjects.map((project) => (
-                                                                    <button
-                                                                        key={project.id}
-                                                                        type="button"
-                                                                        className={leftItemClass(selectedView === `project:${project.id}`, true)}
-                                                                        onClick={() => setSelectedView(`project:${project.id}`)}
-                                                                    >
-                                                                        <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                                                                            <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
+                                                        {isExpanded && hasChildren && (
+                                                            <div className={ENTITY_TREE_NEST}>
+                                                                {wsSpaces.map((space) => {
+                                                                    const spaceProjects = workspaceProjects.filter((p) => p.spaceId === space.id);
+                                                                    const spaceFolders = folders.filter((f) => f.spaceId === space.id && !f.projectId && !f.teamId);
+                                                                    const spaceLists = lists.filter((l) => l.spaceId === space.id && !l.projectId && !l.teamId && !l.folderId);
+                                                                    const spaceKey = `space:${space.id}`;
+                                                                    const spaceExpanded = !!expandedLocations[spaceKey] || isSearchingLocation;
+                                                                    const spaceHasChildren = spaceProjects.length > 0 || spaceFolders.length > 0 || spaceLists.length > 0;
+                                                                    return (
+                                                                        <div key={space.id} className="space-y-0.5">
+                                                                            <button
+                                                                                type="button"
+                                                                                className={leftItemClass(selectedView === spaceKey)}
+                                                                                onClick={() => setSelectedView(spaceKey as LeftViewKey)}
+                                                                            >
+                                                                                <ExpandControl
+                                                                                    expanded={spaceExpanded}
+                                                                                    hasChildren={spaceHasChildren}
+                                                                                    onToggle={(e) => toggleLocation(spaceKey, e)}
+                                                                                >
+                                                                                    <EntityTreeIcon kind="space" entity={space} />
+                                                                                </ExpandControl>
+                                                                                <span className="truncate flex-1 text-zinc-700">{space.name}</span>
+                                                                                <EntityTypeBadge type="space" />
+                                                                            </button>
+                                                                            {spaceExpanded && spaceHasChildren && (
+                                                                                <div className={ENTITY_TREE_NEST}>
+                                                                                    {spaceProjects.map(renderProjectNode)}
+                                                                                    {spaceFolders.map(renderFolderNode)}
+                                                                                    {spaceLists.map((list: any) => (
+                                                                                        <button
+                                                                                            key={list.id}
+                                                                                            type="button"
+                                                                                            className={leftItemClass(selectedView === `list:${list.id}`)}
+                                                                                            onClick={() => setSelectedView(`list:${list.id}` as LeftViewKey)}
+                                                                                        >
+                                                                                            <EntityTreeIcon kind="list" entity={list} />
+                                                                                            <span className="truncate flex-1 text-zinc-700">{list.name}</span>
+                                                                                            <EntityTypeBadge type="list" />
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
                                                                         </div>
-                                                                        <span className="truncate">{project.name}</span>
+                                                                    );
+                                                                })}
+                                                                {wsProjects.map(renderProjectNode)}
+                                                                {wsTeams.map((team) => {
+                                                                    const teamFolders = folders.filter((f) => f.teamId === team.id && !f.projectId);
+                                                                    const teamLists = lists.filter((l) => l.teamId === team.id && !l.projectId && !l.folderId);
+                                                                    const teamKey = `team:${team.id}`;
+                                                                    const teamExpanded = !!expandedLocations[teamKey] || isSearchingLocation;
+                                                                    const teamHasChildren = teamFolders.length > 0 || teamLists.length > 0;
+                                                                    return (
+                                                                        <div key={team.id} className="space-y-0.5">
+                                                                            <button
+                                                                                type="button"
+                                                                                className={leftItemClass(selectedView === teamKey)}
+                                                                                onClick={() => setSelectedView(teamKey as LeftViewKey)}
+                                                                            >
+                                                                                <ExpandControl
+                                                                                    expanded={teamExpanded}
+                                                                                    hasChildren={teamHasChildren}
+                                                                                    onToggle={(e) => toggleLocation(teamKey, e)}
+                                                                                >
+                                                                                    <EntityTreeIcon kind="team" entity={team} />
+                                                                                </ExpandControl>
+                                                                                <span className="truncate flex-1 text-zinc-700">{team.name}</span>
+                                                                                <EntityTypeBadge type="team" />
+                                                                            </button>
+                                                                            {teamExpanded && teamHasChildren && (
+                                                                                <div className={ENTITY_TREE_NEST}>
+                                                                                    {teamFolders.map(renderFolderNode)}
+                                                                                    {teamLists.map((list: any) => (
+                                                                                        <button
+                                                                                            key={list.id}
+                                                                                            type="button"
+                                                                                            className={leftItemClass(selectedView === `list:${list.id}`)}
+                                                                                            onClick={() => setSelectedView(`list:${list.id}` as LeftViewKey)}
+                                                                                        >
+                                                                                            <EntityTreeIcon kind="list" entity={list} />
+                                                                                            <span className="truncate flex-1 text-zinc-700">{list.name}</span>
+                                                                                            <EntityTypeBadge type="list" />
+                                                                                        </button>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                                {wsFolders.map(renderFolderNode)}
+                                                                {wsLists.map((list: any) => (
+                                                                    <button
+                                                                        key={list.id}
+                                                                        type="button"
+                                                                        className={leftItemClass(selectedView === `list:${list.id}`)}
+                                                                        onClick={() => setSelectedView(`list:${list.id}` as LeftViewKey)}
+                                                                    >
+                                                                        <EntityTreeIcon kind="list" entity={list} />
+                                                                        <span className="truncate flex-1 text-zinc-700">{list.name}</span>
+                                                                        <EntityTypeBadge type="list" />
                                                                     </button>
                                                                 ))}
                                                             </div>
@@ -1203,10 +1407,9 @@ export function CustomFieldsManagerModal({
                                                         className={leftItemClass(selectedView === `project:${project.id}`)}
                                                         onClick={() => setSelectedView(`project:${project.id}`)}
                                                     >
-                                                        <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                                                            <Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
-                                                        </div>
-                                                        <span className="truncate">{project.name}</span>
+                                                        <EntityTreeIcon kind="project" entity={project} />
+                                                        <span className="truncate flex-1 text-zinc-700">{project.name}</span>
+                                                        <EntityTypeBadge type="project" />
                                                     </button>
                                                 ))}
                                         </div>
@@ -1652,33 +1855,54 @@ export function CustomFieldsManagerModal({
                                                                     </div>
                                                                 );
                                                             })() : filter.field === "Location" ? (() => {
-                                                                // Build nested location tree: workspace → spaces → projects/folders → lists
-                                                                const locationTree: { type: string; id: string; name: string; icon: React.ReactNode; children?: { type: string; id: string; name: string; icon: React.ReactNode }[] }[] = [
-                                                                    {
-                                                                        type: "workspace", id: "workspace", name: workspace?.name ?? "Workspace", icon: <Briefcase className="h-3.5 w-3.5 text-zinc-400 shrink-0" />,
-                                                                        children: [
-                                                                            ...spaces.map((s: any) => ({
-                                                                                type: "space", id: s.id, name: s.name, icon: <Layers className="h-3.5 w-3.5 text-violet-500 shrink-0" />,
-                                                                                children: [
-                                                                                    ...workspaceProjects.filter((p: any) => p.spaceId === s.id).map((p: any) => ({
-                                                                                        type: "project", id: p.id, name: p.name, icon: <Folder className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                                                                                    })),
-                                                                                    ...folders.filter((f: any) => f.spaceId === s.id).map((f: any) => ({
-                                                                                        type: "folder", id: f.id, name: f.name, icon: <Folder className="h-3.5 w-3.5 text-amber-500 shrink-0" />,
-                                                                                    })),
-                                                                                    ...lists.filter((l: any) => l.spaceId === s.id && !l.projectId && !l.folderId).map((l: any) => ({
-                                                                                        type: "list", id: l.id, name: l.name, icon: <List className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                                                                    })),
-                                                                                ]
-                                                                            })),
-                                                                            ...lists.filter((l: any) => !l.spaceId).map((l: any) => ({
-                                                                                type: "list", id: l.id, name: l.name, icon: <List className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                                                            })),
-                                                                        ]
-                                                                    }
-                                                                ];
+                                                                // Build nested location tree matching dashboard hierarchy (no projects under teams)
+                                                                const mapFolder = (f: any) => ({
+                                                                    type: "folder", id: f.id, name: f.name, icon: <EntityTreeIcon kind="folder" entity={f} />,
+                                                                    children: lists.filter((l: any) => l.folderId === f.id).map((l: any) => ({
+                                                                        type: "list", id: l.id, name: l.name, icon: <EntityTreeIcon kind="list" entity={l} />,
+                                                                    })),
+                                                                });
+                                                                const mapProject = (p: any) => ({
+                                                                    type: "project", id: p.id, name: p.name, icon: <EntityTreeIcon kind="project" entity={p} />,
+                                                                    children: [
+                                                                        ...folders.filter((f: any) => f.projectId === p.id && !f.teamId).map(mapFolder),
+                                                                        ...lists.filter((l: any) => l.projectId === p.id && !l.folderId && !l.teamId).map((l: any) => ({
+                                                                            type: "list", id: l.id, name: l.name, icon: <EntityTreeIcon kind="list" entity={l} />,
+                                                                        })),
+                                                                    ],
+                                                                });
+                                                                const mapTeam = (tm: any) => ({
+                                                                    type: "team", id: tm.id, name: tm.name, icon: <EntityTreeIcon kind="team" entity={tm} />,
+                                                                    children: [
+                                                                        ...folders.filter((f: any) => f.teamId === tm.id && !f.projectId).map(mapFolder),
+                                                                        ...lists.filter((l: any) => l.teamId === tm.id && !l.projectId && !l.folderId).map((l: any) => ({
+                                                                            type: "list", id: l.id, name: l.name, icon: <EntityTreeIcon kind="list" entity={l} />,
+                                                                        })),
+                                                                    ],
+                                                                });
+                                                                const locationTree: { type: string; id: string; name: string; icon: React.ReactNode; children?: any[] }[] = workspaces.map((ws: any) => ({
+                                                                    type: "workspace", id: ws.id, name: ws.name, icon: <EntityTreeIcon kind="workspace" entity={ws} />,
+                                                                    children: [
+                                                                        ...spaces.filter((s: any) => s.workspaceId === ws.id).map((s: any) => ({
+                                                                            type: "space", id: s.id, name: s.name, icon: <EntityTreeIcon kind="space" entity={s} />,
+                                                                            children: [
+                                                                                ...workspaceProjects.filter((p: any) => p.spaceId === s.id).map(mapProject),
+                                                                                ...folders.filter((f: any) => f.spaceId === s.id && !f.projectId && !f.teamId).map(mapFolder),
+                                                                                ...lists.filter((l: any) => l.spaceId === s.id && !l.projectId && !l.teamId && !l.folderId).map((l: any) => ({
+                                                                                    type: "list", id: l.id, name: l.name, icon: <EntityTreeIcon kind="list" entity={l} />,
+                                                                                })),
+                                                                            ],
+                                                                        })),
+                                                                        ...workspaceProjects.filter((p: any) => p.workspaceId === ws.id && !p.spaceId).map(mapProject),
+                                                                        ...teams.filter((tm: any) => tm.workspaceId === ws.id).map(mapTeam),
+                                                                        ...folders.filter((f: any) => f.workspaceId === ws.id && !f.spaceId && !f.projectId && !f.teamId).map(mapFolder),
+                                                                        ...lists.filter((l: any) => l.workspaceId === ws.id && !l.spaceId && !l.projectId && !l.teamId && !l.folderId).map((l: any) => ({
+                                                                            type: "list", id: l.id, name: l.name, icon: <EntityTreeIcon kind="list" entity={l} />,
+                                                                        })),
+                                                                    ],
+                                                                }));
                                                                 const selectedLoc = filter.value ? filter.value.split(":") : null;
-                                                                const selectedLocName = selectedLoc ? (selectedLoc[0] === "workspace" ? (workspace?.name ?? "Workspace") : [...spaces, ...workspaceProjects, ...folders, ...lists].find((x: any) => x.id === selectedLoc[1])?.name ?? filter.value) : null;
+                                                                const selectedLocName = selectedLoc ? (selectedLoc[0] === "workspace" ? (workspaceMap.get(selectedLoc[1])?.name ?? workspace?.name ?? "Workspace") : [...spaces, ...workspaceProjects, ...teams, ...folders, ...lists].find((x: any) => x.id === selectedLoc[1])?.name ?? filter.value) : null;
                                                                 const renderLocNode = (node: any, depth: number = 0): React.ReactNode => {
                                                                     const locKey = `${filter.id}-${node.id}`;
                                                                     const isExpanded = expandedLocations[locKey] ?? (node.id === "workspace");
@@ -1803,10 +2027,10 @@ export function CustomFieldsManagerModal({
                                                                 );
                                                             })() : filter.field === "Inherited From" ? (() => {
                                                                 const opts = [
-                                                                    { value: "workspace", label: "Workspace", icon: <Briefcase className="h-3.5 w-3.5 text-zinc-400" /> },
-                                                                    { value: "project", label: "Project", icon: <Folder className="h-3.5 w-3.5 text-blue-500" /> },
-                                                                    { value: "folder", label: "Folder", icon: <Folder className="h-3.5 w-3.5 text-amber-500" /> },
-                                                                    { value: "list", label: "List", icon: <List className="h-3.5 w-3.5 text-zinc-500" /> },
+                                                                    { value: "workspace", label: "Workspace", icon: <EntityTreeIcon kind="workspace" /> },
+                                                                    { value: "project", label: "Project", icon: <EntityTreeIcon kind="project" /> },
+                                                                    { value: "folder", label: "Folder", icon: <EntityTreeIcon kind="folder" /> },
+                                                                    { value: "list", label: "List", icon: <EntityTreeIcon kind="list" /> },
                                                                 ];
                                                                 const selected = opts.find(o => o.value === filter.value);
                                                                 return (

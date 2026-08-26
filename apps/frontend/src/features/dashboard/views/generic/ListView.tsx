@@ -842,7 +842,7 @@ export default function ListView({ spaceId, projectId, teamId, folderId, listId,
     const updateTask = trpc.task.update.useMutation({
         onMutate: async (variables) => {
             updateTaskInList(variables.id, (task: any) => {
-                let updated = { ...task, ...variables };
+                const updated = { ...task, ...variables };
                 if ((variables as any).statusId !== undefined) {
                     const statusObj = allAvailableStatuses.find(s => s.id === (variables as any).statusId);
                     if (statusObj) updated.status = statusObj;

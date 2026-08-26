@@ -31,6 +31,7 @@ interface MessageItemProps {
     senderId: string;
     receiverId: string;
     content: string;
+    type?: string;
     attachments?: string[];
     createdAt: Date | string;
     isRead?: boolean;
@@ -43,6 +44,7 @@ interface MessageItemProps {
       senderName?: string;
     };
     isPinned?: boolean;
+    reactions?: Array<{ userId: string; emoji: string }>;
   };
   currentUserId: string;
   onReply?: (message: { id: string; content: string; senderId: string }) => void;
@@ -219,7 +221,7 @@ export function MessageItem({ message, currentUserId, onReply }: MessageItemProp
 
 
 
-  const messageReactionsRaw = (message as any).reactions as Array<{ userId: string; emoji: string }> | undefined;
+  const messageReactionsRaw = message.reactions;
   const reactionCounts = (messageReactionsRaw || []).reduce((acc, r) => {
     acc[r.emoji] = (acc[r.emoji] || 0) + 1;
     return acc;

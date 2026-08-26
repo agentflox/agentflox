@@ -413,7 +413,7 @@ export function SubtasksTable({
                 const updateInTree = (tasks: any[]): any[] => {
                     return tasks.map(t => {
                         if (t.id === variables.id) {
-                            let updated = { ...t, ...variables };
+                            const updated = { ...t, ...variables };
                             if (variables.statusId !== undefined) {
                                 const statusObj = statuses.find(s => s.id === variables.statusId);
                                 if (statusObj) updated.status = statusObj;

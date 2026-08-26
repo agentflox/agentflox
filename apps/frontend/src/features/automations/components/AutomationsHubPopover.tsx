@@ -4,15 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Settings, Check, ChevronDown, Zap } from "lucide-react";
 import { useAutomations } from "../hooks/useAutomations";
 import { ActiveToggle } from "./shared/ActiveToggle";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { AutomationScope } from "../types";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 function AgentIcon({ className }: { className?: string }) {
   return (
@@ -57,28 +50,13 @@ export function AutomationsHubPopover({
               Manage automations
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" className="bg-zinc-900 hover:bg-zinc-700 text-white h-8 cursor-pointer">
-                Add <ChevronDown className="h-4 w-4 ml-1 mt-0.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-40">
-              <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onCreate("classic")}>
-                <Zap className="h-4 w-4 text-sky-600" />
-                Classic
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer justify-between" onClick={() => onCreate("agent")}>
-                <span className="flex items-center gap-2">
-                  <AgentIcon className="h-4 w-4 text-violet-600" />
-                  Agent
-                </span>
-                <Badge variant="secondary" className="text-[10px] px-1 py-1 h-4 bg-violet-100 text-violet-700 border-0">
-                  New
-                </Badge>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            size="sm"
+            className="bg-zinc-900 hover:bg-zinc-700 text-white h-8 cursor-pointer"
+            onClick={() => onCreate("agent")}
+          >
+            Add <ChevronDown className="h-4 w-4 ml-1 mt-0.5" />
+          </Button>
         </div>
       </div>
       <div className="flex items-center justify-between mb-2">

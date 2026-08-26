@@ -2,6 +2,7 @@ import {
     buildCleanDashboardParams,
     parseDashboardState,
     buildDashboardPath,
+    getDashboardSubpathFromPathname,
     normalizeEntityKey,
     clearAllSubParams,
     SHORT_ENTITY_KEYS,
@@ -92,13 +93,19 @@ export function runDashboardUrlTests() {
         assertEqual(state.viewId, "view_1");
     });
 
-    test("parseDashboardState parses path segments iteratively", () => {
+    test("parseDashboardState reads nested team view ids from path segments", () => {
         const params = new URLSearchParams();
-        const subpath = ["pj", "proj_99", "lt", "list_88"];
+        const subpath = ["tm", "team_1", "v", "view_list"];
         const state = parseDashboardState(params, subpath);
 
-        assertEqual(state.projectId, "proj_99");
-        assertEqual(state.listId, "list_88");
+        assertEqual(state.tab, "teams");
+        assertEqual(state.teamId, "team_1");
+        assertEqual(state.viewId, "view_list");
+    });
+
+    test("getDashboardSubpathFromPathname strips the entity root and id", () => {
+        const subpath = getDashboardSubpathFromPathname("/spaces/space_1/tm/team_1/v/view_list");
+        assertEqual(subpath, ["tm", "team_1", "v", "view_list"]);
     });
 
     // 4. buildDashboardPath
@@ -124,7 +131,6 @@ export function runDashboardUrlTests() {
     test("clearAllSubParams removes all sub-entity parameters cleanly", () => {
         const params = new URLSearchParams("workspaceId=ws_1&tab=lists&pj=p1&tm=t1&sp=s1&lt=l1&fd=f1&dv=d1&v=v1&task=t1");
         clearAllSubParams(params);
-
         assertEqual(params.get("workspaceId"), "ws_1");
         assertEqual(params.get("tab"), "lists");
         assertEqual(params.get("pj"), null);

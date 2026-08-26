@@ -13,6 +13,7 @@ export interface PersonalTabProps {
     projectId?: string;
     workspaceId?: string;
     teamId?: string;
+    basePath?: string;
     context?: "space" | "workspace" | "project" | "team";
 }
 
@@ -28,8 +29,15 @@ function AssignedTasksView({ spaceId, projectId, workspaceId, teamId, context }:
     );
 }
 
-function PersonalListView({ spaceId, projectId, workspaceId, teamId, context }: PersonalTabProps) {
+function PersonalListView({ spaceId, projectId, workspaceId, teamId, basePath, context }: PersonalTabProps) {
     const { data: personalList, isLoading } = trpc.list.getPersonal.useQuery();
+
+    const resolvedBasePath = basePath || (
+        workspaceId ? `/workspaces/${workspaceId}/personal/tasks/personal-list` :
+        spaceId ? `/spaces/${spaceId}/personal/tasks/personal-list` :
+        teamId ? `/teams/${teamId}/personal/tasks/personal-list` :
+        projectId ? `/projects/${projectId}/personal/tasks/personal-list` : undefined
+    );
 
     if (isLoading) {
         return (
@@ -56,14 +64,14 @@ function PersonalListView({ spaceId, projectId, workspaceId, teamId, context }: 
 
     return (
         <div className="h-full flex flex-col bg-white overflow-hidden">
-            <DashboardListView listId={personalList.id} />
+            <DashboardListView listId={personalList.id} basePath={resolvedBasePath} workspaceId={workspaceId} spaceId={spaceId} projectId={projectId} teamId={teamId} />
         </div>
     );
 }
 
-export function TasksView({ subView = 'my-work', spaceId, projectId, workspaceId, teamId, context }: TasksViewProps) {
+export function TasksView({ subView = 'my-work', spaceId, projectId, workspaceId, teamId, basePath, context }: TasksViewProps) {
     if (subView === 'my-work') return <MyWorkView spaceId={spaceId} projectId={projectId} workspaceId={workspaceId} teamId={teamId} context={context} />;
     if (subView === 'assigned') return <AssignedTasksView spaceId={spaceId} projectId={projectId} workspaceId={workspaceId} teamId={teamId} context={context} />;
-    if (subView === 'personal-list') return <PersonalListView spaceId={spaceId} projectId={projectId} workspaceId={workspaceId} teamId={teamId} context={context} />;
+    if (subView === 'personal-list') return <PersonalListView spaceId={spaceId} projectId={projectId} workspaceId={workspaceId} teamId={teamId} basePath={basePath} context={context} />;
     return <MyWorkView spaceId={spaceId} projectId={projectId} workspaceId={workspaceId} teamId={teamId} context={context} />;
 }

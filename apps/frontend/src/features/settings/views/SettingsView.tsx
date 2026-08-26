@@ -22,13 +22,17 @@ export default function SettingsView() {
     const { theme, setTheme } = useTheme();
 
     return (
-        <div className="space-y-8 max-w-4xl">
-            <PageHeader 
-                title={t("settings.title")} 
-                description={t("settings.subtitle")} 
-            />
+        <div className="flex flex-col min-h-full">
+            {/* Enterprise Docked Sticky Header */}
+            <div className="sticky top-0 z-20 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 shadow-xs px-6 pt-6 pb-4 transition-all">
+                <PageHeader
+                    title={t("settings.title")}
+                    description={t("settings.subtitle")}
+                    className="border-none shadow-none bg-transparent"
+                />
+            </div>
 
-            <div className="space-y-6">
+            <div className="flex-1 px-6 pt-6 pb-8 space-y-6 max-w-4xl">
                 <div className="flex items-center justify-between">
                     <div className="space-y-1">
                         <Label className="text-base font-medium">{t("settings.appearance")}</Label>

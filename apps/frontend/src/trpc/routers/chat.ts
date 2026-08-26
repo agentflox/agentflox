@@ -7,6 +7,39 @@ import { LimitGuard } from '@/features/usage/utils/limitGuard'
 import { protectedProcedure, router } from '@/trpc/init'
 import { assertChatEntityAccess, assertProjectAccess, assertWorkforceAccess, assertAgentAccess } from '@/lib/resourceAccess'
 
+async function resolveSafeModelId(rawModelId?: string | null): Promise<string | null> {
+  const db = prisma as any;
+  const trimmed = rawModelId?.trim();
+  if (trimmed) {
+    const existing = await db.aiModel.findUnique({
+      where: { id: trimmed },
+      select: { id: true },
+    });
+    if (existing?.id) {
+      return existing.id;
+    }
+  }
+
+  const defaultModel =
+    (await db.aiModel.findFirst({
+      where: { isDefault: true, isSystem: true, isActive: true },
+      select: { id: true },
+    })) ||
+    (await db.aiModel.findFirst({
+      where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
+      select: { id: true },
+    })) ||
+    (await db.aiModel.findFirst({
+      where: { isActive: true },
+      select: { id: true },
+    })) ||
+    (await db.aiModel.findFirst({
+      select: { id: true },
+    }));
+
+  return defaultModel?.id ?? null;
+}
+
 export const chatRouter = router({
   list: protectedProcedure
     .input(
@@ -239,10 +272,11 @@ export const chatRouter = router({
       z.object({
         contextType: z.enum(['project', 'profile', 'proposal', 'team', 'workspace', 'space', 'channel', 'task', 'list', 'folder']),
         entityId: z.string(),
-        modelId: z.string(),
+        modelId: z.string().optional().nullable(),
         title: z.string().optional(),
         systemPrompt: z.string().optional(),
         conversationType: z.nativeEnum(ConversationType).optional(),
+        skillIds: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -257,13 +291,14 @@ export const chatRouter = router({
 
       const db = prisma as any
       const openai = initializeOpenAI()
+      const resolvedModelId = await resolveSafeModelId(input.modelId)
 
       const data: any = {
         userId,
         title: input.title || 'New chat',
         conversationType: input.conversationType ?? ConversationType.GENERAL,
         systemPrompt: input.systemPrompt,
-        modelId: input.modelId
+        modelId: resolvedModelId
       }
 
       switch (input.contextType) {
@@ -313,6 +348,17 @@ export const chatRouter = router({
           model: true,
         },
       })
+
+      if (input.skillIds && input.skillIds.length > 0) {
+        await db.aiConversationToSkill.createMany({
+          data: input.skillIds.map((skillId: string) => ({
+            conversationId: conversation.id,
+            skillId,
+            isEnabled: true,
+          })),
+          skipDuplicates: true,
+        })
+      }
 
       await ensureChatContext(conversation.id, input.contextType as ChatContextType, input.entityId, openai)
 
@@ -655,18 +701,7 @@ export const chatRouter = router({
 
       await assertWorkforceAccess(userId, input.workforceId)
 
-      // Resolve a default model if none supplied
-      let modelId = input.modelId
-      if (!modelId) {
-        const defaultModel =
-          (await (prisma as any).aiModel.findFirst({
-            where: { isDefault: true, isSystem: true, isActive: true },
-          })) ||
-          (await (prisma as any).aiModel.findFirst({
-            where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
-          }))
-        modelId = defaultModel?.id ?? undefined
-      }
+      const modelId = await resolveSafeModelId(input.modelId)
 
       const conversationType = input.mode === 'SWARM'
         ? ConversationType.WORKFORCE_SWARM_EXECUTION
@@ -734,7 +769,7 @@ export const chatRouter = router({
         agentId: z.string(),
         conversationType: z.nativeEnum(ConversationType).default(ConversationType.AGENT_EXECUTOR),
         title: z.string().optional(),
-        modelId: z.string().optional(),
+        modelId: z.string().optional().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -743,17 +778,7 @@ export const chatRouter = router({
 
       await assertAgentAccess(userId, input.agentId)
 
-      let modelId = input.modelId
-      if (!modelId) {
-        const defaultModel =
-          (await (prisma as any).aiModel.findFirst({
-            where: { isDefault: true, isSystem: true, isActive: true },
-          })) ||
-          (await (prisma as any).aiModel.findFirst({
-            where: { slug: 'gpt-4o-mini', isSystem: true, isActive: true },
-          }))
-        modelId = defaultModel?.id ?? undefined
-      }
+      const modelId = await resolveSafeModelId(input.modelId)
 
       const conversation = await db.aiConversation.create({
         data: {
@@ -905,6 +930,206 @@ export const chatRouter = router({
         data: {
           metadata: updatedMetadata,
         },
+      })
+
+      return { success: true }
+    }),
+
+  // ==========================================
+  // === CONVERSATION SKILLS PROCEDURES ===
+  // ==========================================
+
+  getConversationSkills: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const db = prisma as any
+      const userId = ctx.session.user.id
+
+      // Verify conversation ownership
+      const conversation = await db.aiConversation.findFirst({
+        where: {
+          id: input.conversationId,
+          userId,
+        },
+        select: { id: true },
+      })
+
+      if (!conversation) {
+        throw new Error('Conversation not found or permission denied')
+      }
+
+      const conversationSkills = await db.aiConversationToSkill.findMany({
+        where: {
+          conversationId: input.conversationId,
+          isEnabled: true,
+        },
+        include: {
+          skill: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      })
+
+      return conversationSkills.map((cs: any) => ({
+        conversationSkillId: cs.id,
+        skillId: cs.skillId,
+        name: cs.skill.name,
+        displayName: cs.skill.displayName,
+        description: cs.skill.description,
+        category: cs.skill.category,
+        icon: cs.skill.icon,
+        isBuiltIn: cs.skill.isBuiltIn,
+        schema: cs.skill.schema,
+        tags: cs.skill.tags,
+        config: cs.config,
+      }))
+    }),
+
+  addSkillToConversation: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+        skillId: z.string(),
+        config: z.record(z.string(), z.any()).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = prisma as any
+      const userId = ctx.session.user.id
+
+      // Verify conversation ownership
+      const conversation = await db.aiConversation.findFirst({
+        where: {
+          id: input.conversationId,
+          userId,
+        },
+        select: { id: true },
+      })
+
+      if (!conversation) {
+        throw new Error('Conversation not found or permission denied')
+      }
+
+      // Verify skill exists and is active
+      const skill = await db.aiSkill.findFirst({
+        where: {
+          id: input.skillId,
+          isActive: true,
+        },
+      })
+
+      if (!skill) {
+        throw new Error('AI Skill not found or inactive')
+      }
+
+      const existingLink = await db.aiConversationToSkill.findFirst({
+        where: {
+          conversationId: input.conversationId,
+          skillId: input.skillId,
+        },
+      })
+
+      if (existingLink) {
+        await db.aiConversationToSkill.update({
+          where: { id: existingLink.id },
+          data: {
+            isEnabled: true,
+            ...(input.config !== undefined ? { config: input.config } : {}),
+          },
+        })
+      } else {
+        await db.aiConversationToSkill.create({
+          data: {
+            conversationId: input.conversationId,
+            skillId: input.skillId,
+            isEnabled: true,
+            config: input.config || null,
+          },
+        })
+      }
+
+      return { success: true }
+    }),
+
+  removeSkillFromConversation: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+        skillId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = prisma as any
+      const userId = ctx.session.user.id
+
+      // Verify conversation ownership
+      const conversation = await db.aiConversation.findFirst({
+        where: {
+          id: input.conversationId,
+          userId,
+        },
+        select: { id: true },
+      })
+
+      if (!conversation) {
+        throw new Error('Conversation not found or permission denied')
+      }
+
+      const link = await db.aiConversationToSkill.findFirst({
+        where: {
+          conversationId: input.conversationId,
+          skillId: input.skillId,
+        },
+      })
+
+      if (!link) {
+        return { success: true }
+      }
+
+      await db.aiConversationToSkill.update({
+        where: { id: link.id },
+        data: { isEnabled: false },
+      })
+
+      return { success: true }
+    }),
+
+  toggleConversationSkill: protectedProcedure
+    .input(
+      z.object({
+        conversationId: z.string(),
+        skillId: z.string(),
+        isEnabled: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = prisma as any
+      const userId = ctx.session.user.id
+
+      // Verify conversation ownership
+      const conversation = await db.aiConversation.findFirst({
+        where: {
+          id: input.conversationId,
+          userId,
+        },
+        select: { id: true },
+      })
+
+      if (!conversation) {
+        throw new Error('Conversation not found or permission denied')
+      }
+
+      await db.aiConversationToSkill.updateMany({
+        where: {
+          conversationId: input.conversationId,
+          skillId: input.skillId,
+        },
+        data: { isEnabled: input.isEnabled },
       })
 
       return { success: true }

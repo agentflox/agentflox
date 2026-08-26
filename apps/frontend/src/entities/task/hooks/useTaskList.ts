@@ -12,16 +12,43 @@ type FilterState = {
 };
 
 export interface UseTaskListOptions {
+	initialScope?: TaskScope;
+	initialPage?: number;
+	pageSize?: number;
 	includeRelations?: TaskListRelationMode;
+	syncWithUrl?: boolean;
+	initialFilters?: FilterState;
 }
 
-export function useTaskList(initialScope: TaskScope = "owned", options: UseTaskListOptions = {}) {
-	const { includeRelations = true } = options;
-	const [page, setPage] = useState(1);
-	const pageSize = 12;
+export function useTaskList(
+	initialScopeOrOptions: TaskScope | UseTaskListOptions = "owned",
+	legacyOptions: { includeRelations?: TaskListRelationMode } = {}
+) {
+	const options: UseTaskListOptions =
+		typeof initialScopeOrOptions === "string"
+			? { initialScope: initialScopeOrOptions, ...legacyOptions }
+			: initialScopeOrOptions;
+
+	const {
+		initialScope = "owned",
+		initialPage = 1,
+		pageSize: initialPageSize = 12,
+		includeRelations = true,
+		syncWithUrl = true,
+		initialFilters = { statuses: [] },
+	} = options;
+
+	const [page, setPage] = useState(initialPage);
+	const [pageSize, setPageSize] = useState(initialPageSize);
 	const [query, setQuery] = useState("");
 	const [scope, setScope] = useState<TaskScope>(initialScope);
-	const [filters, setFilters] = useState<FilterState>({ statuses: [] });
+	const [filters, setFilters] = useState<FilterState>(initialFilters);
+
+	useEffect(() => {
+		if (options.pageSize && options.pageSize !== pageSize) {
+			setPageSize(options.pageSize);
+		}
+	}, [options.pageSize]);
 
 	const parsedStatuses = filters.statuses.length ? filters.statuses : undefined;
 
@@ -46,21 +73,19 @@ export function useTaskList(initialScope: TaskScope = "owned", options: UseTaskL
 	const utils = trpc.useUtils();
 
 	useEffect(() => {
-		setPage(1);
-	}, [query, scope, filters.statuses, filters.visibility]);
-
-	useEffect(() => {
-		const params = new URLSearchParams();
-		if (query) params.set("q", query);
-		if (scope) params.set("scope", scope);
-		if (filters.visibility) params.set("visibility", filters.visibility);
-		if (filters.statuses.length) params.set("status", filters.statuses.join(","));
-		params.set("page", String(page));
+		if (!syncWithUrl) return;
+		const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+		if (query) params.set("q", query); else params.delete("q");
+		if (scope && scope !== "owned") params.set("scope", scope); else params.delete("scope");
+		if (filters.visibility) params.set("visibility", filters.visibility); else params.delete("visibility");
+		if (filters.statuses.length) params.set("status", filters.statuses.join(",")); else params.delete("status");
+		if (page > 1) params.set("page", String(page)); else params.delete("page");
+		if (pageSize !== 12) params.set("pageSize", String(pageSize)); else params.delete("pageSize");
 		if (typeof window !== "undefined") {
 			const url = `${window.location.pathname}?${params.toString()}`;
 			window.history.replaceState(null, "", url);
 		}
-	}, [query, scope, filters.visibility, filters.statuses, page]);
+	}, [query, scope, filters.visibility, filters.statuses, page, pageSize, syncWithUrl]);
 
 	useEffect(() => {
 		utils.task.list.prefetch({
@@ -88,11 +113,17 @@ export function useTaskList(initialScope: TaskScope = "owned", options: UseTaskL
 		}
 	}, [utils, queryResult.data?.items?.length, page, pageSize, scope, query, filters.visibility, parsedStatuses, includeRelations]);
 
+	const total = queryResult.data?.total ?? 0;
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
 	return {
 		...queryResult,
 		page,
 		pageSize,
 		setPage,
+		setPageSize,
+		totalPages,
+		total,
 		scope,
 		setScope,
 		query,

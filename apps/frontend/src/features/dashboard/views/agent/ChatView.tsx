@@ -53,6 +53,8 @@ interface ChatViewProps {
   conversationType?: 'AGENT_EXECUTOR' | 'AGENT_OPERATOR' | 'AGENT_BUILDER';
   chatId?: string | null;
   onChatIdChange?: (chatId: string | null) => void;
+  paneTab?: 'chat' | 'log';
+  onPaneTabChange?: (tab: 'chat' | 'log') => void;
   /** When true (default), show a button to toggle the agent profile side panel. */
   showProfileToggle?: boolean;
   presentation?: 'split' | 'tabs';
@@ -66,6 +68,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
   conversationType = 'AGENT_EXECUTOR',
   chatId: controlledChatId,
   onChatIdChange,
+  paneTab: controlledPaneTab,
+  onPaneTabChange,
   showProfileToggle = true,
   presentation = 'split',
 }) => {
@@ -106,8 +110,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const isSendingRef = useRef(false);
   const [showAgentProfile, setShowAgentProfile] = useState(true);
   const optimisticMessageIds = useRef<Set<string>>(new Set());
-  const [chatPaneTab, setChatPaneTab] = useState<'chat' | 'log'>('chat');
+  const [chatPaneTab, setChatPaneTab] = useState<'chat' | 'log'>(controlledPaneTab || 'chat');
   const [activeArtifact, setActiveArtifact] = useState<ExecutionArtifact | null>(null);
+
+  useEffect(() => {
+    if (controlledPaneTab && controlledPaneTab !== chatPaneTab) {
+      setChatPaneTab(controlledPaneTab);
+    }
+  }, [controlledPaneTab]);
 
   // Sidebar UI state (mirrors AIChatView)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -632,6 +642,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
     if (action.label) handleSendMessage(action.label);
   }, [handleSendMessage]);
 
+  // Clear viewer when conversation changes
+  useEffect(() => {
+    setActiveArtifact(null);
+  }, [activeConversationId]);
+
   if (!resolvedAgentId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -644,11 +659,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
     ...msg,
     followups: msg.followups || followupsMap.get(msg.id),
   }));
-
-  // Clear viewer when conversation changes
-  useEffect(() => {
-    setActiveArtifact(null);
-  }, [activeConversationId]);
 
   const showMessageSkeleton = !!activeConversationId && isLoadingMessages && !isSending && messages.length === 0;
   const isTabs = presentation === 'tabs';
@@ -875,7 +885,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         <button
                           key={id}
                           type="button"
-                          onClick={() => setChatPaneTab(id)}
+                          onClick={() => {
+                            setChatPaneTab(id);
+                            onPaneTabChange?.(id);
+                          }}
                           className={cn(
                             'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer',
                             chatPaneTab === id ? 'bg-indigo-50 text-indigo-700' : 'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50'

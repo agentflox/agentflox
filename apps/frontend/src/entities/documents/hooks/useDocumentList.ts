@@ -20,6 +20,12 @@ export interface UseDocumentListOptions {
 	initialScope?: DocumentScope;
 
 	/**
+	 * Initial page
+	 * @default 1
+	 */
+	initialPage?: number;
+
+	/**
 	 * Number of items per page
 	 * @default 12
 	 */
@@ -58,7 +64,8 @@ export interface UseDocumentListOptions {
 export function useDocumentList(options: UseDocumentListOptions = {}) {
 	const {
 		initialScope = "all",
-		pageSize = 12,
+		initialPage = 1,
+		pageSize: initialPageSize = 12,
 		initialFilters = { status: "active", parentId: null },
 		debounceMs = 0,
 		syncWithUrl = true,
@@ -66,11 +73,18 @@ export function useDocumentList(options: UseDocumentListOptions = {}) {
 		enablePrefetch = true,
 	} = options;
 
-	const [page, setPage] = useState(1);
+	const [page, setPage] = useState(initialPage);
+	const [pageSize, setPageSize] = useState(initialPageSize);
 	const [query, setQuery] = useState("");
 	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [scope, setScope] = useState<DocumentScope>(initialScope);
 	const [filters, setFilters] = useState<FilterState>(initialFilters);
+
+	useEffect(() => {
+		if (options.pageSize && options.pageSize !== pageSize) {
+			setPageSize(options.pageSize);
+		}
+	}, [options.pageSize]);
 
 	// Debounce search query
 	useEffect(() => {
@@ -106,11 +120,6 @@ export function useDocumentList(options: UseDocumentListOptions = {}) {
 
 	const utils = trpc.useUtils();
 
-	// Reset page when filters change
-	useEffect(() => {
-		setPage(1);
-	}, [debouncedQuery, scope, filters.status, filters.workspaceId, filters.parentId]);
-
 	// Prefetch first page
 	useEffect(() => {
 		if (!enablePrefetch) return;
@@ -129,23 +138,29 @@ export function useDocumentList(options: UseDocumentListOptions = {}) {
 	useEffect(() => {
 		if (!syncWithUrl) return;
 
-		const params = new URLSearchParams();
-		if (query) params.set("q", query);
-		if (scope) params.set("scope", scope);
-		if (filters.status) params.set("status", filters.status);
-		if (filters.workspaceId) params.set("workspaceId", filters.workspaceId);
-		params.set("page", String(page));
+		const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+		if (query) params.set("q", query); else params.delete("q");
+		if (scope && scope !== "all") params.set("scope", scope); else params.delete("scope");
+		if (filters.status) params.set("status", filters.status); else params.delete("status");
+		if (filters.workspaceId) params.set("workspaceId", filters.workspaceId); else params.delete("workspaceId");
+		if (page > 1) params.set("page", String(page)); else params.delete("page");
+		if (pageSize !== 12) params.set("pageSize", String(pageSize)); else params.delete("pageSize");
 
 		if (typeof window !== "undefined") {
-			const url = `${window.location.pathname}?${params.toString()}`;
+			const search = params.toString();
+			const url = search ? `${window.location.pathname}?${search}` : window.location.pathname;
 			window.history.replaceState(null, "", url);
 		}
-	}, [query, scope, filters.status, filters.workspaceId, page, syncWithUrl]);
+	}, [query, scope, filters.status, filters.workspaceId, page, pageSize, syncWithUrl]);
+
+	const total = (queryResult.data as any)?.total ?? 0;
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	return {
 		// Query result
 		data: queryResult.data,
 		isLoading: queryResult.isLoading,
+		isFetching: queryResult.isFetching,
 		isError: queryResult.isError,
 		error: queryResult.error,
 		refetch: queryResult.refetch,
@@ -154,8 +169,9 @@ export function useDocumentList(options: UseDocumentListOptions = {}) {
 		page,
 		pageSize,
 		setPage,
-		totalPages: queryResult.data ? Math.ceil((queryResult.data as any).total / pageSize) : 0,
-		total: (queryResult.data as any)?.total ?? 0,
+		setPageSize,
+		totalPages,
+		total,
 
 		// Search
 		query,

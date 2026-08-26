@@ -1221,7 +1221,7 @@ export function BoardView({ spaceId, projectId, teamId, listId, folderId, viewId
     const updateTask = trpc.task.update.useMutation({
         onMutate: async (variables) => {
             updateTaskInList(variables.id, (task: any) => {
-                let updated = { ...task, ...variables };
+                const updated = { ...task, ...variables };
                 if ((variables as any).statusId !== undefined) {
                     const statusObj = statuses.find(s => s.id === (variables as any).statusId);
                     updated.status = statusObj ?? ((variables as any).statusId ? task.status : null);

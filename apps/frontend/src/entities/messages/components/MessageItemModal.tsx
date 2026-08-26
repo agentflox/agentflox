@@ -144,6 +144,7 @@ export default function MessageItemModal({ userId, open, onClose }: Props) {
                     senderId: m.sender_id || m.senderId,
                     receiverId: m.receiver_id || m.receiverId,
                     content: m.content,
+                    type: m.type,
                     attachments: m.attachments,
                     createdAt: m.created_at || m.createdAt,
                     isRead: m.is_read ?? m.isRead,

@@ -46,6 +46,7 @@ import { modelsRouter } from "@/trpc/routers/models";
 import { automationRouter } from "@/trpc/routers/automation";
 import { webhookRouter } from "@/trpc/routers/webhook";
 import { tagsRouter } from "@/trpc/routers/tags";
+import { skillRouter } from "@/trpc/routers/skill";
 
 export const appRouter = router({
   project: projectRouter,
@@ -70,6 +71,7 @@ export const appRouter = router({
   channelMessage: channelMessageRouter,
   task: taskRouter,
   tool: toolRouter,
+  skill: skillRouter,
   marketplace: marketplaceRouter,
   payout: payoutRouter,
   list: listRouter,

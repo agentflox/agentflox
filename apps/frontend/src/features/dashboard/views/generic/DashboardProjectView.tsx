@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { setCleanViewParam, parseDashboardState } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { setCleanViewParam, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -153,7 +154,7 @@ const viewConfig: Record<
 };
 
 export default function DashboardProjectView({ listId, spaceId, projectId, teamId, workspaceId, selectedTaskIdFromParent, onTaskSelect, context = "project" }: DashboardProjectViewProps) {
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
     const router = useRouter();
     const utils = trpc.useUtils();
 
@@ -223,15 +224,25 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
     });
 
     // Active Tab Logic
-    const parsedState = useMemo(() => parseDashboardState(searchParams), [searchParams]);
     const urlViewId = parsedState.viewId;
     const activeView = views.find(v => v.id === urlViewId) || views[0];
     const activeTab = activeView?.id;
 
+    const basePath = useMemo(() => {
+        if (spaceId && projectId) return `/spaces/${spaceId}/pj/${projectId}`;
+        if (workspaceId && projectId) return `/workspaces/${workspaceId}/pj/${projectId}`;
+        if (projectId) return `/projects/${projectId}`;
+        return null;
+    }, [spaceId, workspaceId, projectId]);
+
     const handleTabChange = useCallback((viewId: string) => {
-        const clean = setCleanViewParam(searchParams, viewId);
-        router.push(`?${clean.toString()}`, { scroll: false });
-    }, [searchParams, router]);
+        if (basePath) {
+            router.push(buildDashboardPath({ basePath, viewId, taskId: parsedState.taskId }), { scroll: false });
+        } else {
+            const clean = setCleanViewParam(searchParams, viewId);
+            router.push(`?${clean.toString()}`, { scroll: false });
+        }
+    }, [basePath, parsedState.taskId, searchParams, router]);
 
     const handleRenameView = (name: string) => {
         if (viewToRename) {
@@ -252,7 +263,9 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}${window.location.pathname}?pj=${projectId}&v=${view.id}`;
+        const url = basePath
+            ? `${window.location.origin}${basePath}/v/${view.id}`
+            : `${window.location.origin}${window.location.pathname}?v=${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -281,8 +294,12 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
 
         if (lastCreatedViewId) {
             if (projectId) await utils.project.get.invalidate({ id: projectId });
-            const clean = setCleanViewParam(searchParams, lastCreatedViewId);
-            router.push(`?${clean.toString()}`, { scroll: false });
+            if (basePath) {
+                router.push(buildDashboardPath({ basePath, viewId: lastCreatedViewId, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, lastCreatedViewId);
+                router.push(`?${clean.toString()}`, { scroll: false });
+            }
         }
     };
 
@@ -305,10 +322,14 @@ export default function DashboardProjectView({ listId, spaceId, projectId, teamI
 
     useEffect(() => {
         if (!urlViewId && views.length > 0) {
-            const clean = setCleanViewParam(searchParams, views[0].id);
-            history.replaceState(null, "", `?${clean.toString()}`);
+            if (basePath) {
+                router.replace(buildDashboardPath({ basePath, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
+            } else {
+                const clean = setCleanViewParam(searchParams, views[0].id);
+                router.replace(`?${clean.toString()}`, { scroll: false });
+            }
         }
-    }, [urlViewId, views, searchParams]);
+    }, [urlViewId, views, searchParams, basePath, parsedState.taskId, router]);
 
     const renderViewContent = (view: any) => {
         if (!view) return null;

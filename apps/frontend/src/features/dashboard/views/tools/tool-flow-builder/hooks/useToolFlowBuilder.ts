@@ -26,7 +26,7 @@ import {
   Check,
   List,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams, usePathname, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import { useToast } from "@/hooks/useToast";
 import {
@@ -95,11 +95,55 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
   const [description, setDescription] = React.useState<string>(initialTool?.description ?? "");
   const [category, setCategory] = React.useState<string>(initialTool?.category ?? "Custom");
 
+  const router = useRouter();
+  const params = useParams();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const slugArray: string[] = React.useMemo(() => {
+    const pSlug = (params as any)?.slug;
+    if (Array.isArray(pSlug)) return pSlug;
+    if (typeof pSlug === "string") return [pSlug];
+    const segments = pathname.split("/").filter(Boolean);
+    const toolIdx = segments.indexOf("tools");
+    if (toolIdx !== -1 && segments.length > toolIdx + 2) {
+      return segments.slice(toolIdx + 2);
+    }
+    return [];
+  }, [params, pathname]);
+
+  const resolvedTopTab: "build" | "run" = React.useMemo(() => {
+    if (slugArray[0] === "run") return "run";
+    if (slugArray[0] === "build") return "build";
+    if (searchParams.get("tab") === "run") return "run";
+    return "build";
+  }, [slugArray, searchParams]);
+
   const [activePanelTab, setActivePanelTab] =
     React.useState<"configure" | "outputs" | "fallback">("configure");
-  const [activeTopTab, setActiveTopTab] = React.useState<"build" | "run">("build");
+  const [activeTopTab, setActiveTopTabState] = React.useState<"build" | "run">(resolvedTopTab);
+
+  React.useEffect(() => {
+    setActiveTopTabState(resolvedTopTab);
+  }, [resolvedTopTab]);
+
+  const setActiveTopTab = React.useCallback(
+    (tab: "build" | "run") => {
+      setActiveTopTabState(tab);
+      if (initialTool?.id) {
+        router.push(`/tools/${initialTool.id}/${tab}`, { scroll: false });
+      }
+    },
+    [initialTool?.id, router]
+  );
   const [settingsOpen, setSettingsOpen] = React.useState(false);
-  const [assistantOpen, setAssistantOpen] = React.useState(false);
+  const [assistantOpen, setAssistantOpen] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get("assistant") === "true") return true;
+    }
+    return !initialTool?.steps || (Array.isArray(initialTool.steps) && initialTool.steps.length === 0);
+  });
   const [toolIcon, setToolIcon] = React.useState<string>((initialTool as any)?.icon ?? "T");
   const [toolColor, setToolColor] = React.useState<string>((initialTool as any)?.color ?? "");
   const [selectedNode, setSelectedNode] = React.useState<"inputs" | "outputs" | "step" | "branch_path">("inputs");
@@ -148,8 +192,6 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
   const [isEditingName, setIsEditingName] = React.useState(false);
   const nameInputRef = React.useRef<HTMLInputElement>(null);
 
-  const router = useRouter();
-
   const handlePublishClick = () => {
     checkProfileAndProceed(() => {
       setIsPublishModalOpen(true);
@@ -164,7 +206,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
       toast({ title: "Cloned", description: `"${cloned.name}" created.` });
       utils.compositeTool.list.invalidate();
       setCloneOpen(false);
-      router.push(`/dashboard/tools/build/flow/${cloned.id}`);
+      router.push(`tools/${cloned.id}`);
     },
     onError: (err) => toast({ title: "Clone failed", description: err.message, variant: "destructive" }),
   });
@@ -175,7 +217,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
       toast({ title: "Tool deleted" });
       utils.compositeTool.list.invalidate();
       if (onClose) onClose();
-      else router.push("/dashboard/tools");
+      else router.push("/tools");
     },
     onError: (err) => toast({ title: "Delete failed", description: err.message, variant: "destructive" }),
   });
@@ -191,7 +233,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
   });
 
   const handleShare = React.useCallback(async () => {
-    const url = `${window.location.origin}/dashboard/tools/build/flow/${initialTool?.id ?? ""}`;
+    const url = `${window.location.origin}/tools/${initialTool?.id ?? ""}`;
     await navigator.clipboard.writeText(url);
     setLinkCopied(true);
     toast({ title: "Link copied" });
@@ -199,7 +241,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
   }, [initialTool?.id, toast]);
 
   const handleCopyLink = React.useCallback(async () => {
-    const url = `${window.location.origin}/dashboard/tools/build/flow/${initialTool?.id ?? ""}`;
+    const url = `${window.location.origin}/tools/${initialTool?.id ?? ""}`;
     await navigator.clipboard.writeText(url);
     toast({ title: "Link copied" });
   }, [initialTool?.id, toast]);
@@ -390,7 +432,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
     onSuccess: async (tool) => {
       toast({ title: "Tool created", description: "Your tool was created successfully." });
       await utils.compositeTool.list.invalidate();
-      window.history.replaceState(null, "", `/dashboard/tools/${tool.id}`);
+      window.history.replaceState(null, "", `/tools/${tool.id}`);
     },
     onError: (err) => {
       toast({ title: "Error creating tool", description: err.message, variant: "destructive" });
@@ -499,7 +541,7 @@ export function useToolFlowBuilder({ workspaceId, initialTool, onClose }: ToolFl
   React.useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
     setHasChanges(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [name, steps, inputs, outputs]);
 
   // Autosave (debounced, 2 s after last change)

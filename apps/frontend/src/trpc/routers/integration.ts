@@ -91,14 +91,14 @@ async function getGithubAccountForUser(userId: string, accountId: string) {
     },
   });
 
-  if (!connection?.accessToken) {
+  if (!connection || !connection.accessToken) {
     throw new TRPCError({
       code: "NOT_FOUND",
       message: "GitHub account not found for current user",
     });
   }
 
-  return connection;
+  return connection as typeof connection & { accessToken: string };
 }
 
 async function deleteIntegrationConnection(userId: string, connectionId: string) {

@@ -8,7 +8,7 @@ import {
     Folder as FolderIcon,
     List as ListIcon,
     FileText,
-    Users,
+
     CheckSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -64,7 +64,7 @@ export function ProjectSidebarItem({
     onSelectList,
     onSelectFolder,
     onSelectDoc,
-    onSelectTeam,
+
 }: ProjectSidebarItemProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -78,6 +78,7 @@ export function ProjectSidebarItem({
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+
 
     const [targetFolderId, setTargetFolderId] = useState<string | undefined>(undefined);
     const [targetListId, setTargetListId] = useState<string | undefined>(undefined);
@@ -102,18 +103,14 @@ export function ProjectSidebarItem({
         { enabled: true }
     );
 
-    // Fetch project details (for linked teams)
-    const { data: projectDetails } = trpc.project.get.useQuery(
-        { id: project.id },
-        { enabled: true }
-    );
+
 
     const folders = foldersData?.items ?? [];
     const lists = listsData?.items ?? [];
     const docs = (docViewsData ?? []).filter(v => v.sidebarView === true);
-    const teams = projectDetails?.teams ?? [];
 
-    const handleItemClick = (type: "list" | "folder" | "doc" | "team", id: string) => {
+
+    const handleItemClick = (type: "list" | "folder" | "doc", id: string) => {
         if (type === "list") {
             if (onSelectList) onSelectList(id);
             else {
@@ -147,21 +144,10 @@ export function ProjectSidebarItem({
                 });
                 router.push(`?${clean.toString()}`, { scroll: false });
             }
-        } else if (type === "team") {
-            if (onSelectTeam) onSelectTeam(id);
-            else {
-                const clean = buildCleanDashboardParams(searchParams, {
-                    tab: "teams",
-                    entityKey: "tm",
-                    entityId: id,
-                    keepTask: true,
-                });
-                router.push(`?${clean.toString()}`, { scroll: false });
-            }
         }
     };
 
-    const hasChildren = folders.length > 0 || lists.length > 0 || docs.length > 0 || teams.length > 0;
+    const hasChildren = folders.length > 0 || lists.length > 0 || docs.length > 0;
 
     return (
         <div className="relative select-none">
@@ -247,12 +233,13 @@ export function ProjectSidebarItem({
                             </Tooltip>
                         </TooltipProvider>
                         <DropdownMenuContent align="end" className="w-48">
+
                             <DropdownMenuItem onClick={() => {
-                                setTargetListId(lists[0]?.id);
-                                setIsTaskModalOpen(true);
+                                setTargetFolderId(undefined);
+                                setIsFolderModalOpen(true);
                             }}>
-                                <CheckSquare className="mr-2 h-4 w-4" />
-                                Task
+                                <FolderIcon className="mr-2 h-4 w-4" />
+                                Folder
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => {
                                 setTargetFolderId(undefined);
@@ -261,14 +248,6 @@ export function ProjectSidebarItem({
                                 <ListIcon className="mr-2 h-4 w-4" />
                                 List
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                                setTargetFolderId(undefined);
-                                setIsFolderModalOpen(true);
-                            }}>
-                                <FolderIcon className="mr-2 h-4 w-4" />
-                                Folder
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => {
                                 setTargetDocFolderId(undefined);
                                 setTargetDocListId(undefined);
@@ -471,25 +450,6 @@ export function ProjectSidebarItem({
                         </div>
                     ))}
 
-                    {/* Direct Teams */}
-                    {teams.map((team: any) => (
-                        <div key={team.id} className="relative select-none">
-                            <div
-                                className="group/team flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-emerald-50 text-sm cursor-pointer"
-                                onClick={() => handleItemClick("team", team.id)}
-                            >
-                                <div className="h-5 w-5 rounded shrink-0 flex items-center justify-center">
-                                    <Users className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                </div>
-                                <span className="flex-1 truncate text-xs text-slate-700 group-hover/team:text-emerald-800">
-                                    {team.name}
-                                </span>
-                                <span className="text-[10px] text-emerald-600 font-medium px-1.5 py-0.5 bg-emerald-100/80 rounded">
-                                    Team
-                                </span>
-                            </div>
-                        </div>
-                    ))}
                 </div>
             )}
 
@@ -541,6 +501,7 @@ export function ProjectSidebarItem({
                     utils.view.list.invalidate();
                 }}
             />
+
         </div>
     );
 }

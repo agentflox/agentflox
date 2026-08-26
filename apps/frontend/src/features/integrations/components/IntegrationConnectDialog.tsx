@@ -20,6 +20,26 @@ import { UI_TO_CATALOG_PROVIDER } from '../catalogMapping';
 import { connectIntegrationProvider } from '../lib/oauthPopup';
 import { trpc } from '@/lib/trpc';
 
+/**
+ * Superset account shape — accepts both the generic catalog format
+ * (primaryLabel / secondaryLabel) and GitHub's native format
+ * (login / htmlUrl) so callers don't need an adapter.
+ */
+export type IntegrationAccount = {
+  id: string;
+  providerAccountId?: string;
+  /** Generic display name OR GitHub login */
+  primaryLabel?: string;
+  login?: string | null;
+  /** Generic secondary label OR GitHub profile URL */
+  secondaryLabel?: string | null;
+  htmlUrl?: string | null;
+  avatarUrl?: string | null;
+};
+
+/** Backwards-compat alias — previously exported from GitHubConfigDialog */
+export type GitHubAccount = IntegrationAccount;
+
 type IntegrationConnectDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,13 +49,7 @@ type IntegrationConnectDialogProps = {
   isConnected?: boolean;
   verified?: boolean;
   beta?: boolean;
-  accounts?: Array<{
-    id: string;
-    providerAccountId?: string;
-    primaryLabel?: string;
-    secondaryLabel?: string | null;
-    avatarUrl?: string | null;
-  }>;
+  accounts?: IntegrationAccount[];
   tools?: IntegrationToolItem[];
   onDisconnected?: () => void;
   onConnected?: () => void;
@@ -83,11 +97,14 @@ export function IntegrationConnectDialog({
     () =>
       accounts.map((account) => ({
         id: account.id,
+        // Accept both generic (primaryLabel) and GitHub-native (login) field names
         primaryLabel:
           account.primaryLabel ||
+          account.login ||
           account.providerAccountId ||
           `Account ${account.id.slice(0, 8)}…`,
-        secondaryLabel: account.secondaryLabel ?? null,
+        // Accept both generic (secondaryLabel) and GitHub-native (htmlUrl) field names
+        secondaryLabel: account.secondaryLabel ?? account.htmlUrl ?? null,
         avatarUrl: account.avatarUrl ?? null,
       })),
     [accounts],

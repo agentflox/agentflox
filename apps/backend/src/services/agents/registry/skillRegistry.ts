@@ -40,18 +40,11 @@ export function getAllSkillNames(): string[] {
 }
 
 /**
- * Get all skills from the database, including their associated tools
+ * Get all skills from the database
  */
 export async function getAllSkills() {
-    const skills = await prisma.agentSkill.findMany({
+    const skills = await prisma.aiSkill.findMany({
         where: { isActive: true },
-        include: {
-            toolSkills: {
-                include: {
-                    tool: true
-                }
-            }
-        }
     });
 
     return skills.map(skill => ({
@@ -60,6 +53,8 @@ export async function getAllSkills() {
         description: skill.description,
         category: skill.category,
         icon: skill.icon,
-        tools: skill.toolSkills.map((st: any) => st.tool.name)
+        schema: skill.schema,
+        tags: skill.tags,
+        metadata: skill.metadata,
     }));
 }

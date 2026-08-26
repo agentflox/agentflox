@@ -5,7 +5,7 @@ import { Dialog, DialogTitle, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, Folder, Layers, List, Search, Users, X, Zap, UserRound, Play, Briefcase } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronUp, Search, X, Zap, UserRound } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import type { AutomationScope } from "../types";
 import { ACTION_META } from "../actionCatalog";
@@ -23,9 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { WorkspaceIcon } from "@/entities/workspace/components/WorkspaceIcon";
-import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
-import { ProjectIcon } from "@/entities/projects/components/ProjectIcon";
+import { DestinationTreeRow, ENTITY_TREE_NEST } from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 import { AutomationBuilderContent } from "./builders/AutomationBuilderContent";
 import { AutomationListItem } from "./shared/AutomationListItem";
 import { BrowseAutomations } from "./BrowseAutomations";
@@ -99,11 +97,22 @@ function LocationPickerContent({
     setCollapsedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const scopeKind = (type: AutomationScope["contextType"]) =>
+    ({
+      WORKSPACE: "workspace",
+      SPACE: "space",
+      PROJECT: "project",
+      TEAM: "team",
+      FOLDER: "folder",
+      LIST: "list",
+      PERSONAL: "personal",
+    }[type] ?? "list");
+
   const renderItem = (
     item: any,
     type: AutomationScope["contextType"],
-    icon: React.ReactNode,
-    indentLevel = 1,
+    _icon: React.ReactNode,
+    _indentLevel = 1,
     children: React.ReactNode = null,
     hasChildren = false,
     rowId: string,
@@ -113,14 +122,14 @@ function LocationPickerContent({
     const isSelected = selectedScope.contextType === type && selectedScope.contextId === item.id;
     return (
       <div key={`${type}-${item.id}`} className="space-y-0.5 w-full">
-        <div
-          className={cn(
-            "group/item w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-left transition-all cursor-pointer relative",
-            indentLevel === 1 && "pl-6",
-            indentLevel === 2 && "pl-10",
-            indentLevel === 3 && "pl-14",
-            isSelected ? "bg-zinc-100 text-zinc-900 font-semibold" : "hover:bg-zinc-100/80 text-zinc-600 hover:text-zinc-900 font-medium",
-          )}
+        <DestinationTreeRow
+          selected={isSelected}
+          kind={scopeKind(type)}
+          entity={item}
+          label={item.name}
+          hasChildren={hasChildren}
+          expanded={isExpanded}
+          onToggle={(e) => toggleRow(rowId, e)}
           onClick={() =>
             onSelect({
               workspaceId: extra?.workspaceId,
@@ -134,25 +143,8 @@ function LocationPickerContent({
               contextName: item.name,
             })
           }
-        >
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
-              <span className={cn("flex items-center justify-center", hasChildren && "group-hover/item:hidden")}>
-                {icon}
-              </span>
-              {hasChildren && (
-                <div
-                  className="hidden group-hover/item:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
-                  onClick={(e) => toggleRow(rowId, e)}
-                >
-                  <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
-                </div>
-              )}
-            </div>
-            <span className="truncate">{item.name}</span>
-          </div>
-        </div>
-        {isExpanded && children && <div className="space-y-0.5">{children}</div>}
+        />
+        {isExpanded && children && <div className={ENTITY_TREE_NEST}>{children}</div>}
       </div>
     );
   };
@@ -177,13 +169,10 @@ function LocationPickerContent({
           .slice(0, 1)
           .map((personal) => (
             <div key={`personal-${personal.id}`} className="space-y-0.5 w-full">
-              <div
-                className={cn(
-                  "w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs cursor-pointer",
-                  selectedScope.contextType === "PERSONAL" && selectedScope.contextId === personal.id
-                    ? "bg-zinc-100 text-zinc-900 font-semibold"
-                    : "text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900",
-                )}
+              <DestinationTreeRow
+                selected={selectedScope.contextType === "PERSONAL" && selectedScope.contextId === personal.id}
+                kind="personal"
+                label="Personal List"
                 onClick={() =>
                   onSelect({
                     workspaceId: currentWorkspaceId,
@@ -193,26 +182,27 @@ function LocationPickerContent({
                     contextName: "Personal List",
                   })
                 }
-              >
-                <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                  <Users className="h-3 w-3 text-purple-600 shrink-0" />
-                </div>
-                <span>Personal List</span>
-              </div>
+              />
             </div>
           ))}
         {filteredWorkspaces.map((ws: any) => {
           const wsTeams = teams?.filter((t: any) => t.workspaceId === ws.id) || [];
           const wsSpaces = spaces.filter((s: any) => s.workspaceId === ws.id);
           const wsProjects = projects.filter((p: any) => p.workspaceId === ws.id && !p.spaceId);
-          const wsFolders = folders?.filter((f: any) => f.workspaceId === ws.id && !f.spaceId && !f.projectId) || [];
-          const wsLists = lists?.filter((l: any) => l.workspaceId === ws.id && !l.spaceId && !l.projectId && !l.folderId) || [];
+          const wsFolders = folders?.filter((f: any) => f.workspaceId === ws.id && !f.spaceId && !f.projectId && !f.teamId) || [];
+          const wsLists = lists?.filter((l: any) => l.workspaceId === ws.id && !l.spaceId && !l.projectId && !l.teamId && !l.folderId) || [];
           const hasChildren = wsTeams.length > 0 || wsSpaces.length > 0 || wsProjects.length > 0 || wsFolders.length > 0 || wsLists.length > 0;
           const isExpanded = !collapsedRows[ws.id] || !!search;
           return (
             <div key={ws.id} className="space-y-0.5 w-full">
-              <div
-                className="group/ws w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs text-left transition-all cursor-pointer relative hover:bg-zinc-100/80 text-zinc-600 hover:text-zinc-900 font-medium"
+              <DestinationTreeRow
+                selected={selectedScope.contextType === "WORKSPACE" && selectedScope.contextId === ws.id}
+                kind="workspace"
+                entity={ws}
+                label={ws.name}
+                hasChildren={hasChildren}
+                expanded={isExpanded}
+                onToggle={(e) => toggleRow(ws.id, e)}
                 onClick={() =>
                   onSelect({
                     workspaceId: ws.id,
@@ -221,105 +211,50 @@ function LocationPickerContent({
                     contextName: ws.name,
                   })
                 }
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <div className="relative flex items-center justify-center h-5 w-5 shrink-0">
-                    <span className={cn("flex items-center justify-center", hasChildren && "group-hover/ws:hidden")}>
-                      <WorkspaceIcon icon={ws.avatar ?? null} size={18} className="text-zinc-400" />
-                    </span>
-                    {hasChildren && (
-                      <div
-                        className="hidden group-hover/ws:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors"
-                        onClick={(e) => toggleRow(ws.id, e)}
-                      >
-                        <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", isExpanded && "rotate-90")} />
-                      </div>
-                    )}
-                  </div>
-                  <span className="truncate">{ws.name}</span>
-                </div>
-              </div>
+              />
               {isExpanded && (
-                <div className="space-y-0.5">
-                  {wsTeams.map((team: any) =>
-                    renderItem(
-                      team,
-                      "TEAM",
-                      <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                        <Users size={12} className="text-emerald-600" />
-                      </div>,
-                      1,
-                      null,
-                      false,
-                      team.id,
-                      { workspaceId: ws.id }
-                    ),
-                  )}
+                <div className={ENTITY_TREE_NEST}>
                   {wsSpaces.map((space: any) => {
                     const spaceProjects = projects.filter((p: any) => p.spaceId === space.id);
-                    const spaceFolders = folders?.filter((f: any) => f.spaceId === space.id && !f.projectId) || [];
-                    const spaceLists = lists?.filter((l: any) => l.spaceId === space.id && !l.projectId && !l.folderId) || [];
-                    const renderFolder = (folder: any, level: number) => {
+                    const spaceFolders = folders?.filter((f: any) => f.spaceId === space.id && !f.projectId && !f.teamId) || [];
+                    const spaceLists = lists?.filter((l: any) => l.spaceId === space.id && !l.projectId && !l.teamId && !l.folderId) || [];
+                    const renderFolder = (folder: any, level: number, extra: Partial<AutomationScope>) => {
                       const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
                       return renderItem(
                         folder,
                         "FOLDER",
-                        <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                          <Folder size={12} className="text-blue-600" />
-                        </div>,
+                        null,
                         level,
                         folderLists.map((list: any) =>
                           renderItem(
                             list,
                             "LIST",
-                            <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                              <List size={12} className="text-emerald-600" />
-                            </div>,
+                            null,
                             level + 1,
                             null,
                             false,
                             list.id,
-                            {
-                              workspaceId: ws.id,
-                              spaceId: space.id,
-                              folderId: folder.id,
-                            }
+                            { ...extra, folderId: folder.id }
                           ),
                         ),
                         folderLists.length > 0,
                         folder.id,
-                        { workspaceId: ws.id, spaceId: space.id },
+                        extra,
                       );
                     };
                     const renderProject = (project: any, level: number) => {
-                      const projectFolders = folders?.filter((f: any) => f.projectId === project.id) || [];
-                      const projectLists = lists?.filter((l: any) => l.projectId === project.id && !l.folderId) || [];
+                      const projectFolders = folders?.filter((f: any) => f.projectId === project.id && !f.teamId) || [];
+                      const projectLists = lists?.filter((l: any) => l.projectId === project.id && !l.folderId && !l.teamId) || [];
+                      const extra = { workspaceId: ws.id, spaceId: space.id, projectId: project.id };
                       return renderItem(
                         project,
                         "PROJECT",
-                        <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                          <Briefcase size={12} className="text-purple-600" />
-                        </div>,
+                        null,
                         level,
                         <>
-                          {projectFolders.map((f: any) => renderFolder(f, level + 1))}
+                          {projectFolders.map((f: any) => renderFolder(f, level + 1, extra))}
                           {projectLists.map((l: any) =>
-                            renderItem(
-                              l,
-                              "LIST",
-                              <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                <List size={12} className="text-emerald-600" />
-                              </div>,
-                              level + 1,
-                              null,
-                              false,
-                              l.id,
-                              {
-                                workspaceId: ws.id,
-                                spaceId: space.id,
-                                projectId: project.id,
-                              }
-                            ),
+                            renderItem(l, "LIST", null, level + 1, null, false, l.id, extra),
                           )}
                         </>,
                         projectFolders.length > 0 || projectLists.length > 0,
@@ -330,34 +265,13 @@ function LocationPickerContent({
                     return renderItem(
                       space,
                       "SPACE",
-                      <div className="relative h-4 w-4 rounded shrink-0 flex items-center justify-center">
-                        <span
-                          className="h-4 w-4 rounded shrink-0 overflow-hidden grid place-items-center bg-indigo-500 text-white"
-                          style={{ backgroundColor: space.color || "#6366f1" }}
-                        >
-                          <SpaceIcon icon={space.icon} size={11} className="text-white" fill />
-                        </span>
-                      </div>,
+                      null,
                       1,
                       <>
                         {spaceProjects.map((p: any) => renderProject(p, 2))}
-                        {spaceFolders.map((f: any) => renderFolder(f, 2))}
+                        {spaceFolders.map((f: any) => renderFolder(f, 2, { workspaceId: ws.id, spaceId: space.id }))}
                         {spaceLists.map((l: any) =>
-                          renderItem(
-                            l,
-                            "LIST",
-                            <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                              <List size={12} className="text-emerald-600" />
-                            </div>,
-                            2,
-                            null,
-                            false,
-                            l.id,
-                            {
-                              workspaceId: ws.id,
-                              spaceId: space.id,
-                            }
-                          ),
+                          renderItem(l, "LIST", null, 2, null, false, l.id, { workspaceId: ws.id, spaceId: space.id }),
                         )}
                       </>,
                       spaceProjects.length > 0 || spaceFolders.length > 0 || spaceLists.length > 0,
@@ -365,47 +279,94 @@ function LocationPickerContent({
                       { workspaceId: ws.id },
                     );
                   })}
-                  {wsProjects.map((project: any) =>
-                    renderItem(
+                  {wsProjects.map((project: any) => {
+                    const projectFolders = folders?.filter((f: any) => f.projectId === project.id && !f.teamId) || [];
+                    const projectLists = lists?.filter((l: any) => l.projectId === project.id && !l.folderId && !l.teamId) || [];
+                    const extra = { workspaceId: ws.id, projectId: project.id };
+                    return renderItem(
                       project,
                       "PROJECT",
-                      <div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                        <Briefcase size={12} className="text-purple-600" />
-                      </div>,
-                      1,
                       null,
-                      false,
+                      1,
+                      <>
+                        {projectFolders.map((folder: any) => {
+                          const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
+                          return renderItem(
+                            folder,
+                            "FOLDER",
+                            null,
+                            2,
+                            folderLists.map((list: any) =>
+                              renderItem(list, "LIST", null, 3, null, false, list.id, { ...extra, folderId: folder.id }),
+                            ),
+                            folderLists.length > 0,
+                            folder.id,
+                            extra,
+                          );
+                        })}
+                        {projectLists.map((l: any) =>
+                          renderItem(l, "LIST", null, 2, null, false, l.id, extra),
+                        )}
+                      </>,
+                      projectFolders.length > 0 || projectLists.length > 0,
                       project.id,
                       { workspaceId: ws.id },
-                    ),
-                  )}
-                  {wsFolders.map((folder: any) =>
-                    renderItem(
+                    );
+                  })}
+                  {wsTeams.map((team: any) => {
+                    const teamFolders = folders?.filter((f: any) => f.teamId === team.id && !f.projectId) || [];
+                    const teamLists = lists?.filter((l: any) => l.teamId === team.id && !l.projectId && !l.folderId) || [];
+                    const extra = { workspaceId: ws.id, teamId: team.id };
+                    return renderItem(
+                      team,
+                      "TEAM",
+                      null,
+                      1,
+                      <>
+                        {teamFolders.map((folder: any) => {
+                          const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
+                          return renderItem(
+                            folder,
+                            "FOLDER",
+                            null,
+                            2,
+                            folderLists.map((list: any) =>
+                              renderItem(list, "LIST", null, 3, null, false, list.id, { ...extra, folderId: folder.id }),
+                            ),
+                            folderLists.length > 0,
+                            folder.id,
+                            extra,
+                          );
+                        })}
+                        {teamLists.map((l: any) =>
+                          renderItem(l, "LIST", null, 2, null, false, l.id, extra),
+                        )}
+                      </>,
+                      teamFolders.length > 0 || teamLists.length > 0,
+                      team.id,
+                      { workspaceId: ws.id },
+                    );
+                  })}
+                  {wsFolders.map((folder: any) => {
+                    const folderLists = lists?.filter((l: any) => l.folderId === folder.id) || [];
+                    return renderItem(
                       folder,
                       "FOLDER",
-                      <div className="h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                        <Folder size={12} className="text-blue-600" />
-                      </div>,
-                      1,
                       null,
-                      false,
+                      1,
+                      folderLists.map((list: any) =>
+                        renderItem(list, "LIST", null, 2, null, false, list.id, {
+                          workspaceId: ws.id,
+                          folderId: folder.id,
+                        }),
+                      ),
+                      folderLists.length > 0,
                       folder.id,
-                      { workspaceId: ws.id }
-                    ),
-                  )}
+                      { workspaceId: ws.id },
+                    );
+                  })}
                   {wsLists.map((list: any) =>
-                    renderItem(
-                      list,
-                      "LIST",
-                      <div className="h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                        <List size={12} className="text-emerald-600" />
-                      </div>,
-                      1,
-                      null,
-                      false,
-                      list.id,
-                      { workspaceId: ws.id }
-                    ),
+                    renderItem(list, "LIST", null, 1, null, false, list.id, { workspaceId: ws.id }),
                   )}
                 </div>
               )}
@@ -701,28 +662,12 @@ export function ManageAutomationsModal({
                       />
                     </PopoverContent>
                   </Popover>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button className="bg-zinc-900 hover:bg-zinc-700 text-white h-8 cursor-pointer">
-                        Add Automation <ChevronDown className="h-3.5 w-3.5 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => openCreate("classic")}>
-                        <Zap className="h-4 w-4 text-sky-600" />
-                        Classic
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer justify-between" onClick={() => openCreate("agent")}>
-                        <span className="flex items-center gap-2">
-                          <AgentIcon className="h-4 w-4 text-violet-600" />
-                          Agent
-                        </span>
-                        <Badge variant="secondary" className="text-[10px] px-1 py-1 h-4 bg-violet-100 text-violet-700 border-0">
-                          New
-                        </Badge>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button
+                    className="bg-zinc-900 hover:bg-zinc-700 text-white h-8 cursor-pointer"
+                    onClick={() => openCreate("agent")}
+                  >
+                    Add Automation <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                  </Button>
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 mb-3 flex-wrap">

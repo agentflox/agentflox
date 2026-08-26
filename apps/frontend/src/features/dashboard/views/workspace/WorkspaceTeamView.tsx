@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import { Plus, Users, Search, ChevronsLeft, ChevronsRight, X, LayoutGrid, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ interface WorkspaceTeamViewProps {
 
 export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamSelect }: WorkspaceTeamViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [isManageView, setIsManageView] = useState(false);
@@ -54,14 +55,14 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const activeTeamId = !isManageView ? selectedTeamId : undefined;
+    const activeTeamId = !isManageView ? (selectedTeamId || parsedState.teamId) : undefined;
 
     // Fetch teams list for this workspace
     const { data: teamsData, isLoading: isLoadingList, refetch: refetchList } = trpc.team.list.useQuery({
         workspaceId,
-        scope: "owned",
+        scope: "all",
         pageSize: 50
-    }, { staleTime: 60_000, gcTime: 5 * 60_000 });
+    }, { enabled: !!workspaceId, staleTime: 60_000, gcTime: 5 * 60_000 });
 
     const teamsRaw = teamsData?.items ?? [];
 
@@ -76,7 +77,7 @@ export default function WorkspaceTeamView({ workspaceId, selectedTeamId, onTeamS
         if (onTeamSelect) {
             onTeamSelect(teamId);
         } else if (workspaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/workspaces/${workspaceId}`, type: "tm", id: teamId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/workspaces/${workspaceId}`, type: "tm", id: teamId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "teams",

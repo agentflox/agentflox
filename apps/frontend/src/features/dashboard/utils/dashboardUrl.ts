@@ -4,7 +4,7 @@
  * Enforces:
  * 1. Unified 'v' parameter for all views (replaces nv, fv, lv)
  * 2. 2-letter short codes (sp, pj, tm, fd, lt, dv, ch, ai, v, task)
- * 3. Path-based subroute support (/dashboard/spaces/:id/tm/:id, /lt/:id, /fd/:id, /pj/:id, /dv/:id)
+ * 3. Path-based subroute support (/spaces/:id/tm/:id, /lt/:id, /fd/:id, /pj/:id, /dv/:id)
  * 4. Backward compatibility with legacy parameters (folder, list, docView, fv, nv, aid, sid)
  */
 
@@ -72,6 +72,22 @@ export interface DashboardActiveState {
     aiChatId?: string;
     viewId?: string;
     taskId?: string | null;
+    personalTab?: string;
+    taskSubView?: string;
+}
+
+const DASHBOARD_ROOT_SEGMENTS = ["spaces", "workspaces", "teams", "projects", "folders", "lists"];
+
+/**
+ * Path segments after the entity id, e.g. /spaces/:id/tm/:teamId/v/:viewId -> ["tm", teamId, "v", viewId].
+ */
+export function getDashboardSubpathFromPathname(pathname?: string | null): string[] | undefined {
+    if (!pathname) return undefined;
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments.length >= 2 && DASHBOARD_ROOT_SEGMENTS.includes(segments[0])) {
+        return segments.slice(2);
+    }
+    return undefined;
 }
 
 /**
@@ -92,22 +108,56 @@ export function parseDashboardState(
     let runId = searchParams.get("rid") || searchParams.get("runId") || undefined;
     let conversationId = searchParams.get("cid") || searchParams.get("convId") || searchParams.get("conversationId") || undefined;
     let logId = searchParams.get("lid") || searchParams.get("logId") || undefined;
-    let chatId = searchParams.get("ch") || undefined;
-    let aiChatId = searchParams.get("ai") || searchParams.get("aid") || undefined;
+    const chatId = searchParams.get("ch") || undefined;
+    const aiChatId = searchParams.get("ai") || searchParams.get("aid") || undefined;
     let viewId = searchParams.get("v") || searchParams.get("nv") || searchParams.get("fv") || searchParams.get("lv") || undefined;
-    let taskId = searchParams.get("task") || searchParams.get("taskId") || null;
+    const taskId = searchParams.get("task") || searchParams.get("taskId") || null;
 
-    // Parse path segments iteratively: ['dv', 'id1', 'dc', 'id2'] or ['v', 'view123']
-    if (subpath && subpath.length > 0) {
-        for (let i = 0; i < subpath.length; i += 2) {
-            const segment = subpath[i];
-            const id = subpath[i + 1];
-            if (!id) {
-                if (["teams", "projects", "lists", "docs", "spaces", "chats", "ai-chat", "overview", "personal"].includes(segment)) {
-                    tab = segment;
+    let personalTab: string | undefined;
+    let taskSubView: string | undefined;
+
+    let effectiveSubpath = subpath;
+    if ((!effectiveSubpath || effectiveSubpath.length === 0) && typeof window !== "undefined") {
+        effectiveSubpath = getDashboardSubpathFromPathname(window.location.pathname);
+    }
+
+    // Parse path segments iteratively: ['projects'], ['tm', 'id1', 'v', 'id2'], ['dv', 'id1', 'dc', 'id2']
+    if (effectiveSubpath && effectiveSubpath.length > 0) {
+        let i = 0;
+        while (i < effectiveSubpath.length) {
+            const segment = effectiveSubpath[i];
+
+            // Handle "personal" tab with nested sub-segments
+            if (segment === "personal") {
+                tab = "personal";
+                i += 1;
+                // Parse personal sub-tab: tasks, notifications, comments, etc.
+                if (i < effectiveSubpath.length && ["tasks", "notifications", "comments", "requests", "activities", "posts"].includes(effectiveSubpath[i])) {
+                    personalTab = effectiveSubpath[i];
+                    i += 1;
+                    // Parse task sub-view: my-work, assigned, personal-list
+                    if (personalTab === "tasks" && i < effectiveSubpath.length && ["my-work", "assigned", "personal-list"].includes(effectiveSubpath[i])) {
+                        taskSubView = effectiveSubpath[i];
+                        i += 1;
+                    }
                 }
-                break;
+                continue;
             }
+
+            // Check if segment is a standalone tab name
+            if (["teams", "projects", "lists", "docs", "spaces", "chats", "ai-chat", "overview"].includes(segment)) {
+                tab = segment;
+                i += 1;
+                continue;
+            }
+
+            const next = effectiveSubpath[i + 1];
+            if (!next) {
+                i += 1;
+                continue;
+            }
+
+            const id = next;
             if (segment === "v" || segment === "view") {
                 viewId = id;
             } else if (segment === "dc" || segment === "doc" || segment === "page") {
@@ -118,25 +168,26 @@ export function parseDashboardState(
                 conversationId = id;
             } else if (segment === "lid" || segment === "log") {
                 logId = id;
-            } else if (segment === "dv" || segment === "docs" || segment === "docView") {
+            } else if (segment === "dv" || segment === "docView") {
                 docViewId = id;
                 if (!tab) tab = "docs";
-            } else if (segment === "tm" || segment === "teams" || segment === "team") {
+            } else if (segment === "tm" || segment === "team") {
                 teamId = id;
                 if (!tab) tab = "teams";
-            } else if (segment === "pj" || segment === "projects" || segment === "project") {
+            } else if (segment === "pj" || segment === "project") {
                 projectId = id;
                 if (!tab) tab = "projects";
-            } else if (segment === "lt" || segment === "lists" || segment === "list") {
+            } else if (segment === "lt" || segment === "list") {
                 listId = id;
                 if (!tab) tab = "lists";
-            } else if (segment === "fd" || segment === "folders" || segment === "folder") {
+            } else if (segment === "fd" || segment === "folder") {
                 folderId = id;
                 if (!tab) tab = "lists";
-            } else if (segment === "sp" || segment === "spaces" || segment === "space") {
+            } else if (segment === "sp" || segment === "space") {
                 spaceId = id;
                 if (!tab) tab = "spaces";
             }
+            i += 2;
         }
     }
 
@@ -156,6 +207,8 @@ export function parseDashboardState(
         aiChatId,
         viewId,
         taskId,
+        personalTab,
+        taskSubView,
     };
 }
 
@@ -272,7 +325,10 @@ export function setCleanViewParam(
 }
 
 export interface BuildPathOptions {
-    basePath: string; // e.g. /dashboard/spaces/cmreoaxwv...
+    basePath: string; // e.g. /spaces/cmreoaxwv...
+    tab?: string; // e.g. "projects", "teams", "lists", "docs", "personal", "chats", "ai-chat"
+    personalTab?: string; // e.g. "tasks", "notifications", "comments"
+    taskSubView?: string; // e.g. "my-work", "assigned", "personal-list"
     type?: "tm" | "pj" | "lt" | "fd" | "dv" | "sp" | "v";
     id?: string | null;
     docItemId?: string | null;
@@ -282,12 +338,17 @@ export interface BuildPathOptions {
 
 /**
  * Build a path-based nested URL:
- * - /dashboard/workspaces/:workspaceId/v/:viewId
- * - /dashboard/spaces/:spaceId/tm/:teamId/v/:viewId
- * - /dashboard/spaces/:spaceId/dv/:docViewId/dc/:docItemId
+ * - /workspaces/:workspaceId/v/:viewId
+ * - /spaces/:spaceId/tm/:teamId/v/:viewId
+ * - /spaces/:spaceId/dv/:docViewId/dc/:docItemId
+ * - /workspaces/:workspaceId/personal/tasks/my-work
+ * - /workspaces/:workspaceId/personal/tasks/personal-list/v/:viewId
  */
 export function buildDashboardPath({
     basePath,
+    tab,
+    personalTab,
+    taskSubView,
     type,
     id,
     docItemId,
@@ -297,6 +358,14 @@ export function buildDashboardPath({
     let path = basePath.replace(/\/$/, "");
     if (type && id) {
         path = `${path}/${type}/${id}`;
+    } else if (tab && tab !== "overview") {
+        path = `${path}/${tab}`;
+        if (tab === "personal" && personalTab) {
+            path = `${path}/${personalTab}`;
+            if (personalTab === "tasks" && taskSubView) {
+                path = `${path}/${taskSubView}`;
+            }
+        }
     }
     if (docItemId) {
         path = `${path}/dc/${docItemId}`;

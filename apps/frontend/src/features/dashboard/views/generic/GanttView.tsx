@@ -1570,7 +1570,7 @@ export function GanttView({ spaceId, projectId, teamId, listId, folderId, viewId
     // a date was added to a task.
     useEffect(() => {
         setDateRange(getBaseDateRangeRef.current());
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [effectiveTimeScale]);
 
     const timelineUnits = useMemo(() => {

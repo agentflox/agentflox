@@ -185,7 +185,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
       toast.success("Tool deleted.");
       utils.tool.list.invalidate();
       if (onClose) onClose();
-      else router.push("/dashboard/tools");
+      else router.push("/tools");
     },
     onError: (err) => toast.error(err.message),
   });
@@ -195,7 +195,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
       toast.success(`"${cloned.name}" created.`);
       utils.tool.list.invalidate();
       setCloneOpen(false);
-      router.push(`/dashboard/tools/build/flow/${cloned.id}`);
+      router.push(`/tools/flow/${cloned.id}`);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -852,7 +852,7 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
                 if (toolData?.id) updateMutation.mutate({ id: toolData.id, color: newColor });
               }}
             >
-              <div 
+              <div
                 className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md text-base font-semibold overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                 style={{ backgroundColor: toolIcon ? toolColor : '#f4f4f5', color: toolIcon ? '#ffffff' : '#27272a' }}
               >
@@ -1100,12 +1100,12 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
                           toolDraft={
                             toolDraft
                               ? {
-                                  ...toolDraft,
-                                  systemPrompt:
-                                    sopOverride ??
-                                    (toolDraft as any)?.systemPrompt ??
-                                    (toolData as any)?.systemPrompt,
-                                }
+                                ...toolDraft,
+                                systemPrompt:
+                                  sopOverride ??
+                                  (toolDraft as any)?.systemPrompt ??
+                                  (toolData as any)?.systemPrompt,
+                              }
                               : toolDraft
                           }
                           inputs={inputs}
@@ -1128,17 +1128,17 @@ export const ToolAIBuilderView: React.FC<ToolAIBuilderViewProps> = ({
                   ) : (
                     <div className="flex-1 min-h-0 h-full w-full flex flex-col">
                       <ToolLogView
-                          {...toolRunState}
-                          runHistory={mergedRunHistory}
-                          setRunHistory={(updater) => {
-                            // Forward local deletes back into the live state
-                            toolRunState.setRunHistory(updater);
-                          }}
-                          inputs={inputs}
-                          onDeleteRun={toolRunHistory.deleteRun}
-                          onLoadMore={toolRunHistory.loadMore}
-                          hasMore={toolRunHistory.hasMore}
-                          loadingMore={toolRunHistory.loadingMore}
+                        {...toolRunState}
+                        runHistory={mergedRunHistory}
+                        setRunHistory={(updater) => {
+                          // Forward local deletes back into the live state
+                          toolRunState.setRunHistory(updater);
+                        }}
+                        inputs={inputs}
+                        onDeleteRun={toolRunHistory.deleteRun}
+                        onLoadMore={toolRunHistory.loadMore}
+                        hasMore={toolRunHistory.hasMore}
+                        loadingMore={toolRunHistory.loadingMore}
                       />
                     </div>
                   )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
 import SpaceNavigationSidebar, { type SpaceView } from "@/features/dashboard/layouts/space/SpaceNavigationSidebar";
 import dynamic from "next/dynamic";
@@ -144,9 +144,9 @@ import {
     clearAllSubParams,
     buildCleanDashboardParams,
     setCleanViewParam,
-    parseDashboardState,
     buildDashboardPath,
 } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 
 const viewConfig: Record<
 
@@ -212,7 +212,7 @@ const viewConfig: Record<
 };
 
 export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFromParent, onTaskSelect }: SpaceDashboardViewProps) {
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState(subpath);
     const router = useRouter();
     const utils = trpc.useUtils();
 
@@ -223,7 +223,6 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     // URL-based selection states (supports query params and path-based routing)
-    const parsedState = useMemo(() => parseDashboardState(searchParams, subpath), [searchParams, subpath]);
     const selectedProjectId = parsedState.projectId;
     const selectedTeamId = parsedState.teamId;
     const selectedChannelId = parsedState.chatId;
@@ -369,7 +368,7 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
 
     const handleTabChange = useCallback((viewId: string) => {
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, viewId, taskId: parsedState.taskId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "overview",
@@ -400,7 +399,7 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
 
     const handleProjectSelect = (projectId: string) => {
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "pj", id: projectId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "pj", id: projectId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "projects",
@@ -414,7 +413,7 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
 
     const handleTeamSelect = (teamId: string) => {
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "tm", id: teamId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "tm", id: teamId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "teams",
@@ -428,7 +427,7 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
 
     const handleListSelect = (listId: string) => {
         if (spaceId) {
-            router.push(buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, type: "lt", id: listId }), { scroll: false });
+            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "lt", id: listId }), { scroll: false });
         } else {
             const clean = buildCleanDashboardParams(searchParams, {
                 tab: "lists",
@@ -465,7 +464,9 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
     };
 
     const handleCopyViewLink = (view: any) => {
-        const url = `${window.location.origin}${window.location.pathname}?v=${view.id}`;
+        const url = spaceId
+            ? `${window.location.origin}/spaces/${spaceId}/v/${view.id}`
+            : `${window.location.origin}${window.location.pathname}?v=${view.id}`;
         navigator.clipboard.writeText(url);
         toast.success("Link copied to clipboard");
     };
@@ -497,10 +498,14 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
         if (lastCreatedViewId) {
             // Ensure views are refetched (mutations already refetch, but double-check)
             await utils.space.get.refetch({ id: spaceId! });
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("tab", "overview");
-            params.set("v", lastCreatedViewId);
-            router.push(`?${params.toString()}`, { scroll: false });
+            if (spaceId) {
+                router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, viewId: lastCreatedViewId }), { scroll: false });
+            } else {
+                const params = new URLSearchParams(searchParams.toString());
+                params.set("tab", "overview");
+                params.set("v", lastCreatedViewId);
+                router.push(`?${params.toString()}`, { scroll: false });
+            }
         }
     };
 
@@ -528,14 +533,14 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
     useEffect(() => {
         if (isViewsTab && !urlTabId && views.length > 0) {
             if (spaceId) {
-                history.replaceState(null, "", buildDashboardPath({ basePath: `/dashboard/spaces/${spaceId}`, viewId: views[0].id, taskId: parsedState.taskId }));
+                router.replace(buildDashboardPath({ basePath: `/spaces/${spaceId}`, viewId: views[0].id, taskId: parsedState.taskId }), { scroll: false });
             } else {
                 const clean = buildCleanDashboardParams(searchParams, {
                     tab: "overview",
                     viewId: views[0].id,
                     keepTask: true,
                 });
-                history.replaceState(null, "", `?${clean.toString()}`);
+                router.replace(`?${clean.toString()}`, { scroll: false });
             }
         }
     }, [urlTabId, views, isViewsTab, spaceId, parsedState.taskId, searchParams]);
@@ -543,28 +548,36 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
     // Auto-select Project if none selected but available
     useEffect(() => {
         if (currentTab === "projects" && !selectedProjectId && spaceProjects.length > 0) {
-            const clean = buildCleanDashboardParams(searchParams, {
-                tab: "projects",
-                entityKey: "pj",
-                entityId: spaceProjects[0].id,
-                keepTask: true,
-            });
-            history.replaceState(null, "", `?${clean.toString()}`);
+            if (spaceId) {
+                router.replace(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "pj", id: spaceProjects[0].id }), { scroll: false });
+            } else {
+                const clean = buildCleanDashboardParams(searchParams, {
+                    tab: "projects",
+                    entityKey: "pj",
+                    entityId: spaceProjects[0].id,
+                    keepTask: true,
+                });
+                router.replace(`?${clean.toString()}`, { scroll: false });
+            }
         }
-    }, [currentTab, selectedProjectId, spaceProjects, searchParams, router]);
+    }, [currentTab, selectedProjectId, spaceProjects, spaceId, searchParams]);
 
     // Auto-select Team if none selected but available
     useEffect(() => {
         if (currentTab === "teams" && !selectedTeamId && spaceTeams.length > 0) {
-            const clean = buildCleanDashboardParams(searchParams, {
-                tab: "teams",
-                entityKey: "tm",
-                entityId: spaceTeams[0].id,
-                keepTask: true,
-            });
-            history.replaceState(null, "", `?${clean.toString()}`);
+            if (spaceId) {
+                router.replace(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "tm", id: spaceTeams[0].id }), { scroll: false });
+            } else {
+                const clean = buildCleanDashboardParams(searchParams, {
+                    tab: "teams",
+                    entityKey: "tm",
+                    entityId: spaceTeams[0].id,
+                    keepTask: true,
+                });
+                router.replace(`?${clean.toString()}`, { scroll: false });
+            }
         }
-    }, [currentTab, selectedTeamId, spaceTeams, searchParams, router]);
+    }, [currentTab, selectedTeamId, spaceTeams, spaceId, searchParams]);
 
     // For Chats and AI Chats, we can do similar if we had access to the list here easily.
     // ChatView handles internal selection, but we want URL reflection.
@@ -833,26 +846,32 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
                                 const targetTab = (view as string) === "project" ? "projects" : (view as string) === "team" ? "teams" : view;
 
                                 if (targetTab === "overview") {
-                                    const clean = buildCleanDashboardParams(searchParams, {
-                                        tab: "overview",
-                                        viewId: views.length > 0 ? views[0].id : null,
-                                        keepTask: true,
-                                    });
-                                    router.push(`?${clean.toString()}`, { scroll: false });
+                                    const firstViewId = views.length > 0 ? views[0].id : null;
+                                    if (spaceId && firstViewId) {
+                                        router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, viewId: firstViewId, taskId: parsedState.taskId }), { scroll: false });
+                                    } else {
+                                        router.push(spaceId ? `/spaces/${spaceId}` : `?tab=overview`, { scroll: false });
+                                    }
                                     return;
                                 }
 
-                                const entityKey = (targetTab === "projects" ? "pj" : targetTab === "teams" ? "tm" : undefined);
-                                const entityId = targetTab === "projects" && spaceProjects.length > 0
-                                    ? spaceProjects[0].id
-                                    : targetTab === "teams" && spaceTeams.length > 0
-                                    ? spaceTeams[0].id
-                                    : null;
+                                if (spaceId) {
+                                    if (targetTab === "personal") {
+                                        router.push(buildDashboardPath({
+                                            basePath: `/spaces/${spaceId}`,
+                                            tab: "personal",
+                                            personalTab: "tasks",
+                                            taskSubView: "my-work",
+                                            taskId: parsedState.taskId
+                                        }), { scroll: false });
+                                        return;
+                                    }
+                                    router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, tab: targetTab, taskId: parsedState.taskId }), { scroll: false });
+                                    return;
+                                }
 
                                 const clean = buildCleanDashboardParams(searchParams, {
                                     tab: targetTab,
-                                    entityKey,
-                                    entityId,
                                     keepTask: true,
                                 });
                                 router.push(`?${clean.toString()}`, { scroll: false });
@@ -881,32 +900,48 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
                                     selectedChannelId={selectedChannelId || undefined}
                                     selectedAiChatId={selectedAiChatId || undefined}
                                     onSelectProject={(id) => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        clearSubParams(params);
-                                        params.set("tab", "projects");
-                                        params.set("pj", id);
-                                        router.push(`?${params.toString()}`, { scroll: false });
+                                        if (spaceId) {
+                                            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "pj", id }), { scroll: false });
+                                        } else {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            clearSubParams(params);
+                                            params.set("tab", "projects");
+                                            params.set("pj", id);
+                                            router.push(`?${params.toString()}`, { scroll: false });
+                                        }
                                     }}
                                     onSelectTeam={(id) => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        clearSubParams(params);
-                                        params.set("tab", "teams");
-                                        params.set("tm", id);
-                                        router.push(`?${params.toString()}`, { scroll: false });
+                                        if (spaceId) {
+                                            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "tm", id }), { scroll: false });
+                                        } else {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            clearSubParams(params);
+                                            params.set("tab", "teams");
+                                            params.set("tm", id);
+                                            router.push(`?${params.toString()}`, { scroll: false });
+                                        }
                                     }}
                                     onSelectList={(id) => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        clearSubParams(params);
-                                        params.set("tab", "lists");
-                                        params.set("list", id);
-                                        router.push(`?${params.toString()}`, { scroll: false });
+                                        if (spaceId) {
+                                            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "lt", id }), { scroll: false });
+                                        } else {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            clearSubParams(params);
+                                            params.set("tab", "lists");
+                                            params.set("list", id);
+                                            router.push(`?${params.toString()}`, { scroll: false });
+                                        }
                                     }}
                                     onSelectFolder={(id) => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        clearSubParams(params);
-                                        params.set("tab", "lists");
-                                        params.set("folder", id);
-                                        router.push(`?${params.toString()}`, { scroll: false });
+                                        if (spaceId) {
+                                            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, type: "fd", id }), { scroll: false });
+                                        } else {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            clearSubParams(params);
+                                            params.set("tab", "lists");
+                                            params.set("folder", id);
+                                            router.push(`?${params.toString()}`, { scroll: false });
+                                        }
                                     }}
                                     onSelectChannel={(id) => {
                                         const params = new URLSearchParams(searchParams.toString());
@@ -923,11 +958,15 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
                                         router.push(`?${params.toString()}`, { scroll: false });
                                     }}
                                     onNavigateSpace={() => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        clearSubParams(params);
-                                        params.set("tab", "overview");
-                                        if (views.length > 0) params.set("v", views[0].id);
-                                        router.push(`?${params.toString()}`, { scroll: false });
+                                        if (spaceId) {
+                                            router.push(buildDashboardPath({ basePath: `/spaces/${spaceId}`, viewId: views.length > 0 ? views[0].id : null }), { scroll: false });
+                                        } else {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            clearSubParams(params);
+                                            params.set("tab", "overview");
+                                            if (views.length > 0) params.set("v", views[0].id);
+                                            router.push(`?${params.toString()}`, { scroll: false });
+                                        }
                                     }}
                                 />
                             }
@@ -1050,7 +1089,7 @@ export default function SpaceDashboardView({ spaceId, subpath, selectedTaskIdFro
                                                     onTeamSelect={handleTeamSelect}
                                                 />
                                             ) : currentTab === "personal" ? (
-                                                <SpacePersonalView spaceId={spaceId!} workspaceId={resolvedWorkspaceId!} />
+                                                <SpacePersonalView spaceId={spaceId!} workspaceId={resolvedWorkspaceId!} personalTab={parsedState.personalTab} taskSubView={parsedState.taskSubView} viewId={parsedState.viewId} />
                                             ) : (currentTab === "docs" || currentTab === "doc") ? (
                                                 <SpaceDocsView spaceId={spaceId!} />
                                             ) : (currentTab === "chats" || currentTab === "chat" || currentTab === "channels") ? (

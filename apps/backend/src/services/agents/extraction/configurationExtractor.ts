@@ -84,7 +84,7 @@ export class ConfigurationExtractor {
 
     // Format skills and tools for AI awareness
     const availableSkillsInfo = userContext.availableSkills
-      ?.map(s => `- ${s.name}: ${s.description}\n  Tools: ${s.tools.join(', ')}`)
+      ?.map(s => `- ${s.name}: ${s.description}`)
       .join('\n') || 'None loaded';
 
     const availableToolsInfo = userContext.availableTools

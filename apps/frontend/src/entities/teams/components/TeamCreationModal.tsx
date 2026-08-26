@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
-import { Play, Users2, Users, Network, Briefcase, Building, Search, Check, ChevronDown } from "lucide-react";
+import { Users2, Users, Search, ChevronDown } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,11 @@ import { upsertTeam } from "@/stores/slices/team.slice";
 import { serializeDates } from "@/stores/utils/serialize";
 import { cn } from "@/lib/utils";
 import { IconColorSelector } from "@/components/ui/icon-color-selector";
-import { SpaceIcon } from "@/entities/spaces/components/SpaceIcon";
 import { TeamIcon } from "@/entities/teams/components/TeamIcon";
+import {
+	DestinationTreeRow,
+	ENTITY_TREE_NEST,
+} from "@/features/dashboard/components/shared/breadcrumbTreeUi";
 
 type TeamCreationModalProps = {
 	open: boolean;
@@ -70,11 +73,10 @@ const INITIAL_STATE = {
 type DestinationOption = {
 	key: string;
 	label: string;
-	kind: "workspace" | "space" | "project";
+	kind: "workspace" | "space";
 	depth: number;
 	workspaceId?: string;
 	spaceId?: string;
-	projectId?: string;
 };
 
 export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceId, workspaceId }: TeamCreationModalProps) {
@@ -103,110 +105,65 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 	const utils = trpc.useUtils();
 	const queryClient = useQueryClient();
 
-	const paramWorkspaceId = (params?.workspaceId as string) || undefined;
-	const resolvedWorkspaceId = workspaceId || paramWorkspaceId;
-
+	// Always load globally so user can pick any location
 	const { data: workspacesData } = trpc.workspace.list.useQuery(
-		{ scope: "owned" as const },
-		{ enabled: open && !resolvedWorkspaceId }
+		{ scope: "owned" as const, pageSize: 50 },
+		{ enabled: open }
 	);
 	const workspaces = workspacesData?.items || [];
 
-	const workspaceQuery = trpc.workspace.get.useQuery(
-		{ id: resolvedWorkspaceId || "" },
-		{ enabled: open && !!resolvedWorkspaceId }
-	);
-
 	const { data: spacesData } = trpc.space.list.useQuery(
-		{ workspaceId: resolvedWorkspaceId },
-		{ enabled: open && !!resolvedWorkspaceId }
-	);
-	const { data: projectsData } = trpc.project.list.useQuery(
-		{ workspaceId: resolvedWorkspaceId },
-		{ enabled: open && !!resolvedWorkspaceId }
+		{ scope: "all", pageSize: 50 },
+		{ enabled: open }
 	);
 
 	const spaces = spacesData?.items || [];
-	const projects = projectsData?.items || [];
 
-	const destinationOptions = useMemo<DestinationOption[]>(() => {
-		const opts: DestinationOption[] = [];
-
-		if (resolvedWorkspaceId) {
-			const wsName = workspaceQuery.data?.name || "Workspace";
-			opts.push({ key: `WORKSPACE:${resolvedWorkspaceId}`, kind: "workspace", label: wsName, depth: 0, workspaceId: resolvedWorkspaceId });
-		} else {
-			workspaces.forEach((w: any) => {
-				opts.push({ key: `WORKSPACE:${w.id}`, kind: "workspace", label: w.name, depth: 0, workspaceId: w.id });
-			});
-		}
-
-		spaces.forEach((s: any) => {
-			opts.push({ key: `SPACE:${s.id}`, kind: "space", label: s.name, depth: 0, spaceId: s.id, workspaceId: s.workspaceId });
-		});
-
-		projects.forEach((p: any) => {
-			const depth = p.spaceId ? 1 : 0;
-			opts.push({ key: `PROJECT:${p.id}`, kind: "project", label: p.name, depth, projectId: p.id, spaceId: p.spaceId || undefined, workspaceId: p.workspaceId });
-		});
-
-		return opts;
-	}, [resolvedWorkspaceId, workspaceQuery.data, workspaces, spaces, projects]);
-
+	// Tree: workspace → spaces
 	const treeNodes = useMemo(() => {
-		const spaceNodes = spaces.map((space: any) => {
-			const spaceId = space.id;
-			const projectsUnderSpace = destinationOptions.filter(o => o.kind === "project" && o.spaceId === spaceId);
-
-			return {
-				key: `SPACE:${spaceId}`,
+		return workspaces.map((ws: any) => {
+			const wsSpaces = spaces.filter((s: any) => s.workspaceId === ws.id);
+			const spaceNodes = wsSpaces.map((space: any) => ({
+				key: `SPACE:${space.id}`,
 				name: space.name,
-				children: projectsUnderSpace.map(p => ({ ...p, depth: 1 }))
+				icon: space.icon,
+				color: space.color,
+				workspaceId: ws.id,
+			}));
+			return {
+				key: `WORKSPACE:${ws.id}`,
+				name: ws.name,
+				avatar: ws.avatar,
+				icon: ws.icon ?? ws.avatar,
+				spaces: spaceNodes,
 			};
 		});
+	}, [workspaces, spaces]);
 
-		const rootProjects = destinationOptions.filter(o => o.kind === "project" && !o.spaceId);
-		const rootWorkspace = resolvedWorkspaceId
-			? [{ key: `WORKSPACE:${resolvedWorkspaceId}`, label: workspaceQuery.data?.name || "Workspace", kind: "workspace" as const, depth: 0 }]
-			: workspaces.map((w: any) => ({ key: `WORKSPACE:${w.id}`, label: w.name, kind: "workspace" as const, depth: 0 }));
-
-		return {
-			spaces: spaceNodes,
-			rootChildren: [
-				...rootWorkspace,
-				...rootProjects.map(p => ({ ...p, depth: 0 }))
-			]
-		};
-	}, [spaces, destinationOptions, resolvedWorkspaceId, workspaceQuery.data, workspaces]);
-
-	const getDestinationPath = useCallback((opt?: DestinationOption) => {
-		if (!opt) return "";
-		if (opt.kind === "workspace") return opt.label;
-		const parts: string[] = [];
-		if (opt.spaceId) parts.push(spaces.find((s: any) => s.id === opt.spaceId)?.name || "Space");
-		if (opt.kind === "project") parts.push(opt.label);
-		if (parts.length === 0) return opt.label;
-		return parts.join(" > ");
-	}, [spaces]);
+	const getDestinationPath = useCallback((key: string) => {
+		if (!key) return "";
+		const [type, id] = key.split(":");
+		if (type === "WORKSPACE") return workspaces.find((w: any) => w.id === id)?.name || "Workspace";
+		if (type === "SPACE") {
+			const space = spaces.find((s: any) => s.id === id);
+			if (!space) return "Space";
+			const ws = workspaces.find((w: any) => w.id === space.workspaceId);
+			return ws ? `${ws.name} / ${space.name}` : space.name;
+		}
+		return key;
+	}, [workspaces, spaces]);
 
 	useEffect(() => {
 		if (open) {
 			const initialSpaceId = defaultSpaceId || (params?.spaceId as string) || "";
-			let initialKey = "";
-			if (initialSpaceId) {
-				initialKey = `SPACE:${initialSpaceId}`;
-			} else if (resolvedWorkspaceId) {
-				initialKey = `WORKSPACE:${resolvedWorkspaceId}`;
-			}
-
-			setForm({
-				...INITIAL_STATE,
-				destinationKey: initialKey
-			});
+			const initialKey = initialSpaceId ? `SPACE:${initialSpaceId}` : "";
+			setForm({ ...INITIAL_STATE, destinationKey: initialKey });
 			createMutation.reset();
 			setDestinationSearch("");
+			setCollapsedNodes(new Set());
 		}
-	}, [open, params, defaultSpaceId, resolvedWorkspaceId]);
+	}, [open, defaultSpaceId, params]);
+
 
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -230,7 +187,7 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 
 		try {
 			const [type, id] = form.destinationKey.split(":");
-			let targetWorkspaceId = resolvedWorkspaceId;
+			let targetWorkspaceId: string | undefined = undefined;
 			let targetSpaceId: string | undefined = undefined;
 
 			if (type === "WORKSPACE") {
@@ -239,10 +196,6 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 				targetSpaceId = id;
 				const matchedSpace = spaces.find((s: any) => s.id === id);
 				if (matchedSpace?.workspaceId) targetWorkspaceId = matchedSpace.workspaceId;
-			} else if (type === "PROJECT") {
-				const matchedProject = projects.find((p: any) => p.id === id);
-				if (matchedProject?.spaceId) targetSpaceId = matchedProject.spaceId;
-				if (matchedProject?.workspaceId) targetWorkspaceId = matchedProject.workspaceId;
 			}
 
 			const { id: createdId, data } = await createMutation.mutateAsync({
@@ -297,8 +250,7 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 		}
 	};
 
-	const selectedDestination = destinationOptions.find(d => d.key === form.destinationKey);
-	const fallbackDisplay = selectedDestination ? getDestinationPath(selectedDestination) : "Select Location";
+	const displayLabel = form.destinationKey ? getDestinationPath(form.destinationKey) : "";
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -335,8 +287,8 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 											type="button"
 											className="h-9 w-full border border-slate-200 hover:bg-zinc-50 hover:border-slate-300 bg-white text-[14px] text-zinc-700 rounded-md px-3 flex items-center justify-between cursor-pointer focus:outline-none"
 										>
-											<span className={cn("truncate text-left", !selectedDestination && "text-zinc-400")}>
-												{selectedDestination ? getDestinationPath(selectedDestination) : fallbackDisplay}
+											<span className={cn("truncate text-left", !form.destinationKey && "text-zinc-400")}>
+												{displayLabel || "Select Location"}
 											</span>
 											<ChevronDown className="size-4 opacity-50" />
 										</button>
@@ -353,119 +305,43 @@ export function TeamCreationModal({ open, onOpenChange, onCreated, defaultSpaceI
 												autoFocus
 											/>
 										</div>
-										<div className="overflow-y-auto flex-1 py-1 max-h-[320px] px-1">
-											{treeNodes.spaces.filter((s: any) => !destinationSearch.trim() || s.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((space: any) => {
-												const isSpaceCollapsed = collapsedNodes.has(space.key);
-												const isSelected = form.destinationKey === space.key;
-												const hasChildren = space.children && space.children.length > 0;
-												const matchedSpace = spaces.find((sp: any) => sp.id === space.spaceId);
-
+																				<div className="overflow-y-auto flex-1 py-1 max-h-[320px] px-1">
+											{treeNodes.map((ws: any) => {
+												const isWsCollapsed = collapsedNodes.has(ws.key);
+												const isWsSelected = form.destinationKey === ws.key;
+												const hasChildren = ws.spaces?.length > 0;
+												if (!ws.name.toLowerCase().includes(destinationSearch.toLowerCase()) && !ws.spaces?.some((s: any) => s.name.toLowerCase().includes(destinationSearch.toLowerCase()))) return null;
+												const select = (key: string) => {
+													setForm((p) => ({ ...p, destinationKey: key }));
+													setDestinationOpen(false);
+												};
 												return (
-													<div key={space.key} className="space-y-0.5">
-														<div
-															onClick={() => { setForm(p => ({ ...p, destinationKey: space.key })); setDestinationOpen(false); }}
-															className={cn(
-																"group/space w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer select-none",
-																isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-															)}
-														>
-															<div className="flex items-center gap-2 truncate flex-1 min-w-0">
-																<div
-																	className={cn(
-																		"relative h-5 w-5 rounded shrink-0 flex items-center justify-center",
-																		hasChildren && "cursor-pointer"
-																	)}
-																	onClick={(e) => {
-																		if (hasChildren) {
-																			toggleNode(e, space.key);
-																		}
-																	}}
-																>
-																	<span
-																		className={cn(
-																			"h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center ml-0.5",
-																			hasChildren && "group-hover/space:hidden"
-																		)}
-																		style={{ backgroundColor: matchedSpace?.icon ? (matchedSpace?.color || "#6366f1") : "transparent" }}
-																	>
-																		<SpaceIcon
-																			icon={matchedSpace?.icon}
-																			className={cn(matchedSpace?.icon ? "text-white" : "text-indigo-500")}
-																			size={13}
-																			fill
-																		/>
-																	</span>
-																	{hasChildren && (
-																		<div className="hidden group-hover/space:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
-																			<Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isSpaceCollapsed && "rotate-90")} />
-																		</div>
-																	)}
-																</div>
-																<span className="truncate font-medium">{space.name}</span>
-															</div>
-															{isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0 ml-2" />}
-														</div>
-
-														{!isSpaceCollapsed && (
-															<div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
-																{space.children.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase())).map((child: any) => {
-																	const isChildSelected = form.destinationKey === child.key;
-																	return (
-																		<button
-																			type="button"
-																			key={child.key}
-																			onClick={() => { setForm(p => ({ ...p, destinationKey: child.key })); setDestinationOpen(false); }}
-																			className={cn(
-																				"w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-																				isChildSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-																			)}
-																			style={{ paddingLeft: `${child.depth > 1 ? (child.depth - 1) * 12 + 8 : 8}px` }}
-																		>
-																			<div className="flex items-center gap-2 truncate">
-																				{child.kind === "project" && (
-																					<div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-																						<Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
-																					</div>
-																				)}
-																				<span className="truncate">{child.label}</span>
-																			</div>
-																			{isChildSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0 ml-2" />}
-																		</button>
-																	);
-																})}
+													<div key={ws.key} className="space-y-0.5">
+														<DestinationTreeRow
+															selected={isWsSelected}
+															kind="workspace"
+															entity={ws}
+															label={ws.name}
+															hasChildren={hasChildren}
+															expanded={!isWsCollapsed}
+															onToggle={(e) => toggleNode(e, ws.key)}
+															onClick={() => select(ws.key)}
+														/>
+														{!isWsCollapsed && hasChildren && (
+															<div className={ENTITY_TREE_NEST}>
+																{ws.spaces?.filter((s: any) => !destinationSearch.trim() || s.name.toLowerCase().includes(destinationSearch.toLowerCase())).map((space: any) => (
+																	<DestinationTreeRow
+																		key={space.key}
+																		selected={form.destinationKey === space.key}
+																		kind="space"
+																		entity={space}
+																		label={space.name}
+																		onClick={() => select(space.key)}
+																	/>
+																))}
 															</div>
 														)}
 													</div>
-												);
-											})}
-
-											{treeNodes.rootChildren.filter((c: any) => !destinationSearch.trim() || c.label.toLowerCase().includes(destinationSearch.toLowerCase())).map((child: any) => {
-												const isChildSelected = form.destinationKey === child.key;
-												return (
-													<button
-														type="button"
-														key={child.key}
-														onClick={() => { setForm(p => ({ ...p, destinationKey: child.key })); setDestinationOpen(false); }}
-														className={cn(
-															"w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-															isChildSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-														)}
-													>
-														<div className="flex items-center gap-2 truncate">
-															{child.kind === "workspace" && (
-																<div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 flex items-center justify-center shrink-0">
-																	<Building className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
-																</div>
-															)}
-															{child.kind === "project" && (
-																<div className="h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-																	<Briefcase className="h-3 w-3 text-purple-600 shrink-0" />
-																</div>
-															)}
-															<span className="truncate">{child.label}</span>
-														</div>
-														{isChildSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0 ml-2" />}
-													</button>
 												);
 											})}
 										</div>

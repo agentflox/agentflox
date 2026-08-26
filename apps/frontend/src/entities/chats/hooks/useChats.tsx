@@ -123,7 +123,7 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
   )
 
   const createConversation = useCallback(
-    async (options?: { title?: string; systemPrompt?: string }) => {
+    async (options?: { title?: string; systemPrompt?: string; modelId?: string }) => {
       if (!entityId || !contextType) {
         throw new Error('Entity ID and context type are required to create a chat')
       }
@@ -131,7 +131,7 @@ export function useChats({ contextType, entityId, activeConversationId }: UseCha
       const conversation = await createMutation.mutateAsync({
         contextType,
         entityId,
-        modelId: model?.id ?? '',
+        modelId: options?.modelId || model?.id || undefined,
         title: options?.title,
         systemPrompt: options?.systemPrompt,
       })

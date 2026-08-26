@@ -51,10 +51,20 @@ export async function middleware(request: NextRequest) {
 
   const isOAuthPopupComplete = pathname.startsWith("/auth/oauth-popup-complete");
   const isAccessingAuthRoute =
-    !isOAuthPopupComplete && AUTH_ROUTES.some(route => pathname.startsWith(route));
+    !isOAuthPopupComplete && AUTH_ROUTES.some(route => pathname === route || pathname.startsWith(route + "/"));
   const isOnboarding = pathname.startsWith("/onboarding");
   const isInviteAccept = pathname.startsWith("/invite/accept");
-  const isProtectedRoute = pathname === "/" || PROTECTED_ROUTES.filter(route => route !== "/").some(route => pathname.startsWith(route));
+  const isPublicRoute =
+    pathname === "/privacy" ||
+    pathname.startsWith("/privacy/") ||
+    pathname === "/terms" ||
+    pathname.startsWith("/terms/");
+  const isProtectedRoute =
+    !isAccessingAuthRoute &&
+    !isPublicRoute &&
+    !isInviteAccept &&
+    !isOAuthPopupComplete &&
+    (pathname === "/" || PROTECTED_ROUTES.filter(route => route && route !== "/").some(route => pathname === route || pathname.startsWith(route + "/")));
   const isAdminRoute = pathname === "/dashboard/admin" || pathname.startsWith("/dashboard/admin/");
 
   const IS_PRODUCTION = process.env.APP_ENV === 'production';
@@ -75,23 +85,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow public access to invitation acceptance page
-  if (isInviteAccept) {
+  // Allow public access to invitation acceptance and public pages
+  if (isInviteAccept || isPublicRoute) {
     return NextResponse.next();
   }
 
   // Redirect authenticated users away from auth routes, honoring the preserved destination
   if (isAuthenticated && isAccessingAuthRoute) {
     const callbackUrl = url.searchParams.get("callbackUrl");
-    // Guard against open-redirect: only allow relative paths
-    const safeDest = callbackUrl && callbackUrl.startsWith("/") ? callbackUrl : "/";
+    const isCallbackAuthRoute = callbackUrl && AUTH_ROUTES.some(r => callbackUrl === r || callbackUrl.startsWith(r + "/") || callbackUrl.startsWith(r + "?"));
+    // Guard against open-redirect and circular redirect to auth routes
+    const safeDest = callbackUrl && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//") && !isCallbackAuthRoute ? callbackUrl : "/";
     return NextResponse.redirect(new URL(safeDest, url));
   }
 
   // Redirect unauthenticated users to login, preserving their destination
   if (!isAuthenticated && isProtectedRoute) {
     const loginUrl = new URL("/login", url);
-    loginUrl.searchParams.set("callbackUrl", pathname + url.search);
+    const targetDest = pathname + url.search;
+    if (!AUTH_ROUTES.some(r => targetDest === r || targetDest.startsWith(r + "/") || targetDest.startsWith(r + "?"))) {
+      loginUrl.searchParams.set("callbackUrl", targetDest);
+    }
     return NextResponse.redirect(loginUrl);
   }
 

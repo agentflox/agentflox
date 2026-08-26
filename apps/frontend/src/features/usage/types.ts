@@ -7,7 +7,9 @@ export type UsageCapKind =
   | 'EXECUTION'
   | 'SUBSCRIPTION'
   | 'CONCURRENT'
-  | 'TOKENS';
+  | 'TOKENS'
+  | 'AGENT'
+  | 'TOOL';
 
 export type UsageQuotaMeter = {
   kind: UsageCapKind;

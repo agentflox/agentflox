@@ -128,8 +128,6 @@ export function ChannelMembersSidebar({ open, onClose, chatMembers, onAddMember,
             <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50/50 px-3 shadow-sm transition-colors focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
               <Search className="h-4 w-4 shrink-0 text-slate-400" />
               <Input
-                // @ts-ignore
-                variant="ghost"
                 placeholder="Search members"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}

@@ -15,7 +15,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { TaskDetailsForm } from './TaskDetailsForm';
 import { TaskOptionsForm } from './TaskOptionsForm';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, PlusIcon, Paperclip, Settings2, FileText, UploadCloud, Hash, Folder as FolderIconLucide, LayoutGrid, Clock, Briefcase, Building2, Network, ChevronDown, ChevronRight, Search, User, ListChecks, Check, Lock, Users, Play, Building } from 'lucide-react';
+import { Loader2, PlusIcon, Paperclip, Settings2, FileText, UploadCloud, ChevronDown, Search, ListChecks, Check } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { taskFormSchema, TaskFormValues } from '@/entities/task/validations/task.schema';
 import { trpc } from '@/lib/trpc';
@@ -27,7 +27,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { SpaceIcon } from '@/entities/spaces/components/SpaceIcon';
+import {
+  DestinationTreeRow,
+  ENTITY_TREE_NEST,
+} from '@/features/dashboard/components/shared/breadcrumbTreeUi';
+
 import { ListCreationModal } from '../../lists/components/ListCreationModal';
 import { cn } from '@/lib/utils';
 
@@ -255,19 +259,6 @@ export function TaskCreationModal({
       .map(id => listsData.items.find(l => l.id === id))
       .filter(Boolean) as any[];
   }, [recentListIds, listsData?.items]);
-
-  // Expand/collapse state for tree nodes
-  const [collapsedNodes, setCollapsedNodes] = React.useState<Set<string>>(new Set());
-  const toggleNode = (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCollapsedNodes(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   // Create a Set of recent list IDs to exclude from hierarchy
   const recentListIdsSet = React.useMemo(() => {
@@ -550,17 +541,30 @@ export function TaskCreationModal({
   );
 }
 
+
+type DestinationOption = {
+  key: string;
+  kind: 'personal' | 'workspace' | 'space' | 'project' | 'team' | 'folder' | 'list';
+  label: string;
+  depth: number;
+  workspaceId?: string;
+  spaceId?: string;
+  projectId?: string;
+  teamId?: string;
+  folderId?: string;
+  listId?: string;
+};
+
 function TaskListSelectPopover({
   value,
   onChange,
   recentLists,
-  hierarchy,
   hasError,
 }: {
   value: string;
   onChange: (listId: string) => void;
   recentLists: any[];
-  hierarchy: any;
+  hierarchy?: any; // kept for compatibility in props, but unused
   hasError?: boolean;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -578,47 +582,147 @@ function TaskListSelectPopover({
     });
   };
 
+  const { data: workspacesData } = trpc.workspace.list.useQuery(
+    { scope: "owned" as const, pageSize: 50 },
+    { enabled: open }
+  );
+  const workspaces = workspacesData?.items || [];
+
+  const { data: spacesData } = trpc.space.list.useQuery(
+    { scope: "all", pageSize: 50 },
+    { enabled: open }
+  );
+  const { data: projectsData } = trpc.project.list.useQuery(
+    { scope: "all" as any, pageSize: 50 },
+    { enabled: open }
+  );
+  const { data: teamsData } = trpc.team.list.useQuery(
+    { scope: "all" as any, pageSize: 50 },
+    { enabled: open }
+  );
+  const { data: foldersData } = trpc.folder.byContext.useQuery(
+    {},
+    { enabled: open }
+  );
+  const { data: listsData } = trpc.list.byContext.useQuery(
+    { archived: false },
+    { enabled: open }
+  );
+
+  const spaces = spacesData?.items || [];
+  const projects = projectsData?.items || [];
+  const teams = teamsData?.items || [];
+  const folders = foldersData?.items || [];
+  const lists = listsData?.items || [];
+
+  const destinationOptions = React.useMemo<DestinationOption[]>(() => {
+    const opts: DestinationOption[] = [
+      { key: "PERSONAL", label: "Personal", kind: "personal", depth: 0 }
+    ];
+
+    workspaces.forEach((w: any) => {
+      opts.push({ key: `WORKSPACE:${w.id}`, kind: "workspace", label: w.name, depth: 0 });
+    });
+
+    spaces.forEach((s: any) => opts.push({ key: `SPACE:${s.id}`, kind: "space", label: s.name, depth: 0, spaceId: s.id }));
+    projects.forEach((p: any) => opts.push({ key: `PROJECT:${p.id}`, kind: "project", label: p.name, depth: p.spaceId ? 1 : 0, projectId: p.id, spaceId: p.spaceId || undefined }));
+    teams.forEach((t: any) => opts.push({ key: `TEAM:${t.id}`, kind: "team", label: t.name, depth: t.spaceId ? 1 : 0, teamId: t.id, spaceId: t.spaceId || undefined }));
+    folders.forEach((f: any) => opts.push({ key: `FOLDER:${f.id}`, kind: "folder", label: f.name, depth: f.parentId ? 2 : (f.spaceId || f.projectId || f.teamId ? 1 : 0), folderId: f.id, spaceId: f.spaceId || undefined, projectId: f.projectId || undefined, teamId: f.teamId || undefined }));
+    lists.forEach((l: any) => opts.push({ key: `LIST:${l.id}`, kind: "list", label: l.name, depth: l.folderId ? 2 : (l.spaceId || l.projectId || l.teamId ? 1 : 0), listId: l.id, folderId: l.folderId || undefined, spaceId: l.spaceId || undefined, projectId: l.projectId || undefined, teamId: l.teamId || undefined }));
+
+    return opts;
+  }, [workspaces, spaces, projects, teams, folders, lists]);
+
+  const treeNodes = React.useMemo(() => {
+    return workspaces.map((ws: any) => {
+      const wsSpaces = spaces.filter((s: any) => s.workspaceId === ws.id);
+      const spaceNodes = wsSpaces.map((space: any) => {
+        const spaceId = space.id;
+        const projectsUnderSpace = destinationOptions.filter(o => o.kind === 'project' && o.spaceId === spaceId);
+        const teamsUnderSpace = destinationOptions.filter(o => o.kind === 'team' && o.spaceId === spaceId);
+        const foldersUnderSpace = destinationOptions.filter(o => o.kind === 'folder' && o.spaceId === spaceId && !o.projectId && !o.teamId);
+        const listsUnderSpace = destinationOptions.filter(o => o.kind === 'list' && o.spaceId === spaceId && !o.projectId && !o.teamId && !o.folderId);
+
+        const expandedProjectsTeams = [...projectsUnderSpace, ...teamsUnderSpace].map(pt => {
+          const ptId = pt.kind === 'project' ? pt.projectId : pt.teamId;
+          const foldersUnderPt = destinationOptions.filter(o => o.kind === 'folder' && ((pt.kind === 'project' && o.projectId === ptId) || (pt.kind === 'team' && o.teamId === ptId)));
+          const listsUnderPt = destinationOptions.filter(o => o.kind === 'list' && !o.folderId && ((pt.kind === 'project' && o.projectId === ptId) || (pt.kind === 'team' && o.teamId === ptId)));
+          return {
+            ...pt,
+            children: foldersUnderPt.map(f => {
+              const listsUnderFolder = destinationOptions.filter(l => l.kind === 'list' && l.folderId === f.folderId);
+              return { ...f, children: listsUnderFolder };
+            }),
+            lists: listsUnderPt
+          };
+        });
+
+        return {
+          key: `SPACE:${spaceId}`,
+          name: space.name,
+          icon: space.icon,
+          color: space.color,
+          workspaceId: ws.id,
+          children: expandedProjectsTeams,
+          folders: foldersUnderSpace.map(f => {
+            const listsUnderFolder = destinationOptions.filter(l => l.kind === 'list' && l.folderId === f.folderId);
+            return { ...f, children: listsUnderFolder };
+          }),
+          lists: listsUnderSpace
+        };
+      });
+
+      const rootProjects = destinationOptions.filter(o => o.kind === 'project' && !o.spaceId).map(p => {
+        const foldersUnderPt = destinationOptions.filter(o => o.kind === 'folder' && o.projectId === p.projectId);
+        const listsUnderPt = destinationOptions.filter(o => o.kind === 'list' && !o.folderId && o.projectId === p.projectId);
+        return {
+          ...p, children: foldersUnderPt.map(f => {
+            const listsUnderFolder = destinationOptions.filter(l => l.kind === 'list' && l.folderId === f.folderId);
+            return { ...f, children: listsUnderFolder };
+          }), lists: listsUnderPt
+        };
+      });
+      const rootTeams = destinationOptions.filter(o => o.kind === 'team' && !o.spaceId).map(t => {
+        const foldersUnderPt = destinationOptions.filter(o => o.kind === 'folder' && o.teamId === t.teamId);
+        const listsUnderPt = destinationOptions.filter(o => o.kind === 'list' && !o.folderId && o.teamId === t.teamId);
+        return {
+          ...t, children: foldersUnderPt.map(f => {
+            const listsUnderFolder = destinationOptions.filter(l => l.kind === 'list' && l.folderId === f.folderId);
+            return { ...f, children: listsUnderFolder };
+          }), lists: listsUnderPt
+        };
+      });
+      const rootFolders = destinationOptions.filter(o => o.kind === 'folder' && !o.spaceId && !o.projectId && !o.teamId).map(f => {
+        const listsUnderFolder = destinationOptions.filter(l => l.kind === 'list' && l.folderId === f.folderId);
+        return { ...f, children: listsUnderFolder };
+      });
+      const rootLists = destinationOptions.filter(o => o.kind === 'list' && !o.spaceId && !o.projectId && !o.teamId && !o.folderId);
+
+      return {
+        key: `WORKSPACE:${ws.id}`,
+        name: ws.name,
+        logo: ws.logo ?? ws.avatar ?? ws.avatarUrl,
+        color: ws.color,
+        spaces: spaceNodes,
+        rootProjects,
+        rootTeams,
+        rootFolders,
+        rootLists
+      };
+    });
+  }, [destinationOptions, spaces, workspaces]);
+
   const selectedLabel = React.useMemo(() => {
     if (!value) return "Select List...";
     if (value === "personal") return "Personal List";
     for (const r of recentLists) {
       if (r.id === value) return r.name;
     }
-    for (const space of hierarchy.spaces) {
-      for (const list of space.lists) {
-        if (list.id === value) return list.name;
-      }
-      for (const proj of Array.from(space.projects.values() as any)) {
-        for (const list of (proj as any).lists) {
-          if (list.id === value) return list.name;
-        }
-        for (const folder of Array.from((proj as any).folders.values() as any)) {
-          for (const list of (folder as any).lists) {
-            if (list.id === value) return list.name;
-          }
-        }
-      }
-      for (const team of Array.from(space.teams.values() as any)) {
-        for (const list of (team as any).lists) {
-          if (list.id === value) return list.name;
-        }
-        for (const folder of Array.from((team as any).folders.values() as any)) {
-          for (const list of (folder as any).lists) {
-            if (list.id === value) return list.name;
-          }
-        }
-      }
-      for (const folder of Array.from(space.folders.values() as any)) {
-        for (const list of (folder as any).lists) {
-          if (list.id === value) return list.name;
-        }
-      }
-    }
-    for (const list of hierarchy.lists) {
-      if (list.id === value) return list.name;
-    }
+    const allLists = listsData?.items || [];
+    const list = allLists.find((l: any) => l.id === value);
+    if (list) return list.name;
     return value;
-  }, [value, recentLists, hierarchy]);
+  }, [value, recentLists, listsData]);
 
   const q = search.trim().toLowerCase();
 
@@ -653,7 +757,6 @@ function TaskListSelectPopover({
         sideOffset={4}
         className="w-[360px] p-0 rounded-xl shadow-xl border-zinc-200 bg-white overflow-hidden max-h-[400px] flex flex-col z-50"
       >
-        {/* Search */}
         <div className="flex h-8 items-center rounded-md border border-zinc-200 bg-white px-2.5 mx-2.5 mt-2.5 mb-1.5 shrink-0 focus-within:border-zinc-400">
           <Search className="h-3.5 w-3.5 text-zinc-400 shrink-0 mr-2" />
           <input
@@ -667,30 +770,18 @@ function TaskListSelectPopover({
         </div>
 
         <div className="overflow-y-auto flex-1 py-1 max-h-[340px] px-1">
-          {/* 1. Personal List at the top */}
           {(!q || "personal list".includes(q)) && (
             <>
-              <button
-                type="button"
+              <DestinationTreeRow
+                selected={value === "personal"}
+                kind="personal"
+                label="Personal List"
                 onClick={() => handleSelect("personal")}
-                className={cn(
-                  "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                  value === "personal" ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                )}
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <div className="h-5 w-5 rounded bg-zinc-100 border border-zinc-200/60 flex items-center justify-center shrink-0">
-                    <User className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
-                  </div>
-                  <span className="truncate">Personal List</span>
-                </div>
-                {value === "personal" && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-              </button>
+              />
               <Separator className="my-1" />
             </>
           )}
 
-          {/* 2. Recents */}
           {filteredRecentLists.length > 0 && (
             <div className="px-1 py-1">
               <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400">Recents</div>
@@ -723,523 +814,273 @@ function TaskListSelectPopover({
             </div>
           )}
 
-          {/* 3. Spaces Hierarchy */}
-          {hierarchy.spaces.length > 0 && (
-            <div className="px-1 py-1">
-              <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400">Spaces</div>
-              {hierarchy.spaces.map((space: any) => {
-                const isSpaceCollapsed = collapsedNodes.has(`space-${space.id}`);
-                const hasChildren = (space.lists?.length > 0) || (space.folders?.size > 0) || (space.projects?.size > 0) || (space.teams?.size > 0);
-
-                return (
-                  <div key={`space-${space.id}`} className="space-y-0.5">
-                    <div
-                      className="group/space w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                      onClick={(e) => {
-                        if (hasChildren) toggleNode(e, `space-${space.id}`);
-                      }}
-                    >
-                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                        <div className="relative h-5 w-5 rounded shrink-0 flex items-center justify-center">
-                          <span className={cn("h-5 w-5 rounded shrink-0 overflow-hidden grid place-items-center bg-indigo-500 text-white ml-0.5", hasChildren && "group-hover/space:hidden")}>
-                            <SpaceIcon icon={space.icon} className="text-white" size={13} fill />
-                          </span>
-                          {hasChildren && (
-                            <div className="hidden group-hover/space:flex items-center justify-center h-5 w-5 rounded bg-zinc-200 text-zinc-700 hover:bg-zinc-300 transition-colors">
-                              <Play className={cn("h-2.5 w-2.5 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isSpaceCollapsed && "rotate-90")} />
-                            </div>
-                          )}
-                        </div>
-                        <span className="truncate flex-1">{space.name}</span>
-                      </div>
-                    </div>
-
-                    {!isSpaceCollapsed && (
-                      <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
-                        {/* Space Projects */}
-                        {Array.from(space.projects.values() as any).map((proj: any) => {
-                          const isProjCollapsed = collapsedNodes.has(`proj-${proj.id}`);
-                          const projHasChildren = (proj.lists?.length > 0) || (proj.folders?.size > 0);
-
-                          return (
-                            <div key={`proj-${proj.id}`} className="space-y-0.5">
-                              <div
-                                className="group/proj w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                                onClick={(e) => {
-                                  if (projHasChildren) toggleNode(e, `proj-${proj.id}`);
-                                }}
-                              >
-                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                                  <div className="relative h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                                    <Briefcase className={cn("h-3 w-3 text-purple-600 shrink-0", projHasChildren && "group-hover/proj:hidden")} />
-                                    {projHasChildren && (
-                                      <div className="hidden group-hover/proj:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isProjCollapsed && "rotate-90")} />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <span className="truncate font-medium">{proj.name}</span>
-                                </div>
-                              </div>
-
-                              {!isProjCollapsed && (
-                                <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
-                                  {/* Project Folders */}
-                                  {Array.from(proj.folders.values() as any).map((folder: any) => {
-                                    const isFolderCollapsed = collapsedNodes.has(`proj-folder-${folder.id}`);
-                                    const folderHasChildren = folder.lists && folder.lists.length > 0;
-
-                                    return (
-                                      <div key={`proj-folder-${folder.id}`} className="space-y-0.5">
-                                        <div
-                                          className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                                          onClick={(e) => {
-                                            if (folderHasChildren) toggleNode(e, `proj-folder-${folder.id}`);
-                                          }}
-                                        >
-                                          <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                                            <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                              <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
-                                              {folderHasChildren && (
-                                                <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                                                  <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+          {treeNodes.map((ws: any) => {
+            const isWsCollapsed = collapsedNodes.has(ws.key);
+            const wsMatches = !q || ws.name.toLowerCase().includes(q);
+            const hasSpaces = ws.spaces?.length > 0;
+            const hasRootChildren = ws.rootProjects?.length > 0 || ws.rootTeams?.length > 0 || ws.rootFolders?.length > 0 || ws.rootLists?.length > 0;
+            const hasChildren = hasSpaces || hasRootChildren;
+            if (!wsMatches && !hasChildren) return null;
+            const flip = (id: string) => {
+              setCollapsedNodes((prev) => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id); else next.add(id);
+                return next;
+              });
+            };
+            return (
+              <div key={ws.key} className="space-y-0.5">
+                <DestinationTreeRow
+                  selected={false}
+                  kind="workspace"
+                  entity={ws}
+                  label={ws.name}
+                  hasChildren={hasChildren}
+                  expanded={!isWsCollapsed}
+                  onToggle={(e) => toggleNode(e, ws.key)}
+                  onClick={() => { if (hasChildren) flip(ws.key); }}
+                />
+                {!isWsCollapsed && hasChildren && (
+                  <div className={ENTITY_TREE_NEST}>
+                    {ws.spaces?.map((space: any) => {
+                      const isSpaceCollapsed = collapsedNodes.has(space.key);
+                      const hasSpaceChildren = space.children?.length > 0 || space.folders?.length > 0 || space.lists?.length > 0;
+                      return (
+                        <div key={space.key} className="space-y-0.5">
+                          <DestinationTreeRow
+                            selected={false}
+                            kind="space"
+                            entity={space}
+                            label={space.name}
+                            hasChildren={hasSpaceChildren}
+                            expanded={!isSpaceCollapsed}
+                            onToggle={(e) => toggleNode(e, space.key)}
+                            onClick={() => { if (hasSpaceChildren) flip(space.key); }}
+                          />
+                          {!isSpaceCollapsed && hasSpaceChildren && (
+                            <div className={ENTITY_TREE_NEST}>
+                              {space.children?.map((pt: any) => {
+                                const isPtCollapsed = collapsedNodes.has(pt.key);
+                                const hasPtChildren = pt.children?.length > 0 || pt.lists?.length > 0;
+                                return (
+                                  <div key={pt.key} className="space-y-0.5">
+                                    <DestinationTreeRow
+                                      selected={false}
+                                      kind={pt.kind}
+                                      entity={pt}
+                                      label={pt.label}
+                                      hasChildren={hasPtChildren}
+                                      expanded={!isPtCollapsed}
+                                      onToggle={(e) => toggleNode(e, pt.key)}
+                                      onClick={() => { if (hasPtChildren) flip(pt.key); }}
+                                    />
+                                    {!isPtCollapsed && hasPtChildren && (
+                                      <div className={ENTITY_TREE_NEST}>
+                                        {pt.children?.map((folder: any) => {
+                                          const isFolderCollapsed = collapsedNodes.has(folder.key);
+                                          const hasFolderChildren = folder.children?.length > 0;
+                                          return (
+                                            <div key={folder.key} className="space-y-0.5">
+                                              <DestinationTreeRow
+                                                selected={false}
+                                                kind="folder"
+                                                entity={folder}
+                                                label={folder.label}
+                                                hasChildren={hasFolderChildren}
+                                                expanded={!isFolderCollapsed}
+                                                onToggle={(e) => toggleNode(e, folder.key)}
+                                                onClick={() => { if (hasFolderChildren) flip(folder.key); }}
+                                              />
+                                              {!isFolderCollapsed && hasFolderChildren && (
+                                                <div className={ENTITY_TREE_NEST}>
+                                                  {folder.children.map((list: any) => (
+                                                    <DestinationTreeRow
+                                                      key={list.key}
+                                                      selected={value === list.listId}
+                                                      kind="list"
+                                                      entity={list}
+                                                      label={list.label}
+                                                      onClick={() => handleSelect(list.listId!)}
+                                                    />
+                                                  ))}
                                                 </div>
                                               )}
                                             </div>
-                                            <span className="truncate font-medium">{folder.name}</span>
-                                          </div>
-                                        </div>
-
-                                        {!isFolderCollapsed &&
-                                          folder.lists.map((list: any) => {
-                                            const isSelected = value === list.id;
-                                            if (q && !list.name.toLowerCase().includes(q)) return null;
-                                            return (
-                                              <button
-                                                key={`pflist-${list.id}`}
-                                                type="button"
-                                                onClick={() => handleSelect(list.id)}
-                                                className={cn(
-                                                  "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                                  isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                                                )}
-                                              >
-                                                <div className="flex items-center gap-2 truncate">
-                                                  <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                                  <span className="truncate">{list.name}</span>
-                                                </div>
-                                                {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                              </button>
-                                            );
-                                          })}
-                                      </div>
-                                    );
-                                  })}
-
-                                  {/* Direct Project Lists */}
-                                  {proj.lists.map((list: any) => {
-                                    const isSelected = value === list.id;
-                                    if (q && !list.name.toLowerCase().includes(q)) return null;
-                                    return (
-                                      <button
-                                        key={`plist-${list.id}`}
-                                        type="button"
-                                        onClick={() => handleSelect(list.id)}
-                                        className={cn(
-                                          "w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                          isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                                        )}
-                                      >
-                                        <div className="flex items-center gap-2 truncate">
-                                          <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                          <span className="truncate">{list.name}</span>
-                                        </div>
-                                        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-
-                        {/* Space Teams */}
-                        {Array.from(space.teams.values() as any).map((team: any) => {
-                          const isTeamCollapsed = collapsedNodes.has(`team-${team.id}`);
-                          const teamHasChildren = (team.lists?.length > 0) || (team.folders?.size > 0);
-
-                          return (
-                            <div key={`team-${team.id}`} className="space-y-0.5">
-                              <div
-                                className="group/team w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                                onClick={(e) => {
-                                  if (teamHasChildren) toggleNode(e, `team-${team.id}`);
-                                }}
-                              >
-                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                                  <div className="relative h-4 w-4 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                    <Users className={cn("h-3 w-3 text-emerald-600 shrink-0", teamHasChildren && "group-hover/team:hidden")} />
-                                    {teamHasChildren && (
-                                      <div className="hidden group-hover/team:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isTeamCollapsed && "rotate-90")} />
+                                          );
+                                        })}
+                                        {pt.lists?.map((list: any) => (
+                                          <DestinationTreeRow
+                                            key={list.key}
+                                            selected={value === list.listId}
+                                            kind="list"
+                                            entity={list}
+                                            label={list.label}
+                                            onClick={() => handleSelect(list.listId!)}
+                                          />
+                                        ))}
                                       </div>
                                     )}
                                   </div>
-                                  <span className="truncate font-medium">{team.name}</span>
-                                </div>
-                              </div>
-
-                              {!isTeamCollapsed && (
-                                <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
-                                  {/* Team Folders */}
-                                  {Array.from((team.folders?.values() || []) as any).map((folder: any) => {
-                                    const isFolderCollapsed = collapsedNodes.has(`team-folder-${folder.id}`);
-                                    const folderHasChildren = folder.lists && folder.lists.length > 0;
-
-                                    return (
-                                      <div key={`team-folder-${folder.id}`} className="space-y-0.5">
-                                        <div
-                                          className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                                          onClick={(e) => {
-                                            if (folderHasChildren) toggleNode(e, `team-folder-${folder.id}`);
-                                          }}
-                                        >
-                                          <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                                            <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                              <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
-                                              {folderHasChildren && (
-                                                <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                                                  <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
-                                                </div>
-                                              )}
-                                            </div>
-                                            <span className="truncate font-medium">{folder.name}</span>
-                                          </div>
-                                        </div>
-
-                                        {!isFolderCollapsed &&
-                                          folder.lists.map((list: any) => {
-                                            const isSelected = value === list.id;
-                                            if (q && !list.name.toLowerCase().includes(q)) return null;
-                                            return (
-                                              <button
-                                                key={`tflist-${list.id}`}
-                                                type="button"
-                                                onClick={() => handleSelect(list.id)}
-                                                className={cn(
-                                                  "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                                  isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                                                )}
-                                              >
-                                                <div className="flex items-center gap-2 truncate">
-                                                  <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                                  <span className="truncate">{list.name}</span>
-                                                </div>
-                                                {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                              </button>
-                                            );
-                                          })}
-                                      </div>
-                                    );
-                                  })}
-
-                                  {/* Direct Team Lists */}
-                                  {team.lists.map((list: any) => {
-                                    const isSelected = value === list.id;
-                                    if (q && !list.name.toLowerCase().includes(q)) return null;
-                                    return (
-                                      <button
-                                        key={`tlist-${list.id}`}
-                                        type="button"
-                                        onClick={() => handleSelect(list.id)}
-                                        className={cn(
-                                          "w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                          isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                                        )}
-                                      >
-                                        <div className="flex items-center gap-2 truncate">
-                                          <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                          <span className="truncate">{list.name}</span>
-                                        </div>
-                                        {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-
-                        {/* Space Folders */}
-                        {Array.from(space.folders.values() as any).map((folder: any) => {
-                          const isFolderCollapsed = collapsedNodes.has(`space-folder-${folder.id}`);
-                          const folderHasChildren = folder.lists && folder.lists.length > 0;
-
-                          return (
-                            <div key={`space-folder-${folder.id}`} className="space-y-0.5">
-                              <div
-                                className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                                onClick={(e) => {
-                                  if (folderHasChildren) toggleNode(e, `space-folder-${folder.id}`);
-                                }}
-                              >
-                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                                  <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                    <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
-                                    {folderHasChildren && (
-                                      <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                                );
+                              })}
+                              {space.folders?.map((folder: any) => {
+                                const isFolderCollapsed = collapsedNodes.has(folder.key);
+                                const hasFolderChildren = folder.children?.length > 0;
+                                return (
+                                  <div key={folder.key} className="space-y-0.5">
+                                    <DestinationTreeRow
+                                      selected={false}
+                                      kind="folder"
+                                      entity={folder}
+                                      label={folder.label}
+                                      hasChildren={hasFolderChildren}
+                                      expanded={!isFolderCollapsed}
+                                      onToggle={(e) => toggleNode(e, folder.key)}
+                                      onClick={() => { if (hasFolderChildren) flip(folder.key); }}
+                                    />
+                                    {!isFolderCollapsed && hasFolderChildren && (
+                                      <div className={ENTITY_TREE_NEST}>
+                                        {folder.children.map((list: any) => (
+                                          <DestinationTreeRow
+                                            key={list.key}
+                                            selected={value === list.listId}
+                                            kind="list"
+                                            entity={list}
+                                            label={list.label}
+                                            onClick={() => handleSelect(list.listId!)}
+                                          />
+                                        ))}
                                       </div>
                                     )}
                                   </div>
-                                  <span className="truncate font-medium">{folder.name}</span>
-                                </div>
-                              </div>
-
-                              {!isFolderCollapsed &&
-                                folder.lists.map((list: any) => {
-                                  const isSelected = value === list.id;
-                                  if (q && !list.name.toLowerCase().includes(q)) return null;
-                                  return (
-                                    <button
-                                      key={`flist-${list.id}`}
-                                      type="button"
-                                      onClick={() => handleSelect(list.id)}
-                                      className={cn(
-                                        "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                        isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                                      )}
-                                    >
-                                      <div className="flex items-center gap-2 truncate">
-                                        <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                        <span className="truncate">{list.name}</span>
-                                      </div>
-                                      {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          );
-                        })}
-
-                        {/* Direct Space Lists */}
-                        {space.lists.map((list: any) => {
-                          const isSelected = value === list.id;
-                          if (q && !list.name.toLowerCase().includes(q)) return null;
-                          return (
-                            <button
-                              key={`slist-${list.id}`}
-                              type="button"
-                              onClick={() => handleSelect(list.id)}
-                              className={cn(
-                                "w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                <span className="truncate">{list.name}</span>
-                              </div>
-                              {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* 4. Root Projects & Teams & Folders & Lists */}
-          {(hierarchy.projects.length > 0 || hierarchy.teams.length > 0 || hierarchy.folders.length > 0 || hierarchy.lists.length > 0) && (
-            <div className="px-1 py-1">
-              <div className="px-2 py-1 text-[11px] font-semibold text-zinc-400">Workspace</div>
-              {/* Root Projects */}
-              {hierarchy.projects.map((proj: any) => {
-                const isProjCollapsed = collapsedNodes.has(`root-proj-${proj.id}`);
-                const projHasChildren = (proj.lists?.length > 0) || (proj.folders?.size > 0);
-
-                return (
-                  <div key={`root-proj-${proj.id}`} className="space-y-0.5">
-                    <div
-                      className="group/proj w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                      onClick={(e) => {
-                        if (projHasChildren) toggleNode(e, `root-proj-${proj.id}`);
-                      }}
-                    >
-                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                        <div className="relative h-4 w-4 rounded bg-purple-50 flex items-center justify-center shrink-0">
-                          <Briefcase className={cn("h-3 w-3 text-purple-600 shrink-0", projHasChildren && "group-hover/proj:hidden")} />
-                          {projHasChildren && (
-                            <div className="hidden group-hover/proj:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                              <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isProjCollapsed && "rotate-90")} />
+                                );
+                              })}
+                              {space.lists?.map((list: any) => (
+                                <DestinationTreeRow
+                                  key={list.key}
+                                  selected={value === list.listId}
+                                  kind="list"
+                                  entity={list}
+                                  label={list.label}
+                                  onClick={() => handleSelect(list.listId!)}
+                                />
+                              ))}
                             </div>
                           )}
                         </div>
-                        <span className="truncate font-medium">{proj.name}</span>
-                      </div>
-                    </div>
-
-                    {!isProjCollapsed && (
-                      <div className="space-y-0.5 ml-4 pl-1 border-l border-zinc-200/70">
-                        {Array.from((proj.folders?.values() || []) as any).map((folder: any) => {
-                          const isFolderCollapsed = collapsedNodes.has(`root-proj-folder-${folder.id}`);
-                          const folderHasChildren = folder.lists && folder.lists.length > 0;
-
-                          return (
-                            <div key={`root-proj-folder-${folder.id}`} className="space-y-0.5">
-                              <div
-                                className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-700 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                                onClick={(e) => {
-                                  if (folderHasChildren) toggleNode(e, `root-proj-folder-${folder.id}`);
-                                }}
-                              >
-                                <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                                  <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                                    <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
-                                    {folderHasChildren && (
-                                      <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                                        <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                      );
+                    })}
+                    {[...(ws.rootProjects || []), ...(ws.rootTeams || [])].map((pt: any) => {
+                      const isPtCollapsed = collapsedNodes.has(pt.key);
+                      const hasPtChildren = pt.children?.length > 0 || pt.lists?.length > 0;
+                      return (
+                        <div key={pt.key} className="space-y-0.5">
+                          <DestinationTreeRow
+                            selected={false}
+                            kind={pt.kind}
+                            entity={pt}
+                            label={pt.label}
+                            hasChildren={hasPtChildren}
+                            expanded={!isPtCollapsed}
+                            onToggle={(e) => toggleNode(e, pt.key)}
+                            onClick={() => { if (hasPtChildren) flip(pt.key); }}
+                          />
+                          {!isPtCollapsed && hasPtChildren && (
+                            <div className={ENTITY_TREE_NEST}>
+                              {pt.children?.map((folder: any) => {
+                                const isFolderCollapsed = collapsedNodes.has(folder.key);
+                                const hasFolderChildren = folder.children?.length > 0;
+                                return (
+                                  <div key={folder.key} className="space-y-0.5">
+                                    <DestinationTreeRow
+                                      selected={false}
+                                      kind="folder"
+                                      entity={folder}
+                                      label={folder.label}
+                                      hasChildren={hasFolderChildren}
+                                      expanded={!isFolderCollapsed}
+                                      onToggle={(e) => toggleNode(e, folder.key)}
+                                      onClick={() => { if (hasFolderChildren) flip(folder.key); }}
+                                    />
+                                    {!isFolderCollapsed && hasFolderChildren && (
+                                      <div className={ENTITY_TREE_NEST}>
+                                        {folder.children.map((list: any) => (
+                                          <DestinationTreeRow
+                                            key={list.key}
+                                            selected={value === list.listId}
+                                            kind="list"
+                                            entity={list}
+                                            label={list.label}
+                                            onClick={() => handleSelect(list.listId!)}
+                                          />
+                                        ))}
                                       </div>
                                     )}
                                   </div>
-                                  <span className="truncate font-medium">{folder.name}</span>
-                                </div>
-                              </div>
-
-                              {!isFolderCollapsed &&
-                                folder.lists.map((list: any) => {
-                                  const isSelected = value === list.id;
-                                  if (q && !list.name.toLowerCase().includes(q)) return null;
-                                  return (
-                                    <button
-                                      key={`rpflist-${list.id}`}
-                                      type="button"
-                                      onClick={() => handleSelect(list.id)}
-                                      className={cn(
-                                        "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                        isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                                      )}
-                                    >
-                                      <div className="flex items-center gap-2 truncate">
-                                        <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                        <span className="truncate">{list.name}</span>
-                                      </div>
-                                      {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          );
-                        })}
-
-                        {proj.lists.map((list: any) => {
-                          const isSelected = value === list.id;
-                          if (q && !list.name.toLowerCase().includes(q)) return null;
-                          return (
-                            <button
-                              key={`rplist-${list.id}`}
-                              type="button"
-                              onClick={() => handleSelect(list.id)}
-                              className={cn(
-                                "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                                isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                <span className="truncate">{list.name}</span>
-                              </div>
-                              {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Root Folders */}
-              {hierarchy.folders.map((folder: any) => {
-                const isFolderCollapsed = collapsedNodes.has(`root-folder-${folder.id}`);
-                const folderHasChildren = folder.lists && folder.lists.length > 0;
-
-                return (
-                  <div key={`root-folder-${folder.id}`} className="space-y-0.5">
-                    <div
-                      className="group/folder w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs text-zinc-800 hover:bg-zinc-100/70 transition-colors cursor-pointer select-none"
-                      onClick={(e) => {
-                        if (folderHasChildren) toggleNode(e, `root-folder-${folder.id}`);
-                      }}
-                    >
-                      <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                        <div className="relative h-4 w-4 rounded bg-blue-50 flex items-center justify-center shrink-0">
-                          <FolderIconLucide className={cn("h-3 w-3 text-blue-600 shrink-0", folderHasChildren && "group-hover/folder:hidden")} />
-                          {folderHasChildren && (
-                            <div className="hidden group-hover/folder:flex items-center justify-center h-4 w-4 rounded bg-zinc-200 text-zinc-700">
-                              <Play className={cn("h-2 w-2 fill-zinc-700 text-zinc-700 transition-transform duration-200", !isFolderCollapsed && "rotate-90")} />
+                                );
+                              })}
+                              {pt.lists?.map((list: any) => (
+                                <DestinationTreeRow
+                                  key={list.key}
+                                  selected={value === list.listId}
+                                  kind="list"
+                                  entity={list}
+                                  label={list.label}
+                                  onClick={() => handleSelect(list.listId!)}
+                                />
+                              ))}
                             </div>
                           )}
                         </div>
-                        <span className="truncate font-medium">{folder.name}</span>
-                      </div>
-                    </div>
-
-                    {!isFolderCollapsed &&
-                      folder.lists.map((list: any) => {
-                        const isSelected = value === list.id;
-                        if (q && !list.name.toLowerCase().includes(q)) return null;
-                        return (
-                          <button
-                            key={`rflist-${list.id}`}
-                            type="button"
-                            onClick={() => handleSelect(list.id)}
-                            className={cn(
-                              "w-full flex items-center justify-between px-2 pl-4 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                              isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                            )}
-                          >
-                            <div className="flex items-center gap-2 truncate">
-                              <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                              <span className="truncate">{list.name}</span>
+                      );
+                    })}
+                    {ws.rootFolders?.map((folder: any) => {
+                      const isFolderCollapsed = collapsedNodes.has(folder.key);
+                      const hasFolderChildren = folder.children?.length > 0;
+                      return (
+                        <div key={folder.key} className="space-y-0.5">
+                          <DestinationTreeRow
+                            selected={false}
+                            kind="folder"
+                            entity={folder}
+                            label={folder.label}
+                            hasChildren={hasFolderChildren}
+                            expanded={!isFolderCollapsed}
+                            onToggle={(e) => toggleNode(e, folder.key)}
+                            onClick={() => { if (hasFolderChildren) flip(folder.key); }}
+                          />
+                          {!isFolderCollapsed && hasFolderChildren && (
+                            <div className={ENTITY_TREE_NEST}>
+                              {folder.children.map((list: any) => (
+                                <DestinationTreeRow
+                                  key={list.key}
+                                  selected={value === list.listId}
+                                  kind="list"
+                                  entity={list}
+                                  label={list.label}
+                                  onClick={() => handleSelect(list.listId!)}
+                                />
+                              ))}
                             </div>
-                            {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                          </button>
-                        );
-                      })}
+                          )}
+                        </div>
+                      );
+                    })}
+                    {ws.rootLists?.map((list: any) => (
+                      <DestinationTreeRow
+                        key={list.key}
+                        selected={value === list.listId}
+                        kind="list"
+                        entity={list}
+                        label={list.label}
+                        onClick={() => handleSelect(list.listId!)}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-
-              {/* Root Direct Lists */}
-              {hierarchy.lists.map((list: any) => {
-                const isSelected = value === list.id;
-                if (q && !list.name.toLowerCase().includes(q)) return null;
-                return (
-                  <button
-                    key={`rlist-${list.id}`}
-                    type="button"
-                    onClick={() => handleSelect(list.id)}
-                    className={cn(
-                      "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-zinc-100/70 transition-colors cursor-pointer",
-                      isSelected ? "bg-zinc-100 font-semibold text-zinc-900" : "text-zinc-700"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <ListChecks className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                      <span className="truncate">{list.name}</span>
-                    </div>
-                    {isSelected && <Check className="h-3.5 w-3.5 text-zinc-900 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })}
         </div>
       </PopoverContent>
     </Popover>

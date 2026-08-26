@@ -29,7 +29,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export type ProjectView =
     | "overview"
     | "personal"
-    | "teams"
     | "lists"
     | "docs"
     | "chats"
@@ -53,7 +52,6 @@ const navigationItems: Array<{
 }> = [
         { id: "overview", label: "Overview", icon: LayoutDashboard },
         { id: "personal", label: "Personal", icon: User },
-        { id: "teams", label: "Teams", icon: Users },
         { id: "lists", label: "Lists", icon: ListIcon },
         { id: "docs", label: "Docs", icon: FileText },
         { id: "chats", label: "Chats", icon: MessageSquare },

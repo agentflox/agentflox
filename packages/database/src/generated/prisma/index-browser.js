@@ -2952,32 +2952,52 @@ exports.Prisma.ToolStepResultScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
-exports.Prisma.AgentSkillScalarFieldEnum = {
+exports.Prisma.AiSkillScalarFieldEnum = {
   id: 'id',
   name: 'name',
   displayName: 'displayName',
   description: 'description',
   category: 'category',
+  avatar: 'avatar',
   icon: 'icon',
+  color: 'color',
+  version: 'version',
+  ownerId: 'ownerId',
+  schema: 'schema',
+  metadata: 'metadata',
+  tags: 'tags',
   isActive: 'isActive',
+  isPaused: 'isPaused',
+  isArchived: 'isArchived',
+  isShared: 'isShared',
   isBuiltIn: 'isBuiltIn',
+  status: 'status',
+  visibility: 'visibility',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  archivedAt: 'archivedAt',
+  deletedAt: 'deletedAt',
+  deletedById: 'deletedById'
 };
 
-exports.Prisma.AgentToSkillScalarFieldEnum = {
+exports.Prisma.AiAgentToSkillScalarFieldEnum = {
   id: 'id',
   agentId: 'agentId',
   skillId: 'skillId',
   isEnabled: 'isEnabled',
-  createdAt: 'createdAt'
+  config: 'config',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
-exports.Prisma.SkillToToolScalarFieldEnum = {
+exports.Prisma.AiConversationToSkillScalarFieldEnum = {
   id: 'id',
+  conversationId: 'conversationId',
   skillId: 'skillId',
-  toolId: 'toolId',
-  isDefault: 'isDefault'
+  isEnabled: 'isEnabled',
+  config: 'config',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.AgentRelationScalarFieldEnum = {
@@ -4627,9 +4647,9 @@ exports.Prisma.ModelName = {
   CompositeToolVersion: 'CompositeToolVersion',
   CompositeToolExecutionLog: 'CompositeToolExecutionLog',
   ToolStepResult: 'ToolStepResult',
-  AgentSkill: 'AgentSkill',
-  AgentToSkill: 'AgentToSkill',
-  SkillToTool: 'SkillToTool',
+  AiSkill: 'AiSkill',
+  AiAgentToSkill: 'AiAgentToSkill',
+  AiConversationToSkill: 'AiConversationToSkill',
   AgentRelation: 'AgentRelation',
   WorkspaceGuest: 'WorkspaceGuest',
   LocationPermission: 'LocationPermission',

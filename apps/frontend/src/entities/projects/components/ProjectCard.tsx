@@ -11,6 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ProjectIcon } from "./ProjectIcon";
 import { trpc } from "@/lib/trpc";
 
@@ -46,106 +52,115 @@ export default function ProjectCard({
     null;
 
   return (
-    <div
-      className={cn(
-        "group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden h-full",
-        isSelected ? "border-blue-300 ring-2 ring-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-blue-300 hover:shadow-blue-500/10"
-      )}
-      onMouseEnter={handleMouseEnter}
-      onClick={() => onOpen?.(item.id)}
-    >
-      {/* Checkbox — top left */}
+    <TooltipProvider delayDuration={200}>
       <div
         className={cn(
-          "absolute top-2 left-3 z-10 transition-opacity",
-          isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          "group relative flex flex-col bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden h-full",
+          isSelected ? "border-blue-300 ring-2 ring-blue-200 bg-blue-50/20" : "border-slate-200 hover:border-blue-300 hover:shadow-blue-500/10"
         )}
-        onClick={(e) => { e.stopPropagation(); onSelect?.(item.id, !isSelected); }}
+        onMouseEnter={handleMouseEnter}
+        onClick={() => onOpen?.(item.id)}
       >
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={(checked) => onSelect?.(item.id, !!checked)}
-          className="h-4 w-4 border-slate-300 bg-white shadow-sm cursor-pointer"
-        />
-      </div>
-
-      {/* Actions — top right, vertical dots */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 z-20">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/50 hover:bg-zinc-100 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
-              <MoreVertical className="h-4 w-4 text-zinc-400" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>
-              <PenSquare className="mr-1 h-4 w-4" />
-              Edit Project
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => { e.stopPropagation(); onDelete?.(item.id); }}
-              className="text-red-600 focus:text-red-600 dark:text-red-500 dark:focus:text-red-500"
-            >
-              <Trash2 className="mr-1 h-4 w-4" />
-              Delete Project
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div className="p-3 flex flex-col gap-4 flex-1 pt-12 relative z-0">
-        <div className="min-w-0 space-y-2.5 flex-1">
-          {locationText && (
-            <div
-              className="flex items-center gap-1.5 text-xs text-slate-500 font-normal truncate min-w-0 max-w-full"
-              title={locationText}
-            >
-              <Folder className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-              <span className="truncate">{locationText}</span>
-            </div>
+        {/* Checkbox — top left */}
+        <div
+          className={cn(
+            "absolute top-2 left-3 z-10 transition-opacity",
+            isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           )}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-2">
-              {item.icon && (
-                <div
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden"
-                    style={{ backgroundColor: item.color || "#6366f1" }}
-                >
-                    <ProjectIcon icon={item.icon} className="text-white" size={14} fill />
-                </div>
-              )}
-              <h3 className={cn(
-                "font-medium text-base leading-snug line-clamp-1 transition-colors duration-200",
-                isSelected ? "text-indigo-700" : "text-slate-900 group-hover:text-indigo-700"
-              )}>
-                {item.name || item.title || "Untitled Project"}
-              </h3>
-            </div>
-          </div>
-          <p className="line-clamp-2 text-sm text-slate-500 leading-relaxed">
-            {item.description || item.shortSummary || "No description provided."}
-          </p>
+          onClick={(e) => { e.stopPropagation(); onSelect?.(item.id, !isSelected); }}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => onSelect?.(item.id, !!checked)}
+            className="h-4 w-4 border-slate-300 bg-white shadow-sm cursor-pointer"
+          />
         </div>
 
-        <div className="mt-auto flex flex-col gap-4">
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-slate-300" />
-              <span className="font-medium">
-                {item.updatedAt || item.createdAt ? `Updated ${new Date(item.updatedAt || item.createdAt).toLocaleDateString()}` : "No recent activity"}
-              </span>
-            </div>
+        {/* Actions — top right, vertical dots */}
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 z-20">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-white/50 hover:bg-zinc-100 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+                <MoreVertical className="h-4 w-4 text-zinc-400" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onOpen?.(item.id); }}>
+                <PenSquare className="mr-1 h-4 w-4" />
+                Edit Project
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onDelete?.(item.id); }}
+                className="text-red-600 focus:text-red-600 dark:text-red-500 dark:focus:text-red-500"
+              >
+                <Trash2 className="mr-1 h-4 w-4" />
+                Delete Project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-            {/* Hover Open Indicator */}
-            <div className={cn(
-              "flex items-center gap-1 font-bold opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-indigo-600"
-            )}>
-              <span>View</span>
-              <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+        <div className="p-3 flex flex-col gap-4 flex-1 pt-12 relative z-0">
+          <div className="min-w-0 space-y-2.5 flex-1">
+            {locationText && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="flex items-center gap-1.5 text-xs text-slate-500 font-normal truncate min-w-0 max-w-full"
+                    title={locationText}
+                  >
+                    <Folder className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{locationText}</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Project location</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2">
+                {item.icon && (
+                  <div
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md overflow-hidden"
+                      style={{ backgroundColor: item.color || "#6366f1" }}
+                  >
+                      <ProjectIcon icon={item.icon} className="text-white" size={14} fill />
+                  </div>
+                )}
+                <h3 className={cn(
+                  "font-medium text-base leading-snug line-clamp-1 transition-colors duration-200",
+                  isSelected ? "text-indigo-700" : "text-slate-900 group-hover:text-indigo-700"
+                )}>
+                  {item.name || item.title || "Untitled Project"}
+                </h3>
+              </div>
+            </div>
+            <p className="line-clamp-2 text-sm text-slate-500 leading-relaxed">
+              {item.description || item.shortSummary || "No description provided."}
+            </p>
+          </div>
+
+          <div className="mt-auto flex flex-col gap-4">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-slate-300" />
+                <span className="font-medium">
+                  {item.updatedAt || item.createdAt ? `Updated ${new Date(item.updatedAt || item.createdAt).toLocaleDateString()}` : "No recent activity"}
+                </span>
+              </div>
+
+              {/* Hover Open Indicator */}
+              <div className={cn(
+                "flex items-center gap-1 font-bold opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300 text-indigo-600"
+              )}>
+                <span>View</span>
+                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

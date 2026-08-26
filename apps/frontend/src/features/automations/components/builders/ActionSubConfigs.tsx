@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,13 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Sparkles, AtSign, Smile, ChevronDown, ChevronUp, CheckCircle2, MinusCircle, FileText, CircleDot, Check, Hash, Clock, Flag } from "lucide-react";
+import { Sparkles, AtSign, Smile, ChevronDown, ChevronUp, CheckCircle2, MinusCircle, FileText, CircleDot, Check, Hash, Clock, Flag, Plus, Users, AlertTriangle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import type { AutomationScope } from "../../types";
 import { AssigneeMultiSelect, AssigneeSingleSelect } from "./AssigneeMultiSelect";
@@ -36,8 +37,6 @@ import { TaskPickerPopover } from "@/entities/task/components/TaskPickerPopover"
 import { cn } from "@/lib/utils";
 import type { ActionConfigState } from "./action-config-types";
 import { AutomationTemplatePicker, AutomationListHierarchySelect } from "./AutomationSelectHelpers";
-// 笏笏笏 AddCommentComposer 笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏笏
-// Mirrors CommentsPanel's CommentComposer UI but stores state in ActionConfigState.
 
 export function AddCommentComposer({
   config,

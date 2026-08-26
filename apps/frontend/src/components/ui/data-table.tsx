@@ -16,7 +16,6 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-
 import {
   Table,
   TableBody,
@@ -25,13 +24,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
 import { Button } from "@/components/ui/button"
 import { Trash2, X, Settings2 } from "lucide-react"
 import {
   DropdownMenu,
+  DropdownMenuTrigger,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+} from "@/components/ui/dropdown-menu"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -43,6 +43,7 @@ interface DataTableProps<TData = any, TValue = any> {
   data: TData[]
   onDeleteSelected?: (rows: TData[]) => void
   onTableReady?: (table: import("@tanstack/react-table").Table<TData>) => void
+  rowSelection?: Record<string, boolean>
   onRowSelectionChange?: (rowSelection: Record<string, boolean>) => void
   renderRowContextMenu?: (row: TData) => React.ReactNode
   hideToolbar?: boolean
@@ -51,6 +52,8 @@ interface DataTableProps<TData = any, TValue = any> {
   showBorders?: boolean
   columnVisibility?: import("@tanstack/react-table").VisibilityState
   onColumnVisibilityChange?: React.Dispatch<React.SetStateAction<import("@tanstack/react-table").VisibilityState>>
+  sorting?: import("@tanstack/react-table").SortingState
+  onSortingChange?: React.Dispatch<React.SetStateAction<import("@tanstack/react-table").SortingState>>
 }
 
 export function DataTable<TData = any, TValue = any>({
@@ -58,6 +61,7 @@ export function DataTable<TData = any, TValue = any>({
   data,
   onDeleteSelected,
   onTableReady,
+  rowSelection: externalRowSelection,
   onRowSelectionChange,
   renderRowContextMenu,
   hideToolbar = false,
@@ -66,15 +70,23 @@ export function DataTable<TData = any, TValue = any>({
   showBorders = false,
   columnVisibility: externalColumnVisibility,
   onColumnVisibilityChange,
+  sorting: externalSorting,
+  onSortingChange,
 }: DataTableProps<TData, TValue>) {
-  const [rowSelection, setRowSelection] = React.useState({})
+  const [internalRowSelection, setInternalRowSelection] = React.useState<Record<string, boolean>>({})
 
   const [internalColumnVisibility, setInternalColumnVisibility] = React.useState<VisibilityState>({})
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([{ id: "updatedAt", desc: true }])
 
   const columnVisibility = externalColumnVisibility !== undefined ? externalColumnVisibility : internalColumnVisibility;
   const setColumnVisibility = onColumnVisibilityChange || setInternalColumnVisibility;
+
+  const sorting = externalSorting !== undefined ? externalSorting : internalSorting;
+  const setSorting = onSortingChange || setInternalSorting;
+
+  const rowSelection = externalRowSelection !== undefined ? externalRowSelection : internalRowSelection;
+  const setRowSelection = onRowSelectionChange || setInternalRowSelection;
 
   const table = useReactTable({
     data,
@@ -91,7 +103,6 @@ export function DataTable<TData = any, TValue = any>({
     onRowSelectionChange: (updater) => {
       const next = typeof updater === "function" ? updater(rowSelection) : updater;
       setRowSelection(next);
-      onRowSelectionChange?.(next);
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -104,15 +115,37 @@ export function DataTable<TData = any, TValue = any>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   })
 
+  // Cache selected row data across pagination
+  const selectedRowsCacheRef = React.useRef<Map<string, TData>>(new Map());
+
+  React.useEffect(() => {
+    if (data && Array.isArray(data)) {
+      data.forEach((item: any) => {
+        const id = item?.id || item?.key || item?._id || String(item?.name || item?.title);
+        if (id && rowSelection[id]) {
+          selectedRowsCacheRef.current.set(id, item);
+        }
+      });
+      for (const id of Array.from(selectedRowsCacheRef.current.keys())) {
+        if (!rowSelection[id]) {
+          selectedRowsCacheRef.current.delete(id);
+        }
+      }
+    }
+  }, [data, rowSelection]);
+
   React.useEffect(() => {
     if (onTableReady) {
       onTableReady(table)
     }
   }, [table, onTableReady])
 
-  // Bulk action banner
-  const selectedRows = table.getFilteredSelectedRowModel().rows
-  const hasSelected = selectedRows.length > 0
+  // Bulk action banner: count all selected keys across pages
+  const selectedIds = React.useMemo(() => {
+    return Object.keys(rowSelection).filter((k) => rowSelection[k]);
+  }, [rowSelection]);
+  const selectedCount = selectedIds.length;
+  const hasSelected = selectedCount > 0;
 
   return (
     <div className="w-full max-w-full min-w-0 space-y-4">
@@ -236,13 +269,16 @@ export function DataTable<TData = any, TValue = any>({
         {hasSelected && (
           <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-4 rounded-xl border border-zinc-200 bg-white/90 px-5 py-3 shadow-2xl shadow-zinc-200/60 backdrop-blur-md ring-1 ring-zinc-100 transition-all animate-in fade-in slide-in-from-bottom-4 duration-200">
             <span className="text-sm font-medium text-zinc-700">
-              {selectedRows.length} {selectedRows.length === 1 ? "item" : "items"} selected
+              {selectedCount} {selectedCount === 1 ? "item" : "items"} selected
             </span>
             <div className="h-4 w-px bg-zinc-200" />
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => table.toggleAllPageRowsSelected(false)}
+              onClick={() => {
+                table.resetRowSelection();
+                setRowSelection({});
+              }}
               className="h-8 gap-1.5 px-3 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
@@ -253,8 +289,12 @@ export function DataTable<TData = any, TValue = any>({
                 variant="destructive"
                 size="sm"
                 onClick={() => {
-                  onDeleteSelected(selectedRows.map((r) => r.original))
-                  table.toggleAllPageRowsSelected(false)
+                  const allSelectedRows = selectedIds.map(
+                    (id) => selectedRowsCacheRef.current.get(id) || ({ id } as unknown as TData)
+                  );
+                  onDeleteSelected(allSelectedRows);
+                  table.resetRowSelection();
+                  setRowSelection({});
                 }}
                 className="h-8 gap-1.5 px-3 cursor-pointer"
               >

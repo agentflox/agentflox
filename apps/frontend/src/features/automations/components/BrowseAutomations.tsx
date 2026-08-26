@@ -5,12 +5,6 @@ import { ArrowRight, ChevronDown, Flame, MessageCircle, Plus, Zap, Bot, Sparkles
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { AutomationScope } from "../types";
 import {
@@ -174,27 +168,12 @@ export function BrowseAutomations({
     <div className="flex h-full min-h-0 bg-white">
       {/* Left Navigation Bar */}
       <aside className="w-56 shrink-0 border-r bg-zinc-50/70 overflow-y-auto p-3 flex flex-col scrollbar-thin">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button className="w-full bg-zinc-900 hover:bg-zinc-700 text-white h-9 cursor-pointer mb-4 shadow-sm">
-              Add Automation <ChevronDown className="h-3.5 w-3.5 ml-auto" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-44">
-            <DropdownMenuItem className="cursor-pointer gap-2" onClick={() => onCreate("classic")}>
-              <Zap className="h-4 w-4 text-sky-600" />
-              Classic
-            </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer justify-between" onClick={() => onCreate("agent")}>
-              <span className="flex items-center gap-2">
-                <AgentIcon /> Agent
-              </span>
-              <Badge variant="secondary" className="text-[10px] px-1 py-1 h-4 bg-violet-100 text-violet-700 border-0">
-                New
-              </Badge>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          className="w-full bg-zinc-900 hover:bg-zinc-700 text-white h-9 cursor-pointer mb-4 shadow-sm"
+          onClick={() => onCreate("agent")}
+        >
+          Add Automation <ChevronDown className="h-3.5 w-3.5 ml-auto" />
+        </Button>
 
         {BROWSE_NAV.map((group) => (
           <div key={group.heading} className="mb-4">
@@ -244,7 +223,7 @@ export function BrowseAutomations({
                   )}
                 >
                   <span className="truncate">{item.label}</span>
-                  {item.isNew && (
+                  {"isNew" in item && Boolean(item.isNew) && (
                     <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-violet-100 text-violet-700 border-0 font-medium">
                       New
                     </Badge>

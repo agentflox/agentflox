@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { buildCleanDashboardParams } from "@/features/dashboard/utils/dashboardUrl";
+import { useRouter } from "next/navigation";
+import { buildCleanDashboardParams, buildDashboardPath } from "@/features/dashboard/utils/dashboardUrl";
+import { useDashboardState } from "@/features/dashboard/utils/useDashboardState";
 import { trpc } from "@/lib/trpc";
 import {
     Plus,
@@ -51,7 +52,7 @@ export default function SpaceProjectView({
     onTaskSelect,
 }: SpaceProjectViewProps) {
     const router = useRouter();
-    const searchParams = useSearchParams();
+    const { searchParams, parsedState } = useDashboardState();
 
     // Sidebar State
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -70,12 +71,12 @@ export default function SpaceProjectView({
     }, [searchQuery]);
 
     // URL-derived active items
-    const activeProjectId = !isManageView ? (searchParams.get("pj") || selectedProjectId || null) : null;
+    const activeProjectId = !isManageView ? (selectedProjectId || parsedState.projectId || null) : null;
 
     // Fetch projects for this space
     const { data: projectsData, isLoading: isLoadingProjects, refetch: refetchProjects } = trpc.project.list.useQuery(
-        { workspaceId, spaceId, scope: "owned", pageSize: 50 },
-        { enabled: !!(workspaceId && spaceId) }
+        { workspaceId, spaceId, scope: "all", pageSize: 50 },
+        { enabled: !!(workspaceId || spaceId), staleTime: 60_000, gcTime: 5 * 60_000 }
     );
     const projectsRaw = projectsData?.items ?? [];
 
@@ -207,30 +208,30 @@ export default function SpaceProjectView({
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                         <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSearchOpen(true)}>
-                                                  <Search className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Search</TooltipContent>
-                                          </Tooltip>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSidebarCollapsed(true)}>
-                                                  <ChevronsLeft className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Collapse Sidebar</TooltipContent>
-                                          </Tooltip>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsProjectModalOpen(true)}>
-                                                  <Plus className="h-4 w-4" />
-                                              </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>Create Project</TooltipContent>
-                                          </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSearchOpen(true)}>
+                                                        <Search className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Search</TooltipContent>
+                                            </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsSidebarCollapsed(true)}>
+                                                        <ChevronsLeft className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Collapse Sidebar</TooltipContent>
+                                            </Tooltip>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => setIsProjectModalOpen(true)}>
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Create Project</TooltipContent>
+                                            </Tooltip>
                                         </TooltipProvider>
                                     </div>
                                 </div>
@@ -290,19 +291,19 @@ export default function SpaceProjectView({
                 {isSidebarCollapsed && (
                     <div className="absolute left-0 top-3 z-30">
                         <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
-                              onClick={() => setIsSidebarCollapsed(false)}
-                            >
-                              <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="right">
-                            <p>Expand Sidebar</p>
-                          </TooltipContent>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-l-none border-l-0 bg-background/80 backdrop-blur-sm shadow-sm hover:shadow transition-all"
+                                    onClick={() => setIsSidebarCollapsed(false)}
+                                >
+                                    <ChevronsRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">
+                                <p>Expand Sidebar</p>
+                            </TooltipContent>
                         </Tooltip>
                     </div>
                 )}

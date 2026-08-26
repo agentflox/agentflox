@@ -259,6 +259,7 @@ model User {
 
   toolVersionsCreated CompositeToolVersion[]
   toolExecutions      CompositeToolExecutionLog[]
+  ownedAiSkills       AiSkill[]                   @relation("SkillOwner")
 
   // --- soft delete fields ---
   deletedAt   DateTime? @map("deleted_at")
@@ -4031,6 +4032,7 @@ model AiConversation {
   workforce        Workforce?               @relation(fields: [workforceId], references: [id], onDelete: Cascade)
   compositeTool    CompositeTool?           @relation(fields: [compositeToolId], references: [id], onDelete: Cascade)
   messages         AiMessage[]
+  skills           AiConversationToSkill[]
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([projectId])
@@ -4749,7 +4751,7 @@ model AiAgent {
   subAgents         AgentRelation[]      @relation("ParentAgent")
   schedules         AgentSchedule[]
   tasks             AgentTask[]
-  agentSkills       AgentToSkill[]
+  agentSkills       AiAgentToSkill[]
   tools             AgentTool[]
   triggers          AgentTrigger[]
   versions          AgentVersion[]
@@ -4784,27 +4786,26 @@ model AiAgent {
 }
 
 model SystemTool {
-  id             String        @id
-  name           String        @unique
-  displayName    String?       @map("display_name")
+  id             String    @id
+  name           String    @unique
+  displayName    String?   @map("display_name")
   description    String
   category       String
-  functionSchema Json          @map("function_schema")
-  deterministic  Boolean       @default(true)
-  isDefault      Boolean       @default(false) @map("is_default")
-  requiresAuth   Boolean       @default(false) @map("requires_auth")
-  rateLimit      Int?          @map("rate_limit")
-  timeout        Int           @default(30)
+  functionSchema Json      @map("function_schema")
+  deterministic  Boolean   @default(true)
+  isDefault      Boolean   @default(false) @map("is_default")
+  requiresAuth   Boolean   @default(false) @map("requires_auth")
+  rateLimit      Int?      @map("rate_limit")
+  timeout        Int       @default(30)
   examples       Json[]
   documentation  String?
-  tags           String[]      @default([])
+  tags           String[]  @default([])
   metadata       Json?
-  isActive       Boolean       @default(true) @map("is_active")
-  isBuiltIn      Boolean       @default(false) @map("is_built_in")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-  lastUsedAt     DateTime?     @map("last_used_at")
-  skillTools     SkillToTool[]
+  isActive       Boolean   @default(true) @map("is_active")
+  isBuiltIn      Boolean   @default(false) @map("is_built_in")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  lastUsedAt     DateTime? @map("last_used_at")
 
   @@index([category])
   @@index([isActive])
@@ -4940,54 +4941,82 @@ model ToolStepResult {
   @@map("tool_step_results")
 }
 
-model AgentSkill {
-  id          String         @id @default(cuid())
-  name        String         @unique
-  displayName String         @map("display_name")
+model AiSkill {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  displayName String     @map("display_name")
   description String?
-  category    String
+  category    String?
+  avatar      String?
   icon        String?
-  isActive    Boolean        @default(true) @map("is_active")
-  isBuiltIn   Boolean        @default(false) @map("is_built_in")
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  agentSkills AgentToSkill[]
-  toolSkills  SkillToTool[]
+  color       String?
+  version     String     @default("1.0.0")
+  ownerId     String?    @map("owner_id")
+  schema      Json? // Flexible JSON defining purpose, workflow, safety guidelines, output templates, trigger examples, and parameters
+  metadata    Json?
+  tags        String[]   @default([])
+  isActive    Boolean    @default(false) @map("is_active")
+  isPaused    Boolean    @default(false) @map("is_paused")
+  isArchived  Boolean    @default(false) @map("is_archived")
+  isShared    Boolean    @default(false) @map("is_shared")
+  isBuiltIn   Boolean    @default(false) @map("is_built_in")
+  status      String?    @default("DRAFT")
+  visibility  Visibility @default(PRIVATE)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  archivedAt  DateTime?  @map("archived_at")
+
+  // --- soft delete fields ---
+  deletedAt   DateTime? @map("deleted_at")
+  deletedById String?   @map("deleted_by_id")
+
+  owner              User?                   @relation("SkillOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  agentSkills        AiAgentToSkill[]
+  conversationSkills AiConversationToSkill[]
 
   @@index([category])
+  @@index([ownerId])
   @@index([isActive])
   @@index([isBuiltIn])
-  @@map("agent_skills")
+  @@index([status])
+  @@index([deletedAt])
+  @@map("ai_skills")
 }
 
-model AgentToSkill {
-  id        String     @id @default(cuid())
-  agentId   String     @map("agent_id") @db.Uuid
-  skillId   String     @map("skill_id")
-  isEnabled Boolean    @default(true) @map("is_enabled")
-  createdAt DateTime   @default(now()) @map("created_at")
-  agent     AiAgent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  skill     AgentSkill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+model AiAgentToSkill {
+  id        String   @id @default(cuid())
+  agentId   String   @map("agent_id") @db.Uuid
+  skillId   String   @map("skill_id")
+  isEnabled Boolean  @default(true) @map("is_enabled")
+  config    Json? // Per-agent customized overrides or runtime variables
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  agent     AiAgent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  skill     AiSkill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
   @@unique([agentId, skillId])
   @@index([agentId])
   @@index([skillId])
   @@index([isEnabled])
-  @@map("agent_to_skills")
+  @@map("ai_agent_to_skills")
 }
 
-model SkillToTool {
-  id        String     @id @default(cuid())
-  skillId   String     @map("skill_id")
-  toolId    String     @map("tool_id")
-  isDefault Boolean    @default(true) @map("is_default")
-  skill     AgentSkill @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  tool      SystemTool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+model AiConversationToSkill {
+  id             String         @id @default(cuid())
+  conversationId String         @map("conversation_id")
+  skillId        String         @map("skill_id")
+  isEnabled      Boolean        @default(true) @map("is_enabled")
+  config         Json? // Per-conversation customized overrides or runtime variables
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  skill          AiSkill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-  @@unique([skillId, toolId])
+  @@unique([conversationId, skillId])
+  @@index([conversationId])
   @@index([skillId])
-  @@index([toolId])
-  @@map("skill_to_tools")
+  @@index([isEnabled])
+  @@map("ai_conversation_to_skills")
 }
 
 model AgentRelation {

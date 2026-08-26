@@ -26,7 +26,8 @@ import {
   LogOut,
   Grid3x3,
   CreditCard,
-  ExternalLink
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useInterfaceSettings } from '@/hooks/useInterfaceSettings';
@@ -54,7 +55,6 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
 
   const mainNav: SidebarItem[] = [
     { label: t("sidebar.home"), href: "/", icon: Home },
-    { label: t("sidebar.dashboard"), href: DASHBOARD_ROUTES.ROOT, icon: LayoutDashboard },
     { label: t("sidebar.marketplace"), href: MARKETPLACE_ROUTES.ROOT, icon: Store },
   ];
 
@@ -69,13 +69,14 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
     { label: t("sidebar.tasks"), href: DASHBOARD_ROUTES.TASKS, icon: FileText },
     { label: t("sidebar.documents"), href: DASHBOARD_ROUTES.DOCUMENTS, icon: FileText },
     { label: t("sidebar.tools"), href: DASHBOARD_ROUTES.TOOLS, icon: Settings },
+    { label: "Skills", href: DASHBOARD_ROUTES.SKILLS, icon: Zap },
     { label: t("sidebar.integrations"), href: DASHBOARD_ROUTES.INTEGRATIONS, icon: Link2 },
   ];
 
   const accountNav = [
-    { label: "Settings", href: "/dashboard/settings", icon: Settings },
-    { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
-    { label: "Analytics", href: "/dashboard/analytics", icon: LineChart },
+    { label: "Settings", href: "/settings", icon: Settings },
+    { label: "Billing", href: "/billing", icon: CreditCard },
+    { label: "Analytics", href: "/analytics", icon: LineChart },
   ];
 
   const supportNav = [
@@ -215,7 +216,7 @@ export default function MainSidebar({ mode = "inline", onClose }: { mode?: "inli
         <div className="space-y-1 mt-6">
           {!isMainCollapsed && (
             <div className="px-2 pb-2 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Workspace
+              Modules
             </div>
           )}
           {visibleSecondary.map((item) => {

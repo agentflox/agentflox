@@ -12,11 +12,39 @@ type FilterState = {
 
 const PAGE_SIZE = 12;
 
-export function useToolList(initialScope: ToolScope = "owned") {
-	const [page, setPage] = useState(1);
+export interface UseToolListOptions {
+	initialScope?: ToolScope;
+	initialPage?: number;
+	pageSize?: number;
+	syncWithUrl?: boolean;
+	initialFilters?: FilterState;
+}
+
+export function useToolList(initialScopeOrOptions: ToolScope | UseToolListOptions = "owned") {
+	const options: UseToolListOptions =
+		typeof initialScopeOrOptions === "string"
+			? { initialScope: initialScopeOrOptions }
+			: initialScopeOrOptions;
+
+	const {
+		initialScope = "owned",
+		initialPage = 1,
+		pageSize: initialPageSize = 12,
+		syncWithUrl = true,
+		initialFilters = {},
+	} = options;
+
+	const [page, setPage] = useState(initialPage);
+	const [pageSize, setPageSize] = useState(initialPageSize);
 	const [query, setQuery] = useState("");
 	const [scope, setScope] = useState<ToolScope>(initialScope);
-	const [filters, setFilters] = useState<FilterState>({});
+	const [filters, setFilters] = useState<FilterState>(initialFilters);
+
+	useEffect(() => {
+		if (options.pageSize && options.pageSize !== pageSize) {
+			setPageSize(options.pageSize);
+		}
+	}, [options.pageSize]);
 
 	const listInput = useMemo(
 		() => ({
@@ -24,10 +52,10 @@ export function useToolList(initialScope: ToolScope = "owned") {
 			category: filters.category,
 			isPublic: filters.isPublic,
 			page,
-			pageSize: PAGE_SIZE,
+			pageSize,
 			includeSchema: false,
 		}),
-		[query, filters.category, filters.isPublic, page],
+		[query, filters.category, filters.isPublic, page, pageSize],
 	);
 
 	const queryResult = trpc.compositeTool.list.useQuery(listInput, {
@@ -36,42 +64,42 @@ export function useToolList(initialScope: ToolScope = "owned") {
 	});
 
 	useEffect(() => {
-		setPage(1);
-	}, [query, scope, filters.category, filters.isPublic]);
-
-	useEffect(() => {
-		const params = new URLSearchParams();
-		if (query) params.set("q", query);
-		params.set("scope", scope);
-		if (filters.category) params.set("category", filters.category);
-		if (typeof filters.isPublic === "boolean") params.set("isPublic", String(filters.isPublic));
-		params.set("page", String(page));
+		if (!syncWithUrl) return;
+		const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+		if (query) params.set("q", query); else params.delete("q");
+		if (scope && scope !== "owned") params.set("scope", scope); else params.delete("scope");
+		if (filters.category) params.set("category", filters.category); else params.delete("category");
+		if (typeof filters.isPublic === "boolean") params.set("isPublic", String(filters.isPublic)); else params.delete("isPublic");
+		if (page > 1) params.set("page", String(page)); else params.delete("page");
+		if (pageSize !== 12) params.set("pageSize", String(pageSize)); else params.delete("pageSize");
 		if (typeof window !== "undefined") {
-			const nextUrl = `${window.location.pathname}?${params.toString()}`;
+			const search = params.toString();
+			const nextUrl = search ? `${window.location.pathname}?${search}` : window.location.pathname;
 			window.history.replaceState(null, "", nextUrl);
 		}
-	}, [query, scope, filters.category, filters.isPublic, page]);
+	}, [query, scope, filters.category, filters.isPublic, page, pageSize, syncWithUrl]);
 
-	const hasNextPage =
-		queryResult.data?.items.length === PAGE_SIZE &&
-		page * PAGE_SIZE < (queryResult.data?.total ?? 0);
-	const hasPreviousPage = page > 1;
+	const total = queryResult.data?.total ?? 0;
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	return {
 		data: queryResult.data,
 		isLoading: queryResult.isLoading,
 		isFetching: queryResult.isFetching,
 		page,
-		pageSize: PAGE_SIZE,
+		pageSize,
 		setPage,
+		setPageSize,
+		totalPages,
+		total,
 		query,
 		setQuery,
 		scope,
 		setScope,
 		filters,
 		setFilters,
-		hasNextPage,
-		hasPreviousPage,
+		hasNextPage: page < totalPages,
+		hasPreviousPage: page > 1,
 	};
 }
 

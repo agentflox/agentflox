@@ -4,10 +4,8 @@ import React, { memo } from 'react';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { IntegrationBrandImage } from './IntegrationBrandImage';
 import { cn } from '@/lib/utils';
-import { Settings } from 'lucide-react';
 import type { IntegrationCardModel } from '../buildIntegrationsList';
 
 interface IntegrationCardProps {
@@ -33,17 +31,22 @@ export const IntegrationCard = memo(function IntegrationCard({
                 : 'Connected'
             : 'Not connected';
 
-    const showConfigure =
-        !integration.comingSoon &&
-        (integration.isConnected || alwaysShowConfigure) &&
-        onConfigure;
+    const handleCardClick = () => {
+        if (!integration.comingSoon && onConfigure) {
+            onConfigure(integration.provider);
+        }
+    };
 
     return (
-        <Card className={cn(
-            "h-full flex flex-col transition-all duration-200 border-zinc-200 bg-white hover:border-zinc-300 hover:shadow-sm",
-            integration.isConnected && !integration.comingSoon && "border-zinc-300 ring-1 ring-zinc-200/50",
-            integration.comingSoon && "opacity-90",
-        )}>
+        <Card
+            className={cn(
+                "h-full flex flex-col transition-all duration-200 border-zinc-200 bg-white",
+                !integration.comingSoon && onConfigure && "cursor-pointer hover:border-zinc-300 hover:shadow-md hover:-translate-y-0.5",
+                integration.isConnected && !integration.comingSoon && "border-zinc-300 ring-1 ring-zinc-200/50",
+                integration.comingSoon && "opacity-90",
+            )}
+            onClick={handleCardClick}
+        >
             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3 p-5">
                 <div className="flex items-center gap-3 min-w-0">
                     <div
@@ -82,11 +85,14 @@ export const IntegrationCard = memo(function IntegrationCard({
                         </div>
                     </div>
                 </div>
-                <Switch
-                    checked={integration.isConnected && !integration.comingSoon}
-                    disabled={disableToggle || integration.comingSoon}
-                    onCheckedChange={(checked) => onToggle(integration.provider, checked)}
-                />
+                {/* Stop propagation so toggling the switch doesn't also trigger card click */}
+                <div onClick={(e) => e.stopPropagation()}>
+                    <Switch
+                        checked={integration.isConnected && !integration.comingSoon}
+                        disabled={disableToggle || integration.comingSoon}
+                        onCheckedChange={(checked) => onToggle(integration.provider, checked)}
+                    />
+                </div>
             </CardHeader>
 
             <CardContent className="flex-1 p-5 pt-0">
@@ -114,18 +120,6 @@ export const IntegrationCard = memo(function IntegrationCard({
                         {statusLabel}
                     </span>
                 </div>
-
-                {showConfigure && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-zinc-500 hover:text-zinc-900 shrink-0"
-                        onClick={() => onConfigure(integration.provider)}
-                    >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Configure
-                    </Button>
-                )}
             </CardFooter>
         </Card>
     );

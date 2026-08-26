@@ -19,6 +19,12 @@ export interface UseSpaceListOptions {
 	initialScope?: SpaceScope;
 
 	/**
+	 * Initial page number
+	 * @default 1
+	 */
+	initialPage?: number;
+
+	/**
 	 * Number of items per page
 	 * @default 12
 	 */
@@ -57,7 +63,8 @@ export interface UseSpaceListOptions {
 export function useSpaceList(options: UseSpaceListOptions = {}) {
 	const {
 		initialScope = "owned",
-		pageSize = 12,
+		initialPage = 1,
+		pageSize: initialPageSize = 12,
 		initialFilters = { status: "active" },
 		debounceMs = 0,
 		syncWithUrl = true,
@@ -65,11 +72,19 @@ export function useSpaceList(options: UseSpaceListOptions = {}) {
 		enablePrefetch = true,
 	} = options;
 
-	const [page, setPage] = useState(1);
+	const [page, setPage] = useState(initialPage);
+	const [pageSize, setPageSize] = useState(initialPageSize);
 	const [query, setQuery] = useState("");
 	const [debouncedQuery, setDebouncedQuery] = useState("");
 	const [scope, setScope] = useState<SpaceScope>(initialScope);
 	const [filters, setFilters] = useState<FilterState>(initialFilters);
+
+	// Sync pageSize when option changes
+	useEffect(() => {
+		if (options.pageSize && options.pageSize !== pageSize) {
+			setPageSize(options.pageSize);
+		}
+	}, [options.pageSize]);
 
 	// Debounce search query
 	useEffect(() => {
@@ -106,11 +121,6 @@ export function useSpaceList(options: UseSpaceListOptions = {}) {
 
 	const utils = trpc.useUtils();
 
-	// Reset page when filters change
-	useEffect(() => {
-		setPage(1);
-	}, [debouncedQuery, scope, filters.status, filters.workspaceId]);
-
 	// Prefetch first page
 	useEffect(() => {
 		if (!enablePrefetch) return;
@@ -125,22 +135,27 @@ export function useSpaceList(options: UseSpaceListOptions = {}) {
 		}
 	}, [utils, queryResult.data?.items?.length, pageSize, page, listInput, enablePrefetch]);
 
-	// Sync with URL parameters
+	// Sync with URL parameters if enabled
 	useEffect(() => {
 		if (!syncWithUrl) return;
 
-		const params = new URLSearchParams();
-		if (query) params.set("q", query);
-		if (scope) params.set("scope", scope);
-		if (filters.status) params.set("status", filters.status);
-		if (filters.workspaceId) params.set("workspaceId", filters.workspaceId);
-		params.set("page", String(page));
+		const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+		if (query) params.set("q", query); else params.delete("q");
+		if (scope && scope !== "owned") params.set("scope", scope); else params.delete("scope");
+		if (filters.status && filters.status !== "active") params.set("status", filters.status); else params.delete("status");
+		if (filters.workspaceId) params.set("workspaceId", filters.workspaceId); else params.delete("workspaceId");
+		if (page > 1) params.set("page", String(page)); else params.delete("page");
+		if (pageSize !== 12) params.set("pageSize", String(pageSize)); else params.delete("pageSize");
 
 		if (typeof window !== "undefined") {
-			const url = `${window.location.pathname}?${params.toString()}`;
-			window.history.replaceState(null, "", url);
+			const search = params.toString();
+			const newUrl = search ? `${window.location.pathname}?${search}` : window.location.pathname;
+			window.history.replaceState(null, "", newUrl);
 		}
-	}, [query, scope, filters.status, filters.workspaceId, page, syncWithUrl]);
+	}, [query, scope, filters.status, filters.workspaceId, page, pageSize, syncWithUrl]);
+
+	const total = queryResult.data?.total ?? 0;
+	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	return {
 		// Query result
@@ -155,8 +170,9 @@ export function useSpaceList(options: UseSpaceListOptions = {}) {
 		page,
 		pageSize,
 		setPage,
-		totalPages: queryResult.data ? Math.ceil(queryResult.data.total / pageSize) : 0,
-		total: queryResult.data?.total ?? 0,
+		setPageSize,
+		totalPages,
+		total,
 
 		// Search
 		query,
